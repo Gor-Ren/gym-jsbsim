@@ -1,7 +1,7 @@
 import jsbsim
 import os
 
-class JsbSimWrapper(object):
+class JsbSimInstance(object):
     """
     A class which wraps an instance of JSBSim and manages communication with it.
     """
