@@ -31,17 +31,11 @@ class TestJsbSimWrapper(unittest.TestCase):
         self.assertEqual(model_name, actual_name,
                          msg=f'Unexpected aircraft model name after loading.')
 
-    #def test_multiple_jsbsim_instance(self):
-        # it seems that you can't have two JSBSim instances in a single process
-        # it would be prudent to check that we can indeed run multiple across
-        # different processes...
-        # self.assertTrue(False, msg="Implement this test.")
-
     def test_load_bad_aircraft_name(self):
-        bad_name = 'qwerty'
-        self.sim.load_model(bad_name)
-        tmp = self.sim.get_model_name()
-        pass
+        bad_name = 'qwertyuiop'
+        with self.assertRaises(RuntimeError):
+            self.sim.load_model(bad_name)
+
 
 
 if __name__ == '__main__':

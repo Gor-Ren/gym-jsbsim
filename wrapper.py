@@ -20,7 +20,10 @@ class JsbSimInstance(object):
 
         :param aircraft: string, the aircraft name
         """
-        self.sim.load_model(model=aircraft)
+        load_success = self.sim.load_model(model=aircraft)
+
+        if not load_success:
+            raise RuntimeError(f'JSBSim could not find specified aircraft model: {aircraft}')
 
     def get_model_name(self) -> str:
         """ Gets the name of the aircraft model currently loaded in JSBSim.
