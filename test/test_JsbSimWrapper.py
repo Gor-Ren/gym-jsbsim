@@ -1,11 +1,11 @@
 import unittest
 import jsbsim
-from wrapper import JsbSimInstance
+from JsbSimInstance import JsbSimInstance
 
 class TestJsbSimWrapper(unittest.TestCase):
 
     def setUp(self):
-        self.sim = None  # make sure any old sim instance is deallocated; can only run 1 JSBSim instance in a process
+        self.sim = None  # make sure any old sim instance is deallocated
         self.sim = JsbSimInstance()
 
     def tearDown(self):
@@ -35,7 +35,6 @@ class TestJsbSimWrapper(unittest.TestCase):
         bad_name = 'qwertyuiop'
         with self.assertRaises(RuntimeError):
             self.sim.load_model(bad_name)
-
 
 
 if __name__ == '__main__':

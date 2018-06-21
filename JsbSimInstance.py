@@ -5,7 +5,7 @@ class JsbSimInstance(object):
     """
     A class which wraps an instance of JSBSim and manages communication with it.
     """
-    encoding = 'utf-8'
+    encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
 
     def __init__(self):
         root_dir = os.path.abspath("/home/gordon/Apps/jsbsim-code")
@@ -26,7 +26,8 @@ class JsbSimInstance(object):
             raise RuntimeError(f'JSBSim could not find specified aircraft model: {aircraft}')
 
     def get_model_name(self) -> str:
-        """ Gets the name of the aircraft model currently loaded in JSBSim.
+        """
+        Gets the name of the aircraft model currently loaded in JSBSim.
 
         :return: string, the name of the aircraft model if one is loaded, or
             None if no model is loaded.
