@@ -67,9 +67,9 @@ class JsbSimInstance(object):
             # name is empty string, no model is loaded
             return None
 
-    def initialise(self) -> None:
+    def initialise(self, model_name: str) -> None:
         """
-        Initialises simulation conditions and starts the aircraft engines.
+        Loads an aircraft and initialises simulation conditions.
 
         Initial conditions are specified in an XML config file. It is intended
         that a dummy config file will be used, and then new conditions
@@ -78,10 +78,9 @@ class JsbSimInstance(object):
         TODO: investigate whether loading an IC config and calling RunIC() is
         strictly necessary.
         """
-        # load IC config
-        ic_path = os.path.dirname(os.path.abspath(__file__)).join('basic_ic.xml')
+        ic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'basic_ic.xml')
         self.sim.load_ic(ic_path, useStoredPath=False)
-        # init sim conditions
+        self.load_model(model_name)
         success = self.sim.run_ic()
 
         if not success:
