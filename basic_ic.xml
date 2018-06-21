@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<initialize name="reset00">
+  <!--
+    Basic set of initial conditions. Lat. and long. correspond to UoBath campus.
+  -->
+  <ubody unit="FT/SEC">  328.0  </ubody> <!-- approx. 100 m/s -->
+  <vbody unit="FT/SEC">    0.0  </vbody>
+  <wbody unit="FT/SEC">    0.0  </wbody>
+  <longitude unit="DEG">   2.3273  </longitude>
+  <latitude unit="DEG">   51.3781  </latitude>
+  <phi unit="DEG">         0.0  </phi>
+  <theta unit="DEG">       0.0  </theta>
+  <psi unit="DEG">         0.0  </psi>
+  <altitude unit="FT">     3000 </altitude>
+  <elevation unit="FT">    3000  </elevation>
+  <running>               -1 </running> <!-- starts all engines -->
+</initialize>
