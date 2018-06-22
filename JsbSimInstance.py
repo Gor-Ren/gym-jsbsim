@@ -7,6 +7,7 @@ class JsbSimInstance(object):
     A class which wraps an instance of JSBSim and manages communication with it.
     """
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
+    properties = None
 
     def __init__(self):
         root_dir = os.path.abspath("/home/gordon/Apps/jsbsim-code")
@@ -22,10 +23,14 @@ class JsbSimInstance(object):
 
         :param key: string, the property to be retrieved
         :return: object?, property value
+        :raises KeyError: if key is not a valid parameter
         """
-        return self.sim[key]
+        if key in self.properties:
+            return self.sim[key]
+        else:
+            raise KeyError('property not found:' + key)
 
-    def __setitem__(self, key: str, value):
+    def __setitem__(self, key: str, value) -> None:
         """
         Sets simulation property to specified value.
 
@@ -39,8 +44,12 @@ class JsbSimInstance(object):
 
         :param key: string, the property to be retrieved
         :param value: object?, the value to be set
+        :raises KeyError: if key is not a valid parameter
         """
-        self.sim[key] = value
+        if key in self.properties:
+            self.sim[key] = value
+        else:
+            raise KeyError('property not found: ' + key)
 
     def load_model(self, model_name: str) -> None:
         """
@@ -71,14 +80,17 @@ class JsbSimInstance(object):
             # name is empty string, no model is loaded
             return None
 
-    def initialise(self, model_name: str, init_conditions: Dict[str, Union[int, float]]=None) -> None:
+    def initialise(self, model_name: str,
+                   init_conditions: Dict[str, Union[int, float]]=None) -> None:
         """
         Loads an aircraft and initialises simulation conditions.
 
         JSBSim creates an InitialConditions object internally when given an
         XML config file. This method either loads a basic set of ICs, or
         can be passed a dictionary with ICs. In the latter case a minimal IC
-        XML file is loaded, and then the dictionary values are specified.
+        XML file is loaded, and then the dictionary values are fed in.
+
+        This method sets the self.properties set of valid property names.
 
         TODO: investigate whether we can specify ICs without loading XML
 
@@ -94,6 +106,9 @@ class JsbSimInstance(object):
         ic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ic_file)
         self.sim.load_ic(ic_path, useStoredPath=False)
         self.load_model(model_name)
+        # extract set of legal property names for this aircraft
+        # TODO: can remove the .split(" ")[0] once JSBSim bug has been fixed (in progress)
+        self.properties = set([prop.split(" ")[0] for prop in self.sim.query_property_catalog('')])
 
         # now that IC object is created in JSBSim, specify own conditions
         if init_conditions:
