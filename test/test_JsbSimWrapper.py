@@ -1,5 +1,7 @@
 import unittest
 import jsbsim
+import multiprocessing
+import time
 from JsbSimInstance import JsbSimInstance
 
 
@@ -142,6 +144,31 @@ class TestJsbSimWrapper(unittest.TestCase):
                                    msg=f'wrong value for property {init_prop}')
             self.assertAlmostEqual(expected, sim_actual,
                                    msg=f'wrong value for property {sim_prop}')
+
+    def test_multiprocess_simulations(self):
+        """ JSBSim segfaults when multiple instances are run on one process.
+
+        Lets confirm that we can launch multiple processes each with 1 instance.
+        """
+        processes = 4
+        with multiprocessing.Pool(processes) as pool:
+            # N.B. basic_task is a top level function that inits JSBSim
+            future_results = [pool.apply_async(basic_task) for _ in range(processes)]
+            results = [f.get() for f in future_results]
+
+        expected = [0] * processes  # each process should return 0
+        self.assertListEqual(results, expected,
+                             msg="multiprocess execution of JSBSim did not work")
+
+
+def basic_task():
+    """ A simple task involving initing a JSBSimInstance to test multiprocessing. """
+    fdm = JsbSimInstance()
+    time.sleep(0.05)
+    fdm.initialise('c172x')
+    time.sleep(0.05)
+
+    return 0
 
 
 if __name__ == '__main__':
