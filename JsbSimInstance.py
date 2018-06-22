@@ -1,6 +1,6 @@
 import jsbsim
 import os
-
+from typing import Dict, Union
 
 class JsbSimInstance(object):
     """
@@ -32,6 +32,10 @@ class JsbSimInstance(object):
         Properties are identified by strings. A list can be found in the JSBSim
         reference manual, launching JSBSim with '--catalog' command line arg or
         calling FGFDMExec.get_property_catalog().
+
+        Warning: JSBSim will create new properties if the specified one exists.
+        If the property you are setting is read-only in JSBSim the operation
+        will silently fail.
 
         :param key: string, the property to be retrieved
         :param value: object?, the value to be set
@@ -67,21 +71,36 @@ class JsbSimInstance(object):
             # name is empty string, no model is loaded
             return None
 
-    def initialise(self, model_name: str) -> None:
+    def initialise(self, model_name: str, init_conditions: Dict[str, Union[int, float]]=None) -> None:
         """
         Loads an aircraft and initialises simulation conditions.
 
-        Initial conditions are specified in an XML config file. It is intended
-        that a dummy config file will be used, and then new conditions
-        specified programmatically.
+        JSBSim creates an InitialConditions object internally when given an
+        XML config file. This method either loads a basic set of ICs, or
+        can be passed a dictionary with ICs. In the latter case a minimal IC
+        XML file is loaded, and then the dictionary values are specified.
 
-        TODO: investigate whether loading an IC config and calling RunIC() is
-        strictly necessary.
+        TODO: investigate whether we can specify ICs without loading XML
+
+        :param model_name: string, name of aircraft to be loaded
+        :param init_conditions: dict mapping properties to their initial values
         """
-        ic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'basic_ic.xml')
+        if init_conditions:
+            # if we are specifying conditions, load a minimal file
+            ic_file = 'minimal_ic.xml'
+        else:
+            ic_file = 'basic_ic.xml'
+
+        ic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ic_file)
         self.sim.load_ic(ic_path, useStoredPath=False)
         self.load_model(model_name)
+
+        # now that IC object is created in JSBSim, specify own conditions
+        if init_conditions:
+            for prop, value in init_conditions.items():
+                self[prop] = value
+
         success = self.sim.run_ic()
 
         if not success:
-            raise RuntimeError('JSBSim failed to launch with initial conditions.')
+            raise RuntimeError('JSBSim failed to init simulation conditions.')

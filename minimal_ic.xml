@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<initialize name="reset00">
+  <!--
+    Minimal set of initial conditions - starts engines running.
+  -->
+  <running>               -1 </running> <!-- starts all engines -->
+</initialize>
