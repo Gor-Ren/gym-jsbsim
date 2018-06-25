@@ -11,15 +11,6 @@ class TestJsbSimWrapper(unittest.TestCase):
         self.sim: JsbSimInstance = None  # make sure any old sim instance is deallocated
         self.sim = JsbSimInstance()
 
-    def init_model(self, aircraft='c172x'):
-        """
-        Initialises a fresh JSBSim instance with an aircraft loaded.
-        :param aircraft:
-        :return:
-        """
-        self.setUp()
-        self.sim.initialise(model_name=aircraft)
-
     def tearDown(self):
         self.sim = None
 
@@ -29,15 +20,10 @@ class TestJsbSimWrapper(unittest.TestCase):
                               'instance of JSBSim.')
 
     def test_load_model(self):
-        # make fresh sim instance
-        self.setUp()
-
-        # we expect simulation to init with no aircraft loaded
-        self.assertIsNone(self.sim.get_model_name())
-
-        # load an "X15" plane
+        # make fresh sim instance with "X15" plane
         model_name = 'X15'
-        self.sim.load_model(model_name)
+        self.sim = None
+        self.sim = JsbSimInstance(aircraft_model_name=model_name)
         actual_name = self.sim.get_model_name()
 
         self.assertEqual(model_name, actual_name,
@@ -45,11 +31,13 @@ class TestJsbSimWrapper(unittest.TestCase):
 
     def test_load_bad_aircraft_name(self):
         bad_name = 'qwertyuiop'
+
         with self.assertRaises(RuntimeError):
-            self.sim.load_model(bad_name)
+            self.sim = None
+            self.sim = JsbSimInstance(aircraft_model_name=bad_name)
 
     def test_get_property(self):
-        self.init_model()
+        self.setUp()
         # we expect certain values specified in the IC config XML file
         expected_values = {
             'ic/u-fps': 328.0,
@@ -65,7 +53,7 @@ class TestJsbSimWrapper(unittest.TestCase):
             self.assertAlmostEqual(expected, actual)
 
     def test_set_property(self):
-        self.init_model()
+        self.setUp()
         set_values = {
             'ic/u-fps': 200.0,
             'ic/v-fps': 5.0,
@@ -85,9 +73,11 @@ class TestJsbSimWrapper(unittest.TestCase):
             self.assertAlmostEqual(expected, actual)
 
     def test_initialise_conditions_basic_config(self):
-        self.setUp()
-        aircraft = 'c172x'
-        self.sim.initialise(model_name=aircraft, init_conditions=None)
+        aircraft = '737'
+
+        # manually reset JSBSim instance with new initial conditions
+        self.sim = None
+        self.sim = JsbSimInstance(dt=0.5, aircraft_model_name=aircraft, init_conditions=None)
 
         self.assertEqual(self.sim.get_model_name(), aircraft,
                          msg='JSBSim did not load expected aircraft model: ' +
@@ -101,6 +91,7 @@ class TestJsbSimWrapper(unittest.TestCase):
             'velocities/u-fps': 328.0,
             'velocities/v-fps': 0.0,
             'velocities/w-fps': 0.0,
+            'simulation/dt': 0.5
         }
 
         for prop, expected in expected_values.items():
@@ -130,9 +121,11 @@ class TestJsbSimWrapper(unittest.TestCase):
             'ic/theta-deg': 'attitude/theta-deg',
             'ic/psi-true-deg': 'attitude/psi-deg',
         }
+        dt = 0.1
 
-        self.setUp()
-        self.sim.initialise(model_name=aircraft, init_conditions=init_conditions)
+        # manually reset JSBSim instance
+        self.sim = None
+        self.sim = JsbSimInstance(dt, aircraft, init_conditions)
 
         # check JSBSim initial condition and simulation properties
         for init_prop, expected in init_conditions.items():
@@ -144,6 +137,8 @@ class TestJsbSimWrapper(unittest.TestCase):
                                    msg=f'wrong value for property {init_prop}')
             self.assertAlmostEqual(expected, sim_actual,
                                    msg=f'wrong value for property {sim_prop}')
+
+        self.assertAlmostEqual(dt, self.sim['simulation/dt'])
 
     def test_multiprocess_simulations(self):
         """ JSBSim segfaults when multiple instances are run on one process.
@@ -163,9 +158,8 @@ class TestJsbSimWrapper(unittest.TestCase):
 
 def basic_task():
     """ A simple task involving initing a JSBSimInstance to test multiprocessing. """
-    fdm = JsbSimInstance()
     time.sleep(0.05)
-    fdm.initialise('c172x')
+    fdm = JsbSimInstance(aircraft_model_name='c172x')
     time.sleep(0.05)
 
     return 0

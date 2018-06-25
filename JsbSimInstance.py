@@ -9,9 +9,22 @@ class JsbSimInstance(object):
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
     properties = None
 
-    def __init__(self):
+    def __init__(self,
+                 dt: float=1.0/120.0,
+                 aircraft_model_name: str='c172x',
+                 init_conditions: Dict[str, Union[int, float]]=None):
+        """
+        Constructor. Creates an instance of JSBSim and sets initial conditions.
+
+        :param dt: float, the JSBSim integration timestep in seconds. Defaults
+            to 1/120, i.e. 120 Hz
+        :param aircraft_model_name: string, name of aircraft to be loaded.
+            JSBSim looks for file \model_name\model_name.xml in root dir.
+        :param init_conditions: dict mapping properties to their initial values
+        """
         root_dir = os.path.abspath("/home/gordon/Apps/jsbsim-code")
         self.sim = jsbsim.FGFDMExec(root_dir=root_dir)
+        self.initialise(dt, aircraft_model_name, init_conditions)
 
     def __getitem__(self, key: str):
         """
@@ -25,6 +38,8 @@ class JsbSimInstance(object):
         :return: object?, property value
         :raises KeyError: if key is not a valid parameter
         """
+        # TODO: can remove this check once JSBSim updated; JSBSim will check this
+        #   alternatively leave in, and bypass JSBSim check by using .get_property_value()
         if key in self.properties:
             return self.sim[key]
         else:
@@ -80,7 +95,7 @@ class JsbSimInstance(object):
             # name is empty string, no model is loaded
             return None
 
-    def initialise(self, model_name: str,
+    def initialise(self, dt: float, model_name: str,
                    init_conditions: Dict[str, Union[int, float]]=None) -> None:
         """
         Loads an aircraft and initialises simulation conditions.
@@ -94,6 +109,7 @@ class JsbSimInstance(object):
 
         TODO: investigate whether we can specify ICs without loading XML
 
+        :param dt: float, the JSBSim integration timestep in seconds
         :param model_name: string, name of aircraft to be loaded
         :param init_conditions: dict mapping properties to their initial values
         """
@@ -106,6 +122,7 @@ class JsbSimInstance(object):
         ic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ic_file)
         self.sim.load_ic(ic_path, useStoredPath=False)
         self.load_model(model_name)
+        self.sim.set_dt(dt)
         # extract set of legal property names for this aircraft
         # TODO: can remove the .split(" ")[0] once JSBSim bug has been fixed (in progress)
         self.properties = set([prop.split(" ")[0] for prop in self.sim.query_property_catalog('')])
@@ -116,6 +133,5 @@ class JsbSimInstance(object):
                 self[prop] = value
 
         success = self.sim.run_ic()
-
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')
