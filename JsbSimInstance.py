@@ -2,6 +2,7 @@ import jsbsim
 import os
 from typing import Dict, Union
 
+
 class JsbSimInstance(object):
     """
     A class which wraps an instance of JSBSim and manages communication with it.
@@ -38,9 +39,10 @@ class JsbSimInstance(object):
         :return: object?, property value
         :raises KeyError: if key is not a valid parameter
         """
-        # TODO: can remove this check once JSBSim updated; JSBSim will check this
-        #   alternatively leave in, and bypass JSBSim check by using .get_property_value()
+
         if key in self.properties:
+            # TODO: can remove guard once JSBSim updated; JSBSim will check this
+            #   alternatively leave in, and bypass JSBSim check by using .get_property_value()
             return self.sim[key]
         else:
             raise KeyError('property not found:' + key)

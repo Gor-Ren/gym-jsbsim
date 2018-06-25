@@ -1,6 +1,7 @@
-import JsbSimInstance
 import gym
-
+import numpy as np
+from JsbSimInstance import JsbSimInstance
+from typing import Tuple
 
 class JsbSimEnv(gym.Env):
     """
@@ -27,8 +28,26 @@ class JsbSimEnv(gym.Env):
     ATTRIBUTION: this class is based on the OpenAI Gym Env API. Method
     docstrings have been taken from the OpenAI API and modified where required.
     """
-    def __init__(self):
-        self.sim = JsbSimInstance()
+    sim: JsbSimInstance = None
+    agent_step_skip: int = None
+    observation_space: gym.spaces.Box = None
+    action_space: gym.spaces.Box = None
+    observation_names: Tuple[str] = None
+    action_names: Tuple[str] = None
+
+    def __init__(self, dt: float=1/120, agent_step_skip: int=12):
+        """
+
+
+        :param dt: float, the JSBSim integration timestep in seconds. Defaults
+            to 1/120, i.e. 120 Hz
+        :param agent_interaction_freq: int, how many JSBSim steps should pass
+            between agent observation/action steps.
+        """
+        self.sim = JsbSimInstance(dt=dt)
+        self.agent_step_skip = agent_step_skip
+        self.init_spaces()
+        # TODO: set self.reward_range
 
     def init_spaces(self):
         base_state_variables = (
@@ -97,23 +116,36 @@ class JsbSimEnv(gym.Env):
         action_variables = (
             {'name': 'fcs/aileron-cmd-norm',
              'description': 'right aileron position, normalised',
-             'high': 1,
-             'low': -1, },
+             'high': 1.0,
+             'low': -1.0, },
             {'name': 'fcs/elevator-cmd-norm',
              'description': 'elevator position, normalised',
-             'high': 1,
-             'low': -1, },
+             'high': 1.0,
+             'low': -1.0, },
             {'name': 'fcs/rudder-cmd-norm',
              'description': 'rudder position, normalised',
-             'high': 1,
-             'low': -1, },
+             'high': 1.0,
+             'low': -1.0, },
             {'name': 'fcs/throttle-cmd-norm',
              'description': 'throttle position, normalised',
-             'high': 1,
-             'low': 0, },
+             'high': 1.0,
+             'low': 0.0, },
         )
 
-    def step(self, action):
+        # create Space objects
+        state_lows = np.array([state_var['low'] for state_var in state_variables])
+        state_highs = np.array([state_var['high'] for state_var in state_variables])
+        self.observation_space = gym.spaces.Box(low=state_lows, high=state_highs, dtype='float')
+
+        action_lows = np.array([act_var['low'] for act_var in action_variables])
+        action_highs = np.array([act_var['high'] for act_var in action_variables])
+        self.action_space = gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
+
+        # store variable names for getting/setting in the simulation
+        self.observation_names = tuple([state_var['name'] for state_var in state_variables])
+        self.action_names = tuple([act_var['name'] for act_var in action_variables])
+
+    def step(self, action: np.array):
         """
         Run one timestep of the environment's dynamics. When end of
         episode is reached, you are responsible for calling `reset()`
@@ -121,7 +153,7 @@ class JsbSimEnv(gym.Env):
         Accepts an action and returns a tuple (observation, reward, done, info).
 
         Args:
-            action (object): an action provided by the environment
+            action: array, the agent's action represented by one value per action variable
         Returns:
             observation (object): agent's observation of the current environment
             reward (float) : amount of reward returned after previous action
