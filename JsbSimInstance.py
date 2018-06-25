@@ -137,3 +137,15 @@ class JsbSimInstance(object):
         success = self.sim.run_ic()
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')
+
+    def run(self) -> bool:
+        """
+        Runs a single timestep in the JSBSim simulation.
+
+        JSBSim monitors the simulation and detects whether it thinks it should
+        end, e.g. because a simulation time was specified. False is returned
+        if JSBSim termination criteria are met.
+
+        :return: bool, False if sim has met JSBSim termination criteria else True.
+        """
+        return self.sim.run()

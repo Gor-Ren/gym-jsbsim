@@ -1,7 +1,8 @@
 import gym
 import numpy as np
+import math
 from JsbSimInstance import JsbSimInstance
-from typing import Tuple
+from typing import Tuple, List
 
 class JsbSimEnv(gym.Env):
     """
@@ -34,31 +35,29 @@ class JsbSimEnv(gym.Env):
     action_space: gym.spaces.Box = None
     observation_names: Tuple[str] = None
     action_names: Tuple[str] = None
+    dt: float = 1.0 / 120
 
-    def __init__(self, dt: float=1/120, agent_step_skip: int=12):
+    def __init__(self, agent_step_skip: int=12):
         """
 
 
-        :param dt: float, the JSBSim integration timestep in seconds. Defaults
-            to 1/120, i.e. 120 Hz
         :param agent_interaction_freq: int, how many JSBSim steps should pass
             between agent observation/action steps.
         """
-        self.sim = JsbSimInstance(dt=dt)
         self.agent_step_skip = agent_step_skip
         self.init_spaces()
         # TODO: set self.reward_range
 
-    def init_spaces(self):
+    def init_spaces(self) -> None:
         base_state_variables = (
             {'name': 'attitude/pitch-rad',
              'description': 'pitch [rad]',
-             'high': 0.5,
-             'low': -0.5,},
+             'high': 0.5 * math.pi,
+             'low': -0.5 * math.pi,},
             {'name': 'attitude/roll-rad',
              'description': 'roll [rad]',
-             'high': 1,
-             'low': -1,},
+             'high': math.pi,
+             'low': -math.pi,},
             # limits assume pitch and roll have same limits as Euler angles theta and phi,
             #   as per Aircraft Control and Simulation 3rd Edn p. 12
             {'name': 'velocities/u-fps',
@@ -132,6 +131,7 @@ class JsbSimEnv(gym.Env):
              'low': 0.0, },
         )
 
+
         # create Space objects
         state_lows = np.array([state_var['low'] for state_var in state_variables])
         state_highs = np.array([state_var['high'] for state_var in state_variables])
@@ -153,25 +153,44 @@ class JsbSimEnv(gym.Env):
         Accepts an action and returns a tuple (observation, reward, done, info).
 
         Args:
-            action: array, the agent's action represented by one value per action variable
+            action: collection of floats, the agent's action. Must have same length
+                as number of action variables.
         Returns:
             observation (object): agent's observation of the current environment
             reward (float) : amount of reward returned after previous action
             done (boolean): whether the episode has ended, in which case further step() calls will return undefined results
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
-        raise NotImplementedError
+        assert(action.shape == self.action_space.shape,
+               'mismatch between action and action space size')
 
+        # input actions
+        for var, command in zip(self.action_names, action):
+            self.sim[var] = command
+
+        for _ in range(self.agent_step_skip):
+            self.sim.run()
+
+        # retrieve state observation
+        obs = [self.sim[var] for var in self.observation_names]
+
+        # TODO: TaskModule should calc reward and termination
+        reward = None
+        done = None
+        info = {'sim_time': self.sim['simulation/sim-time-sec']}
+
+        return np.array(obs), reward, done, info
 
     def reset(self):
         """
         Resets the state of the environment and returns an initial observation.
 
-        Returns: observation (object): the initial observation of the
-            space.
+        :return: array, the initial observation of the space.
         """
-        raise NotImplementedError
-
+        self.sim = None
+        self.sim = JsbSimInstance(dt=self.dt)
+        state = [self.sim[prop] for prop in self.observation_names]
+        return np.array(state)
 
     def render(self, mode='human'):
         """Renders the environment.
