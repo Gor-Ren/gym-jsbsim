@@ -1,10 +1,12 @@
 import gym
 import numpy as np
 import math
+import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from JsbSimInstance import JsbSimInstance
 from typing import Tuple, List
+
 
 class JsbSimEnv(gym.Env):
     """
@@ -212,6 +214,12 @@ class JsbSimEnv(gym.Env):
         """
         if self.sim:
             self.sim.close()
+        # close any plot if episode was rendered
+        if self.figure:
+            plt.close(self.figure)
+            self.figure = None
+
+        # TODO: get initial state from TaskModule
         self.sim = JsbSimInstance(dt=1.0 / self.DT_HZ)
         state = [self.sim[prop] for prop in self.observation_names]
 
@@ -271,15 +279,18 @@ class JsbSimEnv(gym.Env):
             self.figure.gca().set_ylabel(self.plot_properties['y']['label'])
             self.figure.gca().set_zlabel(self.plot_properties['z']['label'])
             plt.show()
-            plt.pause(0.001)  # voodoo pause needed for rendering
+            plt.pause(0.001)  # voodoo pause needed for figure to appear
 
         ax = self.figure.gca()
         if self.velocity_arrow:
             # get rid of previous timestep velocity arrow
             self.velocity_arrow.remove()
-        self.velocity_arrow = ax.quiver([x], [y], [z], [v_x], [v_y], [v_z], length=0.01, pivot='tail')
+        # TODO: make this a Line3D object?
+        # NB negative scaling on v_z, because down direction is positive in JSBSim
+        self.velocity_arrow = ax.quiver([x], [y], [z], [v_x], [v_y], [-v_z], length=0.01, pivot='tail')
         # draw trajectory point
-        ax.scatter([x], [y], zs=[z], c='b')
+        ax.scatter([x], [y], zs=[z], c='k')
+        plt.pause(0.001)
 
     def close(self):
         """Override _close in your subclass to perform any necessary cleanup.
