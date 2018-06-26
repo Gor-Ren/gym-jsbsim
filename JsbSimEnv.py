@@ -280,7 +280,6 @@ class JsbSimEnv(gym.Env):
         self.velocity_arrow = ax.quiver([x], [y], [z], [v_x], [v_y], [v_z], length=0.01, pivot='tail')
         # draw trajectory point
         ax.scatter([x], [y], zs=[z], c='b')
-        plt.pause(0.001)  # voodoo pause needed for rendering
 
     def close(self):
         """Override _close in your subclass to perform any necessary cleanup.
