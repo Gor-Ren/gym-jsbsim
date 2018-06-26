@@ -31,6 +31,7 @@ class JsbSimEnv(gym.Env):
     ATTRIBUTION: this class is based on the OpenAI Gym Env API. Method
     docstrings have been taken from the OpenAI API and modified where required.
     """
+    DT_HZ: int = 120  # JSBSim integration frequency, Hz
     sim: JsbSimInstance = None
     agent_step_skip: int = None
     observation_space: gym.spaces.Box = None
@@ -40,14 +41,19 @@ class JsbSimEnv(gym.Env):
     dt: float = 1.0 / 120
     figure = None
 
-    def __init__(self, agent_step_skip: int=12):
+    def __init__(self, agent_interaction_freq: int=10):
         """
+        Constructor. Inits some internal state, but JsbSimEnv.reset() must be
+        called first before interacting with environment.
 
-
-        :param agent_interaction_freq: int, how many JSBSim steps should pass
-            between agent observation/action steps.
+        :param agent_interaction_freq: int, how many times per second the agent
+            should make a state-action interaction.
         """
-        self.agent_step_skip = agent_step_skip
+        if agent_interaction_freq > 120:
+            raise ValueError('agent interaction frequency must be less than '
+                             'or equal to JSBSim integration frequency of '
+                             f'{self.DT_HZ} Hz.')
+        self.agent_step_skip: int = self.DT_HZ // agent_interaction_freq
         self.init_spaces()
         # TODO: set self.reward_range
 
@@ -198,7 +204,7 @@ class JsbSimEnv(gym.Env):
         """
         if self.sim:
             self.sim.close()
-        self.sim = JsbSimInstance(dt=self.dt)
+        self.sim = JsbSimInstance(dt=1.0 / self.DT_HZ)
         state = [self.sim[prop] for prop in self.observation_names]
 
         # close any plot if episode was rendered
