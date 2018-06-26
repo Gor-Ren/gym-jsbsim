@@ -6,9 +6,11 @@ from JsbSimInstance import JsbSimInstance
 
 
 class TestJsbSimWrapper(unittest.TestCase):
+    sim: JsbSimInstance = None
 
     def setUp(self):
-        self.sim: JsbSimInstance = None  # make sure any old sim instance is deallocated
+        if self.sim:
+            self.sim.close()
         self.sim = JsbSimInstance()
 
     def tearDown(self):
@@ -76,7 +78,8 @@ class TestJsbSimWrapper(unittest.TestCase):
         aircraft = '737'
 
         # manually reset JSBSim instance with new initial conditions
-        self.sim = None
+        if self.sim:
+            self.sim.close()
         self.sim = JsbSimInstance(dt=0.5, aircraft_model_name=aircraft, init_conditions=None)
 
         self.assertEqual(self.sim.get_model_name(), aircraft,
@@ -124,7 +127,8 @@ class TestJsbSimWrapper(unittest.TestCase):
         dt = 0.1
 
         # manually reset JSBSim instance
-        self.sim = None
+        if self.sim:
+            self.sim.close()
         self.sim = JsbSimInstance(dt, aircraft, init_conditions)
 
         # check JSBSim initial condition and simulation properties

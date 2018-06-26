@@ -149,3 +149,7 @@ class JsbSimInstance(object):
         :return: bool, False if sim has met JSBSim termination criteria else True.
         """
         return self.sim.run()
+
+    def close(self):
+        if self.sim:
+            self.sim = None
