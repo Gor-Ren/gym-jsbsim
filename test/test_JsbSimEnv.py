@@ -8,9 +8,9 @@ from JsbSimEnv import JsbSimEnv
 
 class TestJsbSimInstance(unittest.TestCase):
 
-    def setUp(self):
+    def setUp(self, agent_interaction_freq: int=10):
         self.env = None
-        self.env = JsbSimEnv()
+        self.env = JsbSimEnv(agent_interaction_freq=agent_interaction_freq)
         self.env.reset()
 
     def validate_observation(self, obs: np.array):
@@ -121,5 +121,14 @@ class TestJsbSimInstance(unittest.TestCase):
         v_ys = [300, 250, 200, 150, 100]
         v_zs = [50, 50, 150, 200, 200]
 
-        for x, y, z, v_x, v_y, v_z in zip(xs, ys, zs, v_xs, v_ys, v_zs):
-            self.env._plot(x, y, z, v_x, v_y, v_z)
+        for plot_args in zip(xs, ys, zs, v_xs, v_ys, v_zs):
+            self.env._plot(*plot_args)
+
+    def test_asl_agl_elevations_equal(self):
+        # we want the height above sea level to equal ground elevation at all times
+        self.setUp(agent_interaction_freq=1)
+        for i in range(25):
+            self.env.step(action=self.env.action_space.sample())
+            alt_sl = self.env.sim['position/h-sl-ft']
+            alt_gl = self.env.sim['position/h-agl-ft']
+            self.assertAlmostEqual(alt_sl, alt_gl)

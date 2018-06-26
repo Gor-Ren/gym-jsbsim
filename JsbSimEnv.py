@@ -1,11 +1,10 @@
 import gym
 import numpy as np
 import math
-import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from JsbSimInstance import JsbSimInstance
-from typing import Tuple, List
+from typing import Tuple, Dict
 
 
 class JsbSimEnv(gym.Env):
@@ -41,15 +40,15 @@ class JsbSimEnv(gym.Env):
     observation_names: Tuple[str] = None
     action_names: Tuple[str] = None
     figure: plt.Figure = None
-    plot_properties = {
-        'x': {'name': 'position/lat-gc-deg', 'label': 'geocentric latitude [deg]'},
-        'y': {'name': 'position/long-gc-deg', 'label': 'geocentric longitude [deg]'},
-        'z': {'name': 'position/h-sl-ft', 'label': 'altitude above MSL [ft]'},
-        'v_x': {'name': 'velocities/v-north-fps', 'label': 'velocity true north [ft/s]'},
-        'v_y': {'name': 'velocities/v-east-fps', 'label': 'velocity east [ft/s]'},
-        'v_z': {'name': 'velocities/v-down-fps', 'label': 'velocity downwards [ft/s]'},
-    }
+    plot_properties: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
+                                 y=dict(name='position/long-gc-deg', label='geocentric longitude [deg]'),
+                                 z=dict(name='position/h-sl-ft', label='altitude above MSL [ft]'),
+                                 v_x=dict(name='velocities/v-north-fps', label='velocity true north [ft/s]'),
+                                 v_y=dict(name='velocities/v-east-fps', label='velocity east [ft/s]'),
+                                 v_z=dict(name='velocities/v-down-fps', label='velocity downwards [ft/s]'))
     velocity_arrow = None
+    FT_PER_DEG_LAT: int = 365228
+    ft_per_deg_lon: int = None  # calc at reset(), depends on location
 
     def __init__(self, agent_interaction_freq: int=10):
         """
@@ -69,68 +68,43 @@ class JsbSimEnv(gym.Env):
 
     def init_spaces(self) -> None:
         base_state_variables = (
-            {'name': 'position/h-sl-ft',
-             'description': 'altitude above mean sea level [ft]',
-             'high': 85000,
-             'low': -1400},
+            dict(name='position/h-sl-ft', description='altitude above mean sea level [ft]',
+                 high=85000, low=-1400),
             # altitude limits max 85 kft (highest an SR-71 Blackbird got to)
             #   and min of Black Sea
-            {'name': 'attitude/pitch-rad',
-             'description': 'pitch [rad]',
-             'high': 0.5 * math.pi,
-             'low': -0.5 * math.pi,},
-            {'name': 'attitude/roll-rad',
-             'description': 'roll [rad]',
-             'high': math.pi,
-             'low': -math.pi,},
+            dict(name='attitude/pitch-rad', description='pitch [rad]',
+                 high=0.5 * math.pi, low=-0.5 * math.pi),
+            dict(name='attitude/roll-rad', description='roll [rad]',
+                 high=math.pi, low=-math.pi),
             # limits assume pitch and roll have same limits as Euler angles theta and phi,
             #   as per Aircraft Control and Simulation 3rd Edn p. 12
-            {'name': 'velocities/u-fps',
-             'description': 'body frame x-axis velocity; positive forward [ft/s]',
-             'high': 2200,
-             'low': -2200,},
-            {'name': 'velocities/v-fps',
-             'description': 'body frame y-axis velocity; positive right [ft/s]',
-             'high': 2200,
-             'low': -2200,},
-            {'name': 'velocities/w-fps',
-             'description': 'body frame z-axis velocity; positive down [ft/s]',
-             'high': 2200,
-             'low': -2200, },
+            dict(name='velocities/u-fps',
+                 description='body frame x-axis velocity; positive forward [ft/s]',
+                 high=2200, low=-2200),
+            dict(name='velocities/v-fps',
+                 description='body frame y-axis velocity; positive right [ft/s]',
+                 high=2200, low=-2200),
+            dict(name='velocities/w-fps',
+                 description='body frame z-axis velocity; positive down [ft/s]',
+                 high=2200, low=-2200),
             # note: limits assume no linear velocity will exceed approx. +- Mach 2
-            {'name': 'velocities/p-rad_sec',
-             'description': 'roll rate [rad/s]',
-             'high': 31,
-             'low': -31, },
-            {'name': 'velocities/q-rad_sec',
-             'description': 'pitch rate [rad/s]',
-             'high': 31,
-             'low': -31, },
-            {'name': 'velocities/r-rad_sec',
-             'description': 'yaw rate [rad/s]',
-             'high': 31,
-             'low': -31, },
+            dict(name='velocities/p-rad_sec', description='roll rate [rad/s]',
+                 high=31, low=-31),
+            dict(name='velocities/q-rad_sec', description='pitch rate [rad/s]',
+                 high=31, low=-31),
+            dict(name='velocities/r-rad_sec', description='yaw rate [rad/s]',
+                 high=31, low=-31),
             # note: limits assume no angular velocity will exceed ~5 revolution/s
-            {'name': 'fcs/left-aileron-pos-norm',
-             'description': 'left aileron position, normalised',
-             'high': 1,
-             'low': -1, },
-            {'name': 'fcs/right-aileron-pos-norm',
-             'description': 'right aileron position, normalised',
-             'high': 1,
-             'low': -1, },
-            {'name': 'fcs/elevator-pos-norm',
-             'description': 'elevator position, normalised',
-             'high': 1,
-             'low': -1, },
-            {'name': 'fcs/rudder-pos-norm',
-             'description': 'rudder position, normalised',
-             'high': 1,
-             'low': -1, },
-            {'name': 'fcs/throttle-pos-norm',
-             'description': 'throttle position, normalised',
-             'high': 1,
-             'low': 0, },
+            dict(name='fcs/left-aileron-pos-norm', description='left aileron position, normalised',
+                 high=1, low=-1),
+            dict(name='fcs/right-aileron-pos-norm', description='right aileron position, normalised',
+                 high=1, low=-1),
+            dict(name='fcs/elevator-pos-norm', description='elevator position, normalised',
+                 high=1, low=-1),
+            dict(name='fcs/rudder-pos-norm', description='rudder position, normalised',
+                 high=1, low=-1),
+            dict(name='fcs/throttle-pos-norm', description='throttle position, normalised',
+                 high=1, low=0),
         )
 
         # TODO: merge in TaskModule state vars
@@ -155,7 +129,6 @@ class JsbSimEnv(gym.Env):
              'high': 1.0,
              'low': 0.0, },
         )
-
 
         # create Space objects
         state_lows = np.array([state_var['low'] for state_var in state_variables])
@@ -183,7 +156,7 @@ class JsbSimEnv(gym.Env):
         Returns:
             observation (object): agent's observation of the current environment
             reward (float) : amount of reward returned after previous action
-            done (boolean): whether the episode has ended, in which case further step() calls will return undefined results
+            done (boolean): whether the episode has ended, in which case further step() calls are undefined
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
         assert(action.shape == self.action_space.shape,
@@ -222,11 +195,10 @@ class JsbSimEnv(gym.Env):
         # TODO: get initial state from TaskModule
         self.sim = JsbSimInstance(dt=1.0 / self.DT_HZ)
         state = [self.sim[prop] for prop in self.observation_names]
-
-        # close any plot if episode was rendered
-        if self.figure:
-            plt.close(self.figure)
-            self.figure = None
+        # ft per deg. longitude is distance at equator * cos(lon)
+        # attribution: https://www.colorado.edu/geography/gcraft/warmup/aquifer/html/distance.html
+        lon = self.sim[self.plot_properties['y']['name']]
+        self.ft_per_deg_lon = self.FT_PER_DEG_LAT * math.cos(math.radians(lon))
 
         return np.array(state)
 
@@ -284,12 +256,14 @@ class JsbSimEnv(gym.Env):
         ax = self.figure.gca()
         if self.velocity_arrow:
             # get rid of previous timestep velocity arrow
-            self.velocity_arrow.remove()
-        # TODO: make this a Line3D object?
-        # NB negative scaling on v_z, because down direction is positive in JSBSim
-        self.velocity_arrow = ax.quiver([x], [y], [z], [v_x], [v_y], [-v_z], length=0.01, pivot='tail')
+            self.velocity_arrow.pop().remove()
+        # get coords from scaled velocities for drawing velocity line
+        x2 = x + v_x / self.FT_PER_DEG_LAT
+        y2 = y + v_y / self.ft_per_deg_lon
+        z2 = z - v_z  # v_z is positive down
+        self.velocity_arrow = ax.plot([x, x2], [y, y2], [z, z2], 'r-')
         # draw trajectory point
-        ax.scatter([x], [y], zs=[z], c='k')
+        ax.scatter([x], [y], zs=[z], c='k', s=10)
         plt.pause(0.001)
 
     def close(self):
@@ -303,7 +277,6 @@ class JsbSimEnv(gym.Env):
 
         if self.sim:
             self.sim.close()
-
 
     def seed(self, seed=None):
         """Sets the seed for this env's random number generator(s).
