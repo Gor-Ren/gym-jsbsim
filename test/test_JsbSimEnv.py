@@ -110,3 +110,16 @@ class TestJsbSimInstance(unittest.TestCase):
         self.env.close()
         self.assertIsNone(self.env.figure)
 
+    def test_plot_positions(self):
+        self.setUp()
+        self.env.render(mode='human')
+
+        xs = [50, 50.1, 50.2, 50.3, 50.4, 50.5]
+        ys = [2, 2.5, 3.0, 3.5, 4.0, 4.5]
+        zs = [1000, 950, 900, 850, 800]
+        v_xs = [0, 100, 150, 200, 250]
+        v_ys = [300, 250, 200, 150, 100]
+        v_zs = [50, 50, 150, 200, 200]
+
+        for x, y, z, v_x, v_y, v_z in zip(xs, ys, zs, v_xs, v_ys, v_zs):
+            self.env._plot(x, y, z, v_x, v_y, v_z)

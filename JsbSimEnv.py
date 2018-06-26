@@ -31,15 +31,23 @@ class JsbSimEnv(gym.Env):
     ATTRIBUTION: this class is based on the OpenAI Gym Env API. Method
     docstrings have been taken from the OpenAI API and modified where required.
     """
-    DT_HZ: int = 120  # JSBSim integration frequency, Hz
-    sim: JsbSimInstance = None
+    DT_HZ: int = 120  # JSBSim integration frequency [Hz]
     agent_step_skip: int = None
+    sim: JsbSimInstance = None
     observation_space: gym.spaces.Box = None
     action_space: gym.spaces.Box = None
     observation_names: Tuple[str] = None
     action_names: Tuple[str] = None
-    dt: float = 1.0 / 120
-    figure = None
+    figure: plt.Figure = None
+    plot_properties = {
+        'x': {'name': 'position/lat-gc-deg', 'label': 'geocentric latitude [deg]'},
+        'y': {'name': 'position/long-gc-deg', 'label': 'geocentric longitude [deg]'},
+        'z': {'name': 'position/h-sl-ft', 'label': 'altitude above MSL [ft]'},
+        'v_x': {'name': 'velocities/v-north-fps', 'label': 'velocity true north [ft/s]'},
+        'v_y': {'name': 'velocities/v-east-fps', 'label': 'velocity east [ft/s]'},
+        'v_z': {'name': 'velocities/v-down-fps', 'label': 'velocity downwards [ft/s]'},
+    }
+    velocity_arrow = None
 
     def __init__(self, agent_interaction_freq: int=10):
         """
@@ -245,24 +253,34 @@ class JsbSimEnv(gym.Env):
                     super(MyEnv, self).render(mode=mode) # just raise an exception
         """
         if mode == 'human':
-            self._plot()
+            vars_to_plot = ('x', 'y', 'z', 'v_x', 'v_y', 'v_z')
+            x, y, z, v_x, v_y, v_z = [self.sim[self.plot_properties[var]['name']] for var in vars_to_plot]
+            self._plot(x, y, z, v_x, v_y, v_z)
         else:
             super(JsbSimEnv, self).render(mode=mode)
 
-    def _plot(self):
+    def _plot(self, x, y, z, v_x, v_y, v_z) -> None:
         """
         Creates or updates a 3D plot of the episode aircraft trajectory.
-
-        :return:
         """
         if not self.figure:
             plt.ion()
             self.figure = plt.figure()
             self.figure.add_subplot(1, 1, 1, projection='3d')
+            self.figure.gca().set_xlabel(self.plot_properties['x']['label'])
+            self.figure.gca().set_ylabel(self.plot_properties['y']['label'])
+            self.figure.gca().set_zlabel(self.plot_properties['z']['label'])
             plt.show()
             plt.pause(0.001)  # voodoo pause needed for rendering
 
         ax = self.figure.gca()
+        if self.velocity_arrow:
+            # get rid of previous timestep velocity arrow
+            self.velocity_arrow.remove()
+        self.velocity_arrow = ax.quiver([x], [y], [z], [v_x], [v_y], [v_z], length=0.01, pivot='tail')
+        # draw trajectory point
+        ax.scatter([x], [y], zs=[z], c='b')
+        plt.pause(0.001)  # voodoo pause needed for rendering
 
     def close(self):
         """Override _close in your subclass to perform any necessary cleanup.
