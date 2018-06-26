@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 from JsbSimInstance import JsbSimInstance
 from typing import Tuple, List
 
@@ -36,6 +37,7 @@ class JsbSimEnv(gym.Env):
     observation_names: Tuple[str] = None
     action_names: Tuple[str] = None
     dt: float = 1.0 / 120
+    figure = None
 
     def __init__(self, agent_step_skip: int=12):
         """
@@ -50,6 +52,12 @@ class JsbSimEnv(gym.Env):
 
     def init_spaces(self) -> None:
         base_state_variables = (
+            {'name': 'position/h-sl-ft',
+             'description': 'altitude above mean sea level [ft]',
+             'high': 85000,
+             'low': -1400},
+            # altitude limits max 85 kft (highest an SR-71 Blackbird got to)
+            #   and min of Black Sea
             {'name': 'attitude/pitch-rad',
              'description': 'pitch [rad]',
              'high': 0.5 * math.pi,
@@ -211,7 +219,6 @@ class JsbSimEnv(gym.Env):
               in implementations to use the functionality of this method.
         Args:
             mode (str): the mode to render with
-            close (bool): close all open renderings
         Example:
         class MyEnv(Env):
             metadata = {'render.modes': ['human', 'rgb_array']}

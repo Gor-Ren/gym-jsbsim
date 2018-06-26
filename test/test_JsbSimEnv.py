@@ -5,7 +5,7 @@ import math
 from JsbSimEnv import JsbSimEnv
 
 
-class TestJsbSimWrapper(unittest.TestCase):
+class TestJsbSimInstance(unittest.TestCase):
 
     def setUp(self):
         self.env = None
@@ -53,15 +53,15 @@ class TestJsbSimWrapper(unittest.TestCase):
 
         places_tol = 3
 
-        self.assertEqual('attitude/pitch-rad', self.env.observation_names[0])
-        self.assertAlmostEqual(-0.5 * math.pi, obs_lows[0], places=places_tol,
+        self.assertEqual('attitude/pitch-rad', self.env.observation_names[1])
+        self.assertAlmostEqual(-0.5 * math.pi, obs_lows[1], places=places_tol,
                                msg='Pitch low range should be -pi/2')
-        self.assertAlmostEqual(0.5 * math.pi, obs_highs[0], places=places_tol,
+        self.assertAlmostEqual(0.5 * math.pi, obs_highs[1], places=places_tol,
                                msg='Pitch high range should be +pi/2')
-        self.assertEqual('attitude/roll-rad', self.env.observation_names[1])
-        self.assertAlmostEqual(-1 * math.pi, obs_lows[1], places=places_tol,
+        self.assertEqual('attitude/roll-rad', self.env.observation_names[2])
+        self.assertAlmostEqual(-1 * math.pi, obs_lows[2], places=places_tol,
                                msg='Roll low range should be -pi')
-        self.assertAlmostEqual(1 * math.pi, obs_highs[1], places=places_tol,
+        self.assertAlmostEqual(1 * math.pi, obs_highs[2], places=places_tol,
                                msg='Roll high range should be +pi')
 
         self.assertEqual('fcs/aileron-cmd-norm', self.env.action_names[0])
