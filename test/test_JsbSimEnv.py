@@ -2,8 +2,9 @@ import unittest
 import gym
 import numpy as np
 import math
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from JsbSimEnv import JsbSimEnv
-
 
 class TestJsbSimInstance(unittest.TestCase):
 
@@ -103,4 +104,9 @@ class TestJsbSimInstance(unittest.TestCase):
             self.validate_observation(obs)
             self.validate_action_made(action2)
 
+    def test_figure_created_closed(self):
+        self.env.render(mode='human')
+        self.assertIsInstance(self.env.figure, plt.Figure)
+        self.env.close()
+        self.assertIsNone(self.env.figure)
 

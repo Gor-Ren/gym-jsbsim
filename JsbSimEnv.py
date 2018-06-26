@@ -2,6 +2,7 @@ import gym
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from JsbSimInstance import JsbSimInstance
 from typing import Tuple, List
 
@@ -195,9 +196,16 @@ class JsbSimEnv(gym.Env):
 
         :return: array, the initial observation of the space.
         """
-        self.sim = None
+        if self.sim:
+            self.sim.close()
         self.sim = JsbSimInstance(dt=self.dt)
         state = [self.sim[prop] for prop in self.observation_names]
+
+        # close any plot if episode was rendered
+        if self.figure:
+            plt.close(self.figure)
+            self.figure = None
+
         return np.array(state)
 
     def render(self, mode='human'):
@@ -230,15 +238,37 @@ class JsbSimEnv(gym.Env):
                 else:
                     super(MyEnv, self).render(mode=mode) # just raise an exception
         """
-        raise NotImplementedError
+        if mode == 'human':
+            self._plot()
+        else:
+            super(JsbSimEnv, self).render(mode=mode)
 
+    def _plot(self):
+        """
+        Creates or updates a 3D plot of the episode aircraft trajectory.
+
+        :return:
+        """
+        if not self.figure:
+            plt.ion()
+            self.figure = plt.figure()
+            self.figure.add_subplot(1, 1, 1, projection='3d')
+            plt.show()
+            plt.pause(0.001)  # voodoo pause needed for rendering
+
+        ax = self.figure.gca()
 
     def close(self):
         """Override _close in your subclass to perform any necessary cleanup.
         Environments will automatically close() themselves when
         garbage collected or when the program exits.
         """
-        return
+        if self.figure:
+            plt.close('all')
+            self.figure = None
+
+        if self.sim:
+            self.sim.close()
 
 
     def seed(self, seed=None):
