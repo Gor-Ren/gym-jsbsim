@@ -31,4 +31,3 @@ class TestJsbSimInstance(unittest.TestCase):
             alt_gl = self.env.sim['position/h-agl-ft']
             if i % render_every == 0:
                 self.env.render(mode='human')
-                print(f'Elevation: {alt_sl} ft ASL, {alt_gl} ft AGL')
