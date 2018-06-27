@@ -23,7 +23,7 @@ class JsbSimInstance(object):
             JSBSim looks for file \model_name\model_name.xml in root dir.
         :param init_conditions: dict mapping properties to their initial values
         """
-        root_dir = os.path.abspath("/home/gordon/Apps/jsbsim-code")
+        root_dir = os.path.abspath("/home/gordon/apps/jsbsim")
         self.sim = jsbsim.FGFDMExec(root_dir=root_dir)
         self.initialise(dt, aircraft_model_name, init_conditions)
 
