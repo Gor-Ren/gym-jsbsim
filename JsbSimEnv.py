@@ -39,16 +39,6 @@ class JsbSimEnv(gym.Env):
     action_space: gym.spaces.Box = None
     observation_names: Tuple[str] = None
     action_names: Tuple[str] = None
-    figure: plt.Figure = None
-    plot_properties: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
-                                 y=dict(name='position/long-gc-deg', label='geocentric longitude [deg]'),
-                                 z=dict(name='position/h-sl-ft', label='altitude above MSL [ft]'),
-                                 v_x=dict(name='velocities/v-north-fps', label='velocity true north [ft/s]'),
-                                 v_y=dict(name='velocities/v-east-fps', label='velocity east [ft/s]'),
-                                 v_z=dict(name='velocities/v-down-fps', label='velocity downwards [ft/s]'))
-    velocity_arrow = None
-    FT_PER_DEG_LAT: int = 365228
-    ft_per_deg_lon: int = None  # calc at reset(), depends on location
 
     def __init__(self, agent_interaction_freq: int=10):
         """
@@ -187,18 +177,10 @@ class JsbSimEnv(gym.Env):
         """
         if self.sim:
             self.sim.close()
-        # close any plot if episode was rendered
-        if self.figure:
-            plt.close(self.figure)
-            self.figure = None
 
         # TODO: get initial state from TaskModule
         self.sim = JsbSimInstance(dt=1.0 / self.DT_HZ)
         state = [self.sim[prop] for prop in self.observation_names]
-        # ft per deg. longitude is distance at equator * cos(lon)
-        # attribution: https://www.colorado.edu/geography/gcraft/warmup/aquifer/html/distance.html
-        lon = self.sim[self.plot_properties['y']['name']]
-        self.ft_per_deg_lon = self.FT_PER_DEG_LAT * math.cos(math.radians(lon))
 
         return np.array(state)
 
@@ -233,48 +215,17 @@ class JsbSimEnv(gym.Env):
                     super(MyEnv, self).render(mode=mode) # just raise an exception
         """
         if mode == 'human':
-            vars_to_plot = ('x', 'y', 'z', 'v_x', 'v_y', 'v_z')
-            x, y, z, v_x, v_y, v_z = [self.sim[self.plot_properties[var]['name']] for var in vars_to_plot]
-            self._plot(x, y, z, v_x, v_y, v_z)
+            self.sim.plot()
         else:
             super(JsbSimEnv, self).render(mode=mode)
 
-    def _plot(self, x, y, z, v_x, v_y, v_z) -> None:
-        """
-        Creates or updates a 3D plot of the episode aircraft trajectory.
-        """
-        if not self.figure:
-            plt.ion()
-            self.figure = plt.figure()
-            self.figure.add_subplot(1, 1, 1, projection='3d')
-            self.figure.gca().set_xlabel(self.plot_properties['x']['label'])
-            self.figure.gca().set_ylabel(self.plot_properties['y']['label'])
-            self.figure.gca().set_zlabel(self.plot_properties['z']['label'])
-            plt.show()
-            plt.pause(0.001)  # voodoo pause needed for figure to appear
 
-        ax = self.figure.gca()
-        if self.velocity_arrow:
-            # get rid of previous timestep velocity arrow
-            self.velocity_arrow.pop().remove()
-        # get coords from scaled velocities for drawing velocity line
-        x2 = x + v_x / self.FT_PER_DEG_LAT
-        y2 = y + v_y / self.ft_per_deg_lon
-        z2 = z - v_z  # v_z is positive down
-        self.velocity_arrow = ax.plot([x, x2], [y, y2], [z, z2], 'r-')
-        # draw trajectory point
-        ax.scatter([x], [y], zs=[z], c='k', s=10)
-        plt.pause(0.001)
 
     def close(self):
         """Override _close in your subclass to perform any necessary cleanup.
         Environments will automatically close() themselves when
         garbage collected or when the program exits.
         """
-        if self.figure:
-            plt.close('all')
-            self.figure = None
-
         if self.sim:
             self.sim.close()
 

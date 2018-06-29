@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from JsbSimEnv import JsbSimEnv
 
+
 class TestJsbSimInstance(unittest.TestCase):
 
     def setUp(self, agent_interaction_freq: int=10):
@@ -106,9 +107,9 @@ class TestJsbSimInstance(unittest.TestCase):
 
     def test_figure_created_closed(self):
         self.env.render(mode='human')
-        self.assertIsInstance(self.env.figure, plt.Figure)
+        self.assertIsInstance(self.env.sim.figure, plt.Figure)
         self.env.close()
-        self.assertIsNone(self.env.figure)
+        self.assertIsNone(self.env.sim.figure)
 
     def test_plot_positions(self):
         self.setUp()
@@ -122,7 +123,7 @@ class TestJsbSimInstance(unittest.TestCase):
         v_zs = [50, 50, 150, 200, 200]
 
         for plot_args in zip(xs, ys, zs, v_xs, v_ys, v_zs):
-            self.env._plot(*plot_args)
+            self.env.sim.plot(*plot_args)
 
     def test_asl_agl_elevations_equal(self):
         # we want the height above sea level to equal ground elevation at all times

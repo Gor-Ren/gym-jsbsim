@@ -1,5 +1,7 @@
 import jsbsim
 import os
+import math
+import matplotlib.pyplot as plt
 from typing import Dict, Union
 
 
@@ -9,6 +11,16 @@ class JsbSimInstance(object):
     """
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
     properties = None
+    props_to_plot: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
+                               y=dict(name='position/long-gc-deg', label='geocentric longitude [deg]'),
+                               z=dict(name='position/h-sl-ft', label='altitude above MSL [ft]'),
+                               v_x=dict(name='velocities/v-north-fps', label='velocity true north [ft/s]'),
+                               v_y=dict(name='velocities/v-east-fps', label='velocity east [ft/s]'),
+                               v_z=dict(name='velocities/v-down-fps', label='velocity downwards [ft/s]'))
+    FT_PER_DEG_LAT: int = 365228
+    ft_per_deg_lon: int = None  # calc at reset(), depends on longitude
+    figure: plt.Figure = None
+    velocity_arrow = None
 
     def __init__(self,
                  dt: float=1.0/120.0,
@@ -138,6 +150,11 @@ class JsbSimInstance(object):
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')
 
+        # ft per deg. longitude is distance at equator * cos(lon)
+        # attribution: https://www.colorado.edu/geography/gcraft/warmup/aquifer/html/distance.html
+        lon = self.sim[self.props_to_plot['y']['name']]
+        self.ft_per_deg_lon = self.FT_PER_DEG_LAT * math.cos(math.radians(lon))
+
     def run(self) -> bool:
         """
         Runs a single timestep in the JSBSim simulation.
@@ -151,5 +168,39 @@ class JsbSimInstance(object):
         return self.sim.run()
 
     def close(self):
+        """ Closes the simulation and any plots. """
         if self.sim:
             self.sim = None
+        if self.figure:
+            plt.close(self.figure)
+            self.figure = None
+
+    def plot(self) -> None:
+        """
+        Creates or updates a 3D plot of the episode aircraft trajectory.
+        """
+        STATE_VARS_TO_PLOT = ('x', 'y', 'z', 'v_x', 'v_y', 'v_z')
+        x, y, z, v_x, v_y, v_z = [self.sim[self.props_to_plot[var]['name']] for var in STATE_VARS_TO_PLOT]
+
+        if not self.figure:
+            plt.ion()  # interactive mode allows dynamic updating of plot
+            self.figure = plt.figure()
+            self.figure.add_subplot(1, 1, 1, projection='3d')
+            self.figure.gca().set_xlabel(self.props_to_plot['x']['label'])
+            self.figure.gca().set_ylabel(self.props_to_plot['y']['label'])
+            self.figure.gca().set_zlabel(self.props_to_plot['z']['label'])
+            plt.show()
+            plt.pause(0.001)  # voodoo pause needed for figure to appear
+
+        ax = self.figure.gca()
+        if self.velocity_arrow:
+            # get rid of previous timestep velocity arrow
+            self.velocity_arrow.pop().remove()
+        # get coords from scaled velocities for drawing velocity line
+        x2 = x + v_x / self.FT_PER_DEG_LAT
+        y2 = y + v_y / self.ft_per_deg_lon
+        z2 = z - v_z  # negative because v_z is positive down
+        self.velocity_arrow = ax.plot([x, x2], [y, y2], [z, z2], 'r-')
+        # draw trajectory point
+        ax.scatter([x], [y], zs=[z], c='k', s=10)
+        plt.pause(0.001)
