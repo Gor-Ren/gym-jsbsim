@@ -26,6 +26,8 @@ class TestJsbSimInstance(unittest.TestCase):
         render_every = 5
         self.env.reset()
         for i in range(1000):
-            self.env.step(action=self.env.action_space.sample())
+            action = self.env.action_space.sample()
+            obs, _, _, _ = self.env.step(action=action)
             if i % render_every == 0:
-                self.env.render(mode='human')
+                self.env.render(mode='human', action_names=self.env.action_names, action_values=action)
+

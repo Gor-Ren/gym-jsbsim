@@ -3,7 +3,6 @@ import gym
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from JsbSimEnv import JsbSimEnv
 
 
@@ -123,7 +122,17 @@ class TestJsbSimInstance(unittest.TestCase):
             obs, _, _, _ = self.env.step(action)
             self.env.render(mode='human')
 
+    def test_plot_actions(self):
+        # note: this checks that plot works without throwing exception
+        # correctness of plot must be checked in appropriate manual_test
+        self.setUp()
+        self.env.render(mode='human')
 
+        # repeat action several times
+        for _ in range(10):
+            action = self.env.action_space.sample()
+            _, _, _, _ = self.env.step(action)
+            self.env.render(mode='human', action_names=self.env.action_names, action_values=action)
 
     def test_asl_agl_elevations_equal(self):
         # we want the height above sea level to equal ground elevation at all times

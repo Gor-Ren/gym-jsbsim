@@ -193,14 +193,23 @@ class JsbSimInstance(object):
             plt.close(self.figure)
             self.figure = None
 
-    def plot(self) -> None:
+    def plot(self, action_names=None, action_values=None) -> None:
         """
         Creates or updates a 3D plot of the episode.
         """
         if not self.figure:
             self.figure, self.axes = self._plot_configure()
 
+        # delete old control surface data points
+        for subplot in self.axes[1:]:
+            # pop and remove all data points
+            while subplot.lines:
+                data = subplot.lines.pop()
+                del data
+
         self._plot_state(self.axes, self.props_to_plot)
+        self._plot_actions(self.axes, action_names, action_values)
+        plt.pause(0.001)  # voodoo pause needed for figure to update
 
     def _plot_configure(self):
         """
@@ -257,6 +266,8 @@ class JsbSimInstance(object):
         # config subplot for throttle: a 1D vertical plot
         axes_throttle.set_ylabel('throttle [-]')
         axes_throttle.set_ylim(bottom=0, top=1)
+        axes_throttle.set_xlim(left=0, right=1)
+        axes_throttle.spines['left'].set_position('zero')
         axes_throttle.yaxis.set_label_coords(0.5, 0.5)
         axes_throttle.set_yticks([0, 0.5, 1])
         axes_throttle.yaxis.set_minor_locator(minor_locator)
@@ -269,7 +280,9 @@ class JsbSimInstance(object):
         # config rudder subplot: 1D horizontal plot
         axes_rudder.set_xlabel('rudder [-]')
         axes_rudder.set_xlim(left=-1, right=1)
+        axes_rudder.set_ylim(bottom=0, top=1)
         axes_rudder.xaxis.set_label_coords(0.5, -0.5)
+        axes_stick.spines['bottom'].set_position('zero')
         axes_rudder.set_xticks([-1, 0, 1])
         axes_rudder.xaxis.set_minor_locator(minor_locator)
         axes_rudder.tick_params(axis='x', which='both', direction='inout')
@@ -298,9 +311,9 @@ class JsbSimInstance(object):
         dict specifying their 'name', the property to be retrieved from
         JSBSim.
 
-        :param figure: plt.Axes, the axes (subplot) to plot on
-        :param props: dict, mapping strs x, y, z, v_x, v_y, v_z to a dict
-            containing a 'name' field for the property to be retrieved from
+        :param all_axes: AxesTuple, collection of axes of subplots to plot on
+        :param props: dict, mapping strs x, y, z, u, v, w, ail, ele, thr, rud
+            to dict containing a 'name' field for the property to be retrieved from
             JSBSim
         """
         x, y, z = [self.sim[props[var]['name']] for var in 'xyz']
@@ -317,11 +330,41 @@ class JsbSimInstance(object):
         if self.velocity_arrow:
             # get rid of previous timestep velocity arrow
             self.velocity_arrow.pop().remove()
-        # scale velocity and get coords for arrow
-        x2 = x + v_x / self.FT_PER_DEG_LAT
-        y2 = y + v_y / self.ft_per_deg_lon
-        z2 = z - v_z    # negative because v_z is positive down
-        self.velocity_arrow = axes.plot([x, x2], [y, y2], [z, z2], 'r-')
-        plt.pause(0.001)
+        self.velocity_arrow = all_axes.axes_state.plot([x, x2], [y, y2], [z, z2], 'r-')
 
+        # plot aircraft control surface positions
+        all_axes.axes_stick.plot([ail], [ele], 'r+', mfc='none', markersize=10, clip_on=False)
+        all_axes.axes_throttle.plot([0], [thr], 'r+', mfc='none', markersize=10, clip_on=False)
+        all_axes.axes_rudder.plot([rud], [0], 'r+', mfc='none', markersize=10, clip_on=False)
 
+    def _plot_actions(self, all_axes: AxesTuple, action_names, action_values):
+        """
+        Plots agent-commanded actions on the environment figure.
+
+        :param all_axes: AxesTuple, collection of axes of subplots to plot on
+        :param action_names: list of strings corresponding to JSBSim property
+            names of actions
+        :param action_values: list of floats; the value of the action at the
+            same index in action_names
+        :return:
+        """
+        if action_names is None and action_values is None:
+            # no actions to plot
+            return
+
+        lookup = dict(zip(action_names, action_values))
+        ail_cmd = lookup.get('fcs/aileron-cmd-norm', None)
+        ele_cmd = lookup.get('fcs/elevator-cmd-norm', None)
+        thr_cmd = lookup.get('fcs/throttle-cmd-norm', None)
+        rud_cmd = lookup.get('fcs/rudder-cmd-norm', None)
+
+        if ail_cmd or ele_cmd:
+            # if we have a value for one but not other,
+            #   set other to zero for plotting
+            ail_cmd = ail_cmd if not None else 0
+            ele_cmd = ele_cmd if not None else 0
+            all_axes.axes_stick.plot([ail_cmd], [ele_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
+        if thr_cmd:
+            all_axes.axes_throttle.plot([0], [thr_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
+        if rud_cmd:
+            all_axes.axes_rudder.plot([rud_cmd], [0], 'bo', mfc='none', markersize=10, clip_on=False)

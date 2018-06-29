@@ -182,7 +182,7 @@ class JsbSimEnv(gym.Env):
 
         return np.array(state)
 
-    def render(self, mode='human'):
+    def render(self, mode='human', action_names=None, action_values=None):
         """Renders the environment.
         The set of supported modes varies per environment. (And some
         environments do not support rendering at all.) By convention,
@@ -199,8 +199,12 @@ class JsbSimEnv(gym.Env):
             Make sure that your class's metadata 'render.modes' key includes
               the list of supported modes. It's recommended to call super()
               in implementations to use the functionality of this method.
-        Args:
-            mode (str): the mode to render with
+
+        :param mode: str, the mode to render with
+        :param action_names: list of str, the JSBSim properties modified
+            by agent action
+        :param action_values: list of numbers, the value of the action at
+            the same index in action_names
         Example:
         class MyEnv(Env):
             metadata = {'render.modes': ['human', 'rgb_array']}
@@ -213,11 +217,9 @@ class JsbSimEnv(gym.Env):
                     super(MyEnv, self).render(mode=mode) # just raise an exception
         """
         if mode == 'human':
-            self.sim.plot()
+            self.sim.plot(action_names=action_names, action_values=action_values)
         else:
             super(JsbSimEnv, self).render(mode=mode)
-
-
 
     def close(self):
         """Override _close in your subclass to perform any necessary cleanup.
