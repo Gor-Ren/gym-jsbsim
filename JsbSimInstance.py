@@ -2,6 +2,8 @@ import jsbsim
 import os
 import math
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
+from collections import namedtuple
 from typing import Dict, Union
 
 
@@ -9,6 +11,9 @@ class JsbSimInstance(object):
     """
     A class which wraps an instance of JSBSim and manages communication with it.
     """
+    AxesTuple = namedtuple('AxesTuple',
+                          ['axes_state', 'axes_stick', 'axes_throttle', 'axes_rudder'])
+
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
     properties = None
     props_to_plot: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
@@ -20,6 +25,7 @@ class JsbSimInstance(object):
     FT_PER_DEG_LAT: int = 365228
     ft_per_deg_lon: int = None  # calc at reset(), depends on longitude
     figure: plt.Figure = None
+    axes: AxesTuple = None
     velocity_arrow = None
 
     def __init__(self,
@@ -33,7 +39,8 @@ class JsbSimInstance(object):
             to 1/120, i.e. 120 Hz
         :param aircraft_model_name: string, name of aircraft to be loaded.
             JSBSim looks for file \model_name\model_name.xml in root dir.
-        :param init_conditions: dict mapping properties to their initial values
+        :param init_conditions: dict mapping properties to their initial values.
+            Defaults to None, causing a default set of initial props to be used.
         """
         root_dir = os.path.abspath("/home/gordon/apps/jsbsim")
         self.sim = jsbsim.FGFDMExec(root_dir=root_dir)
@@ -177,23 +184,42 @@ class JsbSimInstance(object):
 
     def plot(self) -> None:
         """
-        Creates or updates a 3D plot of the episode aircraft trajectory.
+        Creates or updates a 3D plot of the episode.
         """
         if not self.figure:
             plt.ion()  # interactive mode allows dynamic updating of plot
             self.figure = plt.figure()
-            self.figure.add_subplot(1, 1, 1, projection='3d')
-            self.figure.gca().set_xlabel(self.props_to_plot['x']['label'])
-            self.figure.gca().set_ylabel(self.props_to_plot['y']['label'])
-            self.figure.gca().set_zlabel(self.props_to_plot['z']['label'])
+
+            # subplot for state
+            axes_state: Axes3D = self.figure.add_subplot(4, 1, 1, projection='3d')
+            axes_state.set_xlabel(self.props_to_plot['x']['label'])
+            axes_state.set_ylabel(self.props_to_plot['y']['label'])
+            axes_state.set_zlabel(self.props_to_plot['z']['label'])
+
+            # 3 subplots for actions
+            axes_stick = self.figure.add_subplot(4, 1, 2)
+            axes_stick.set_xlabel('aileron [-]')
+            axes_stick.set_ylabel('elevator [-]')
+
+            axes_throttle = self.figure.add_subplot(4, 1, 3)
+            axes_throttle.set_ylabel('throttle [-]')
+
+            axes_rudder = self.figure.add_subplot(4, 1, 4)
+            axes_rudder.set_xlabel('rudder [-]')
+
+            self.axes = self.AxesTuple(axes_state=axes_state,
+                                       axes_stick=axes_stick,
+                                       axes_throttle=axes_throttle,
+                                       axes_rudder=axes_rudder)
+
             plt.show()
             plt.pause(0.001)  # voodoo pause needed for figure to appear
 
-        self._plot_state(self.figure, self.props_to_plot)
+        self._plot_state(self.axes.axes_state, self.props_to_plot)
 
-    def _plot_state(self, figure: plt.Figure, props: Dict):
+    def _plot_state(self, axes: plt.Axes, props: Dict):
         """
-        Plots the state of the simulation on input Figure.
+        Plots the state of the simulation on input axes.
 
         State is given by three translational coords (x, y, z) and three
         linear velocities (v_x, v_y, v_z).
@@ -202,7 +228,7 @@ class JsbSimInstance(object):
         dict specifying their 'name', the property to be retrieved from
         JSBSim.
 
-        :param figure: plt.Figure, the figure to be plotted on
+        :param figure: plt.Axes, the axes (subplot) to plot on
         :param props: dict, mapping strs x, y, z, v_x, v_y, v_z to a dict
             containing a 'name' field for the property to be retrieved from
             JSBSim
@@ -210,8 +236,7 @@ class JsbSimInstance(object):
         STATE_VARS_TO_PLOT = ('x', 'y', 'z', 'v_x', 'v_y', 'v_z')
         x, y, z, v_x, v_y, v_z = [self.sim[props[var]['name']] for var in STATE_VARS_TO_PLOT]
 
-        ax = figure.gca()
-        ax.scatter([x], [y], zs=[z], c='k', s=10)
+        axes.scatter([x], [y], zs=[z], c='k', s=10)
 
         if self.velocity_arrow:
             # get rid of previous timestep velocity arrow
@@ -220,5 +245,5 @@ class JsbSimInstance(object):
         x2 = x + v_x / self.FT_PER_DEG_LAT
         y2 = y + v_y / self.ft_per_deg_lon
         z2 = z - v_z    # negative because v_z is positive down
-        self.velocity_arrow = ax.plot([x, x2], [y, y2], [z, z2], 'r-')
+        self.velocity_arrow = axes.plot([x, x2], [y, y2], [z, z2], 'r-')
         plt.pause(0.001)

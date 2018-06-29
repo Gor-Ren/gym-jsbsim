@@ -1,10 +1,8 @@
 import gym
 import numpy as np
 import math
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from JsbSimInstance import JsbSimInstance
-from typing import Tuple, Dict
+from typing import Tuple
 
 
 class JsbSimEnv(gym.Env):
