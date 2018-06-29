@@ -41,7 +41,7 @@ class JsbSimInstance(object):
 
     def __init__(self,
                  dt: float=1.0/120.0,
-                 aircraft_model_name: str='c172x',
+                 aircraft_model_name: str='c172p',
                  init_conditions: Dict[str, Union[int, float]]=None):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
