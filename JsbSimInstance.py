@@ -218,7 +218,7 @@ class JsbSimInstance(object):
         TODO: return params (refs to fig and its axes)
         """
         plt.ion()  # interactive mode allows dynamic updating of plot
-        figure = plt.figure(figsize=(6, 12))
+        figure = plt.figure(figsize=(6, 11))
 
         spec = plt.GridSpec(nrows=3,
                             ncols=2,
@@ -236,6 +236,10 @@ class JsbSimInstance(object):
         axes_state.set_xlabel(self.props_to_plot['x']['label'])
         axes_state.set_ylabel(self.props_to_plot['y']['label'])
         axes_state.set_zlabel(self.props_to_plot['z']['label'])
+        green_rgba = (0.556, 0.764, 0.235, 0.8)
+        # sky_blue_rgba = (0.815, 0.984, 0.980, 0.8)
+        axes_state.w_zaxis.set_pane_color(green_rgba)
+
 
         # config subplot for stick (aileron and elevator control in x/y axes)
         axes_stick.set_xlabel('ailerons [-]', )
@@ -295,6 +299,18 @@ class JsbSimInstance(object):
                              axes_throttle=axes_throttle,
                              axes_rudder=axes_rudder)
 
+        # create figure-wide legend
+        cmd_entry = (plt.Line2D([], [], color='b', marker='o', ms=10, linestyle='', fillstyle='none'),
+                     'Commanded Position, normalised')
+        pos_entry = (plt.Line2D([], [], color='r', marker='+', ms=10, linestyle=''),
+                     'Current Position, normalised')
+        figure.legend((cmd_entry[0], pos_entry[0]),
+                      (cmd_entry[1], pos_entry[1]),
+                      loc='lower center')
+        figure.legend((cmd_entry[0],),
+                      (cmd_entry[1],),
+                      loc='upper center')
+
         plt.show()
         plt.pause(0.001)  # voodoo pause needed for figure to appear
 
@@ -323,7 +339,7 @@ class JsbSimInstance(object):
         # get velocity vector coords using scaled velocity
         x2 = x + u / self.FT_PER_DEG_LAT
         y2 = y + v / self.ft_per_deg_lon
-        z2 = z - z    # negative because v_z is positive down
+        z2 = z - w    # negative because v_z is positive down
 
         # plot aircraft position and velocity
         all_axes.axes_state.scatter([x], [y], zs=[z], c='k', s=10)
@@ -336,6 +352,10 @@ class JsbSimInstance(object):
         all_axes.axes_stick.plot([ail], [ele], 'r+', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_throttle.plot([0], [thr], 'r+', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_rudder.plot([rud], [0], 'r+', mfc='none', markersize=10, clip_on=False)
+
+        # rescale the top z-axis limit, but keep bottom limit at 0
+        all_axes.axes_state.set_autoscalez_on(True)
+        all_axes.axes_state.set_zlim3d(bottom=0, top=None)
 
     def _plot_actions(self, all_axes: AxesTuple, action_names, action_values):
         """
