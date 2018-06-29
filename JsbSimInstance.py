@@ -3,25 +3,36 @@ import os
 import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
-from collections import namedtuple
-from typing import Dict, Union
+from typing import NamedTuple, Dict, Union
+
+
+class AxesTuple(NamedTuple):
+    """ Holds references to figure subplots (axes) """
+    axes_state: Axes3D
+    axes_stick: plt.Axes
+    axes_throttle: plt.Axes
+    axes_rudder: plt.Axes
 
 
 class JsbSimInstance(object):
     """
     A class which wraps an instance of JSBSim and manages communication with it.
     """
-    AxesTuple = namedtuple('AxesTuple',
-                          ['axes_state', 'axes_stick', 'axes_throttle', 'axes_rudder'])
+    #AxesTuple = namedtuple('AxesTuple',
+    #                      ['axes_state', 'axes_stick', 'axes_throttle', 'axes_rudder'])
 
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
     properties = None
     props_to_plot: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
                                y=dict(name='position/long-gc-deg', label='geocentric longitude [deg]'),
                                z=dict(name='position/h-sl-ft', label='altitude above MSL [ft]'),
-                               v_x=dict(name='velocities/v-north-fps', label='velocity true north [ft/s]'),
-                               v_y=dict(name='velocities/v-east-fps', label='velocity east [ft/s]'),
-                               v_z=dict(name='velocities/v-down-fps', label='velocity downwards [ft/s]'))
+                               u=dict(name='velocities/v-north-fps', label='velocity true north [ft/s]'),
+                               v=dict(name='velocities/v-east-fps', label='velocity east [ft/s]'),
+                               w=dict(name='velocities/v-down-fps', label='velocity downwards [ft/s]'),
+                               ail=dict(name='fcs/left-aileron-pos-norm', label='left aileron position, [-]'),
+                               ele=dict(name='fcs/elevator-pos-norm', label='elevator position, [-]'),
+                               thr=dict(name='fcs/throttle-pos-norm', label='throttle position, [-]'),
+                               rud=dict(name='fcs/rudder-pos-norm', label='rudder position, [-]'))
     FT_PER_DEG_LAT: int = 365228
     ft_per_deg_lon: int = None  # calc at reset(), depends on longitude
     figure: plt.Figure = None
@@ -187,37 +198,96 @@ class JsbSimInstance(object):
         Creates or updates a 3D plot of the episode.
         """
         if not self.figure:
-            plt.ion()  # interactive mode allows dynamic updating of plot
-            self.figure = plt.figure()
+            self.figure, self.axes = self._plot_configure()
 
-            # subplot for state
-            axes_state: Axes3D = self.figure.add_subplot(4, 1, 1, projection='3d')
-            axes_state.set_xlabel(self.props_to_plot['x']['label'])
-            axes_state.set_ylabel(self.props_to_plot['y']['label'])
-            axes_state.set_zlabel(self.props_to_plot['z']['label'])
+        self._plot_state(self.axes, self.props_to_plot)
 
-            # 3 subplots for actions
-            axes_stick = self.figure.add_subplot(4, 1, 2)
-            axes_stick.set_xlabel('aileron [-]')
-            axes_stick.set_ylabel('elevator [-]')
+    def _plot_configure(self):
+        """
+        Creates a figure with subplots for states and actions.
 
-            axes_throttle = self.figure.add_subplot(4, 1, 3)
-            axes_throttle.set_ylabel('throttle [-]')
+        TODO: return params (refs to fig and its axes)
+        """
+        plt.ion()  # interactive mode allows dynamic updating of plot
+        figure = plt.figure(figsize=(6, 12))
 
-            axes_rudder = self.figure.add_subplot(4, 1, 4)
-            axes_rudder.set_xlabel('rudder [-]')
+        spec = plt.GridSpec(nrows=3,
+                            ncols=2,
+                            width_ratios=[5, 1],  # second column very thin
+                            height_ratios=[6, 5, 1],  # bottom row very short
+                            wspace=0.3)
 
-            self.axes = self.AxesTuple(axes_state=axes_state,
-                                       axes_stick=axes_stick,
-                                       axes_throttle=axes_throttle,
-                                       axes_rudder=axes_rudder)
+        # create subplots
+        axes_state: Axes3D = figure.add_subplot(spec[0, 0:], projection='3d')
+        axes_stick = figure.add_subplot(spec[1, 0])
+        axes_throttle = figure.add_subplot(spec[1, 1])
+        axes_rudder = figure.add_subplot(spec[2, 0])
 
-            plt.show()
-            plt.pause(0.001)  # voodoo pause needed for figure to appear
+        # config subplot for state
+        axes_state.set_xlabel(self.props_to_plot['x']['label'])
+        axes_state.set_ylabel(self.props_to_plot['y']['label'])
+        axes_state.set_zlabel(self.props_to_plot['z']['label'])
 
-        self._plot_state(self.axes.axes_state, self.props_to_plot)
+        # config subplot for stick (aileron and elevator control in x/y axes)
+        axes_stick.set_xlabel('ailerons [-]', )
+        axes_stick.set_ylabel('elevator [-]')
+        # set limits
+        axes_stick.set_xlim(left=-1, right=1)
+        axes_stick.set_ylim(bottom=-1, top=1)
+        # move axis labels outside subplot
+        axes_stick.xaxis.set_label_coords(0.5, 1.08)
+        axes_stick.yaxis.set_label_coords(-0.05, 0.5)
+        # make axes cross at origin
+        axes_stick.spines['left'].set_position('zero')
+        axes_stick.spines['bottom'].set_position('zero')
+        # only show ticks at extremes of range
+        axes_stick.set_xticks([-1, 1])
+        axes_stick.xaxis.set_ticks_position('bottom')
+        axes_stick.set_yticks([-1, 1])
+        axes_stick.yaxis.set_ticks_position('left')
+        axes_stick.tick_params(which='both', direction='inout')
+        # show minor ticks throughout
+        minor_locator = plt.MultipleLocator(0.2)
+        axes_stick.xaxis.set_minor_locator(minor_locator)
+        axes_stick.yaxis.set_minor_locator(minor_locator)
+        # hide unneeded spines
+        axes_stick.spines['right'].set_visible(False)
+        axes_stick.spines['top'].set_visible(False)
 
-    def _plot_state(self, axes: plt.Axes, props: Dict):
+        # config subplot for throttle: a 1D vertical plot
+        axes_throttle.set_ylabel('throttle [-]')
+        axes_throttle.set_ylim(bottom=0, top=1)
+        axes_throttle.yaxis.set_label_coords(0.5, 0.5)
+        axes_throttle.set_yticks([0, 0.5, 1])
+        axes_throttle.yaxis.set_minor_locator(minor_locator)
+        axes_throttle.tick_params(axis='y', which='both', direction='inout')
+        # hide horizontal x-axis and related spines
+        axes_throttle.xaxis.set_visible(False)
+        for spine in ['right', 'bottom', 'top']:
+            axes_throttle.spines[spine].set_visible(False)
+
+        # config rudder subplot: 1D horizontal plot
+        axes_rudder.set_xlabel('rudder [-]')
+        axes_rudder.set_xlim(left=-1, right=1)
+        axes_rudder.xaxis.set_label_coords(0.5, -0.5)
+        axes_rudder.set_xticks([-1, 0, 1])
+        axes_rudder.xaxis.set_minor_locator(minor_locator)
+        axes_rudder.tick_params(axis='x', which='both', direction='inout')
+        axes_rudder.get_yaxis().set_visible(False)  # only want a 1D subplot
+        for spine in ['left', 'right', 'top']:
+            axes_rudder.spines[spine].set_visible(False)
+
+        all_axes = AxesTuple(axes_state=axes_state,
+                             axes_stick=axes_stick,
+                             axes_throttle=axes_throttle,
+                             axes_rudder=axes_rudder)
+
+        plt.show()
+        plt.pause(0.001)  # voodoo pause needed for figure to appear
+
+        return figure, all_axes
+
+    def _plot_state(self, all_axes: AxesTuple, props: Dict):
         """
         Plots the state of the simulation on input axes.
 
@@ -233,11 +303,17 @@ class JsbSimInstance(object):
             containing a 'name' field for the property to be retrieved from
             JSBSim
         """
-        STATE_VARS_TO_PLOT = ('x', 'y', 'z', 'v_x', 'v_y', 'v_z')
-        x, y, z, v_x, v_y, v_z = [self.sim[props[var]['name']] for var in STATE_VARS_TO_PLOT]
+        x, y, z = [self.sim[props[var]['name']] for var in 'xyz']
+        u, v, w = [self.sim[props[var]['name']] for var in 'uvw']
+        control_surfaces = ['ail', 'ele', 'thr', 'rud']
+        ail, ele, thr, rud = [self.sim[props[var]['name']] for var in control_surfaces]
+        # get velocity vector coords using scaled velocity
+        x2 = x + u / self.FT_PER_DEG_LAT
+        y2 = y + v / self.ft_per_deg_lon
+        z2 = z - z    # negative because v_z is positive down
 
-        axes.scatter([x], [y], zs=[z], c='k', s=10)
-
+        # plot aircraft position and velocity
+        all_axes.axes_state.scatter([x], [y], zs=[z], c='k', s=10)
         if self.velocity_arrow:
             # get rid of previous timestep velocity arrow
             self.velocity_arrow.pop().remove()
@@ -247,3 +323,5 @@ class JsbSimInstance(object):
         z2 = z - v_z    # negative because v_z is positive down
         self.velocity_arrow = axes.plot([x, x2], [y, y2], [z, z2], 'r-')
         plt.pause(0.001)
+
+
