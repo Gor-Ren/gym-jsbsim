@@ -179,9 +179,6 @@ class JsbSimInstance(object):
         """
         Creates or updates a 3D plot of the episode aircraft trajectory.
         """
-        STATE_VARS_TO_PLOT = ('x', 'y', 'z', 'v_x', 'v_y', 'v_z')
-        x, y, z, v_x, v_y, v_z = [self.sim[self.props_to_plot[var]['name']] for var in STATE_VARS_TO_PLOT]
-
         if not self.figure:
             plt.ion()  # interactive mode allows dynamic updating of plot
             self.figure = plt.figure()
@@ -192,15 +189,36 @@ class JsbSimInstance(object):
             plt.show()
             plt.pause(0.001)  # voodoo pause needed for figure to appear
 
-        ax = self.figure.gca()
+        self._plot_state(self.figure, self.props_to_plot)
+
+    def _plot_state(self, figure: plt.Figure, props: Dict):
+        """
+        Plots the state of the simulation on input Figure.
+
+        State is given by three translational coords (x, y, z) and three
+        linear velocities (v_x, v_y, v_z).
+
+        The dict 'props' provides a mapping of these variable names to a
+        dict specifying their 'name', the property to be retrieved from
+        JSBSim.
+
+        :param figure: plt.Figure, the figure to be plotted on
+        :param props: dict, mapping strs x, y, z, v_x, v_y, v_z to a dict
+            containing a 'name' field for the property to be retrieved from
+            JSBSim
+        """
+        STATE_VARS_TO_PLOT = ('x', 'y', 'z', 'v_x', 'v_y', 'v_z')
+        x, y, z, v_x, v_y, v_z = [self.sim[props[var]['name']] for var in STATE_VARS_TO_PLOT]
+
+        ax = figure.gca()
+        ax.scatter([x], [y], zs=[z], c='k', s=10)
+
         if self.velocity_arrow:
             # get rid of previous timestep velocity arrow
             self.velocity_arrow.pop().remove()
-        # get coords from scaled velocities for drawing velocity line
+        # scale velocity and get coords for arrow
         x2 = x + v_x / self.FT_PER_DEG_LAT
         y2 = y + v_y / self.ft_per_deg_lon
-        z2 = z - v_z  # negative because v_z is positive down
+        z2 = z - v_z    # negative because v_z is positive down
         self.velocity_arrow = ax.plot([x, x2], [y, y2], [z, z2], 'r-')
-        # draw trajectory point
-        ax.scatter([x], [y], zs=[z], c='k', s=10)
         plt.pause(0.001)

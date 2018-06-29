@@ -111,19 +111,19 @@ class TestJsbSimInstance(unittest.TestCase):
         self.env.close()
         self.assertIsNone(self.env.sim.figure)
 
-    def test_plot_positions(self):
+    def test_plot_state(self):
+        # note: this checks that plot works without throwing exception
+        # correctness of plot must be checked in appropriate manual_test
         self.setUp()
         self.env.render(mode='human')
 
-        xs = [50, 50.1, 50.2, 50.3, 50.4, 50.5]
-        ys = [2, 2.5, 3.0, 3.5, 4.0, 4.5]
-        zs = [1000, 950, 900, 850, 800]
-        v_xs = [0, 100, 150, 200, 250]
-        v_ys = [300, 250, 200, 150, 100]
-        v_zs = [50, 50, 150, 200, 200]
+        action = np.array([-0.5, 0.9, -0.05, 0.75])
+        # repeat action several times
+        for _ in range(10):
+            obs, _, _, _ = self.env.step(action)
+            self.env.render(mode='human')
 
-        for plot_args in zip(xs, ys, zs, v_xs, v_ys, v_zs):
-            self.env.sim.plot(*plot_args)
+
 
     def test_asl_agl_elevations_equal(self):
         # we want the height above sea level to equal ground elevation at all times

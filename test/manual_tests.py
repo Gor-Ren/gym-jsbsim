@@ -24,10 +24,8 @@ class TestJsbSimInstance(unittest.TestCase):
     def test_render_episode(self):
         self.setUp()
         render_every = 5
-        obs = self.env.reset()
+        self.env.reset()
         for i in range(1000):
-            result = self.env.step(action=self.env.action_space.sample())
-            alt_sl = self.env.sim['position/h-sl-ft']
-            alt_gl = self.env.sim['position/h-agl-ft']
+            self.env.step(action=self.env.action_space.sample())
             if i % render_every == 0:
                 self.env.render(mode='human')
