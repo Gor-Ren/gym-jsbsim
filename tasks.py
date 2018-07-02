@@ -1,32 +1,108 @@
 import gym
+import math
+import numpy as np
+from JsbSimInstance import JsbSimInstance
 from abc import ABC
-from typing import Optional, Sequence, Mapping, Dict, Tuple, Any, Union
-Num = Union[int, float]  # a useful type
+from typing import Optional, Sequence, Dict, Tuple
 
 
 class TaskModule(ABC):
-    task_name = None
-    seed = None
+    task_state_variables = None  # should be specified by concrete implementations
+    base_state_variables = (
+        dict(name='position/h-sl-ft', description='altitude above mean sea level [ft]',
+             high=85000, low=-1400),
+        # altitude limits max 85 kft (highest an SR-71 Blackbird got to)
+        #   and min of Black Sea
+        dict(name='attitude/pitch-rad', description='pitch [rad]',
+             high=0.5 * math.pi, low=-0.5 * math.pi),
+        dict(name='attitude/roll-rad', description='roll [rad]',
+             high=math.pi, low=-math.pi),
+        # limits assume pitch and roll have same limits as Euler angles theta and phi,
+        #   as per Aircraft Control and Simulation 3rd Edn p. 12
+        dict(name='velocities/u-fps', description='body frame x-axis velocity; positive forward [ft/s]',
+             high=2200, low=-2200),
+        dict(name='velocities/v-fps', description='body frame y-axis velocity; positive right [ft/s]',
+             high=2200, low=-2200),
+        dict(name='velocities/w-fps',
+             description='body frame z-axis velocity; positive down [ft/s]',
+             high=2200, low=-2200),
+        # note: limits assume no linear velocity will exceed approx. +- Mach 2
+        dict(name='velocities/p-rad_sec', description='roll rate [rad/s]',
+             high=31, low=-31),
+        dict(name='velocities/q-rad_sec', description='pitch rate [rad/s]',
+             high=31, low=-31),
+        dict(name='velocities/r-rad_sec', description='yaw rate [rad/s]',
+             high=31, low=-31),
+        # note: limits assume no angular velocity will exceed ~5 revolution/s
+        dict(name='fcs/left-aileron-pos-norm', description='left aileron position, normalised',
+             high=1, low=-1),
+        dict(name='fcs/right-aileron-pos-norm', description='right aileron position, normalised',
+             high=1, low=-1),
+        dict(name='fcs/elevator-pos-norm', description='elevator position, normalised',
+             high=1, low=-1),
+        dict(name='fcs/rudder-pos-norm', description='rudder position, normalised',
+             high=1, low=-1),
+        dict(name='fcs/throttle-pos-norm', description='throttle position, normalised',
+             high=1, low=0),
+    )
 
-    def __init__(self, task_name: str, seed: Optional[int]=None):
+    base_action_variables = (
+        dict(name='fcs/aileron-cmd-norm', description='aileron commanded position, normalised',
+             high=1.0, low=-1.0),
+        dict(name='fcs/elevator-cmd-norm', description='elevator commanded position, normalised',
+             high=1.0, low=-1.0),
+        dict(name='fcs/rudder-cmd-norm', description='rudder commanded position, normalised',
+             high=1.0, low=-1.0),
+        dict(name='fcs/throttle-cmd-norm', description='throttle commanded position, normalised',
+             high=1.0, low=0.0),
+    )
+
+    def __init__(self, task_name: Optional[str]):
         """ Constructor """
         self.task_name = task_name
-        self.seed = seed
+        self.state_variables = self.get_full_state_variables()
+        self.action_variables = self.get_full_action_variables()
+        self.state_names = tuple([state_var['name'] for state_var in self.state_variables])
+        self.action_names = tuple([act_var['name'] for act_var in self.action_variables])
 
     def __repr__(self):
         return f'<TaskModule {self.task_name}>'
 
-    def task_step(self, observation) -> Tuple:
+    def task_step(self, sim: JsbSimInstance, action: Sequence[float], sim_steps: int) -> Tuple:
         """ Calculates step reward and termination from an agent observation.
 
-        :param observation: list of floats, the agent's state
-        :return: tuple of (reward, done) where,
+        :param sim: a JsbSimInstance, the simulation from which to extract state
+        :param action: sequence of floats, the agent's last action
+        :param sim_steps: number of JSBSim integration steps to perform following action
+            prior to making observation
+        :return: tuple of (observation, reward, done, info) where,
+            observation: np.array, agent's observation of the current environment
             reward: float, the reward for that step
             done: bool, True if the episode is over else False
+            info: dict, containing diagnostic info for debugging
         """
-        raise NotImplementedError()
+        # input actions
+        for var, command in zip(self.action_names, action):
+            sim[var] = command
 
-    def get_task_state_variables(self, base_state_vars):
+        # run simulation
+        for _ in range(sim_steps):
+            sim.run()
+
+        obs = [sim[var] for var in self.state_names]
+        reward = self._calculate_reward(sim)
+        done = self._is_done(sim)
+        info = {'sim_time': sim['simulation/sim-time-sec']}
+
+        return np.array(obs), reward, done, info
+
+    def _calculate_reward(self, sim:JsbSimInstance):
+        raise NotImplementedError
+
+    def _is_done(self, sim:JsbSimInstance):
+        raise NotImplementedError
+
+    def get_full_state_variables(self):
         """ Returns tuple of information on all of the task's state variables.
 
         Each state variable is defined by a dict with the following entries:
@@ -49,14 +125,17 @@ class TaskModule(ABC):
         The order of variables in the returned tuple corresponds to their order
         in the observation array extracted from the environment.
 
-        :param base_state_vars: tuple of dicts, the default state variables
         :return: tuple of dicts, each dict having a 'source', 'name',
             'description', 'high' and 'low' value
         """
-        raise NotImplementedError()
+        if self.task_state_variables is None:
+            raise NotImplementedError(f'task {self} has not defined task '
+                                      'state variables')
+        else:
+            return self.base_state_variables + self.task_state_variables
 
-    def get_task_action_variables(self, base_action_vars):
-        """ Returns collection of task-specific action variables.
+    def get_full_action_variables(self):
+        """ Returns collection of all task's action variables.
 
         Each action variable is defined by a dict with the following entries:
             'source': 'jsbsim' or 'task', where to get the variable's value.
@@ -72,17 +151,16 @@ class TaskModule(ABC):
             'low': number, the lower range of this variable, or -inf
 
         An environment may have some default action variables which are commonly
-        used; these are input as base_action_vars matching the same format. The
-        task may choose to omit some or all of these base variables.
+        used. The default behaviour is for the task to use all of these.
+        Alternative behaviour can be achieved by overriding this method.
 
         The order of variables in the returned tuple corresponds to their order
         in the action array passed to the environment by the agent.
 
-        :param base_action_vars: tuple of dicts, the default action variables
         :return: tuple of dicts, each dict having a 'source', 'name',
             'description', 'high' and 'low' value
         """
-        raise NotImplementedError()
+        return self.base_action_variables
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
         """ Returns dictionary mapping initial episode conditions to values.
@@ -98,21 +176,117 @@ class TaskModule(ABC):
         https://jsbsim-team.github.io/jsbsim/
 
         :return: dict mapping string for each initial condition property to
-            initial value, a float
+            initial value, a float, or None to use Env defaults
         """
-        gym.logger.warn('Task did not provide set of ICs; using default.')
-        return None
+        raise NotImplementedError()
+
+    def get_observation_space(self):
+        state_lows = np.array([state_var['low'] for state_var in self.state_variables])
+        state_highs = np.array([state_var['high'] for state_var in self.state_variables])
+        return gym.spaces.Box(low=state_lows, high=state_highs, dtype='float')
+
+    def get_action_space(self):
+        action_lows = np.array([act_var['low'] for act_var in self.action_variables])
+        action_highs = np.array([act_var['high'] for act_var in self.action_variables])
+        return gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
+
+    def reset_sim(self, sim: JsbSimInstance):
+        state = [sim[prop] for prop in self.state_names]
+        return state
 
 
 class DummyTask(TaskModule):
-    def task_step(self, observation: Tuple) -> Tuple:
-        return 0, True
+    """ A minimal task module for testing. """
+    task_state_variables = ()
 
-    def get_task_state_variables(self, base_state_vars):
-        return base_state_vars
+    def _calculate_reward(self, _):
+        return 0
 
-    def get_task_action_variables(self, base_action_vars):
-        return base_action_vars
+    def _is_done(self, _):
+        return False
 
-    def __init__(self):
-        super().__init__('DummyTask')
+    def get_initial_conditions(self):
+        return None
+
+    def __init__(self, task_name: Optional[str]='DummyTask'):
+        super().__init__(task_name)
+
+
+class SteadyLevelFlightTask(TaskModule):
+    """ A task in which the agent must perform steady, level flight. """
+    task_state_variables = (
+        dict(source='jsbsim', name='accelerations/udot-ft_sec2',
+             description='body frame x-axis acceleration, [ft/s^2]',
+             high=50, low=-50),
+        dict(source='jsbsim', name='accelerations/vdot-ft_sec2',
+             description='body frame y-axis acceleration, [ft/s^2]',
+             high=50, low=-50),
+        dict(source='jsbsim', name='accelerations/wdot-ft_sec2',
+             description='body frame z-axis acceleration, [ft/s^2]',
+             high=50, low=-50),
+        # 50 ft/s2 appears to be a reasonable maximum acceleration to clip at
+        dict(source='jsbsim', name='accelerations/pdot-rad_sec2',
+             description='roll rate acceleration [rad/s^2]',
+             high=31, low=-31),
+        dict(source='jsbsim', name='accelerations/qdot-rad_sec2',
+             description='pitch rate acceleration [rad/s^2]',
+             high=31, low=-31),
+        dict(source='jsbsim', name='accelerations/rdot-rad_sec2',
+             description='yaw rate acceleration [rad/s^2]',
+             high=31, low=-31),
+        dict(source='jsbsim', name='velocities/v-down-fps',
+             description='earth frame z-axis velocity [ft/s]',
+             high=2200, low=-2200),
+    )
+    TARGET_VALUES = (('accelerations/udot-ft_sec2', 0),
+                     ('accelerations/vdot-ft_sec2', 0),
+                     ('accelerations/wdot-ft_sec2', 0),
+                     ('accelerations/pdot-rad_sec2', 0),
+                     ('accelerations/qdot-rad_sec2', 0),
+                     ('accelerations/rdot-rad_sec2', 0),
+                     ('velocities/v-down-fps', 0),
+                     ('attitude/roll-rad', 0),)
+    MAX_TIME = 120
+    MIN_ALT_FT = 200
+
+    def __init__(self, task_name='SteadyLevelFlightTask'):
+        super().__init__(task_name)
+        self.controlled_idxs = self.get_target_variable_idxs(self.state_variables)
+
+    def get_initial_conditions(self) -> Optional[Dict[str, float]]:
+        pass
+
+    def get_full_action_variables(self):
+        """ Returns information defining all action variables for this task.
+
+        For steady level flight the agent controls ailerons, elevator and rudder.
+        Throttle will be set in the initial conditions and maintained at a
+        constant value.
+
+        :return: tuple of dicts, each dict having a 'source', 'name',
+            'description', 'high' and 'low' key
+        """
+        all_action_vars = super().get_full_action_variables()
+        # omit throttle from default actions
+        action_vars = tuple(var for var in all_action_vars if var['name'] != 'fcs/throttle-cmd-norm')
+        assert len(action_vars) == len(all_action_vars) - 1
+        return action_vars
+
+    def get_target_variable_idxs(self, state_variables):
+        controlled_idxs = []
+        for i, state_var in enumerate(state_variables):
+            # determine if we want to control this variable
+            for var_name, target_value in self.TARGET_VALUES:
+                if var_name == state_var['name']:
+                    controlled_idxs.append((i, target_value))
+
+        return tuple(controlled_idxs)  # being defensive
+
+    def _calculate_reward(self, sim: JsbSimInstance):
+        # reward = 0
+        # for index, target in self.controlled_idxs:
+        #    reward -= (target - index) ** 0.5  # take square root to help avoid outliers dominating?
+        return 0
+
+    def _is_done(self, sim: JsbSimInstance):
+        return False

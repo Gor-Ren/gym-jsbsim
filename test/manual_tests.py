@@ -12,9 +12,9 @@ class TestJsbSimInstance(unittest.TestCase):
     def test_long_episode_random_actions(self):
         self.setUp()
         tic = time.time()
-        obs = self.env.reset()
+        self.env.reset()
         for i in range(2000):
-            result = self.env.step(action=self.env.action_space.sample())
+            self.env.step(action=self.env.action_space.sample())
             print(f'sim {i / 10} s\n')
         toc = time.time()
         wall_time = (toc - tic)
@@ -29,5 +29,4 @@ class TestJsbSimInstance(unittest.TestCase):
             action = self.env.action_space.sample()
             obs, _, _, _ = self.env.step(action=action)
             if i % render_every == 0:
-                self.env.render(mode='human', action_names=self.env.action_names, action_values=action)
-
+                self.env.render(mode='human', action_names=self.env.task.action_names, action_values=action)

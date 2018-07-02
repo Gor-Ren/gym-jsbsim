@@ -34,7 +34,7 @@ class TestJsbSimInstance(unittest.TestCase):
     def validate_action_made(self, action: np.array):
         """ Helper; confirms action was correctly input to simulation. """
         self.validate_action(action)
-        for prop, command in zip(self.env.action_names, action):
+        for prop, command in zip(self.env.task.action_names, action):
             actual = self.env.sim[prop]
             self.assertAlmostEqual(command, actual,
                                    msg='simulation commanded value does not match action')
@@ -54,23 +54,23 @@ class TestJsbSimInstance(unittest.TestCase):
 
         places_tol = 3
 
-        self.assertEqual('attitude/pitch-rad', self.env.observation_names[1])
+        self.assertEqual('attitude/pitch-rad', self.env.task.state_names[1])
         self.assertAlmostEqual(-0.5 * math.pi, obs_lows[1], places=places_tol,
                                msg='Pitch low range should be -pi/2')
         self.assertAlmostEqual(0.5 * math.pi, obs_highs[1], places=places_tol,
                                msg='Pitch high range should be +pi/2')
-        self.assertEqual('attitude/roll-rad', self.env.observation_names[2])
+        self.assertEqual('attitude/roll-rad', self.env.task.state_names[2])
         self.assertAlmostEqual(-1 * math.pi, obs_lows[2], places=places_tol,
                                msg='Roll low range should be -pi')
         self.assertAlmostEqual(1 * math.pi, obs_highs[2], places=places_tol,
                                msg='Roll high range should be +pi')
 
-        self.assertEqual('fcs/aileron-cmd-norm', self.env.action_names[0])
+        self.assertEqual('fcs/aileron-cmd-norm', self.env.task.action_names[0])
         self.assertAlmostEqual(-1, act_lows[0], places=places_tol,
                                msg='Aileron command low range should be -1.0')
         self.assertAlmostEqual(1, act_highs[0], places=places_tol,
                                msg='Aileron command high range should be +1.0')
-        self.assertEqual('fcs/throttle-cmd-norm', self.env.action_names[3])
+        self.assertEqual('fcs/throttle-cmd-norm', self.env.task.action_names[3])
         self.assertAlmostEqual(0, act_lows[3], places=places_tol,
                                msg='Throttle command low range should be 0.0')
         self.assertAlmostEqual(1, act_highs[3], places=places_tol,
@@ -132,7 +132,7 @@ class TestJsbSimInstance(unittest.TestCase):
         for _ in range(10):
             action = self.env.action_space.sample()
             _, _, _, _ = self.env.step(action)
-            self.env.render(mode='human', action_names=self.env.action_names, action_values=action)
+            self.env.render(mode='human', action_names=self.env.task.action_names, action_values=action)
 
     def test_asl_agl_elevations_equal(self):
         # we want the height above sea level to equal ground elevation at all times
