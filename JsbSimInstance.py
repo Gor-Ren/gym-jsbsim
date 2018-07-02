@@ -18,9 +18,6 @@ class JsbSimInstance(object):
     """
     A class which wraps an instance of JSBSim and manages communication with it.
     """
-    #AxesTuple = namedtuple('AxesTuple',
-    #                      ['axes_state', 'axes_stick', 'axes_throttle', 'axes_rudder'])
-
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
     properties = None
     props_to_plot: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
@@ -138,8 +135,6 @@ class JsbSimInstance(object):
         XML file is loaded, and then the dictionary values are fed in.
 
         This method sets the self.properties set of valid property names.
-
-        TODO: investigate whether we can specify ICs without loading XML
 
         :param dt: float, the JSBSim integration timestep in seconds
         :param model_name: string, name of aircraft to be loaded
