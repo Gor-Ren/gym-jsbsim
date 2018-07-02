@@ -244,10 +244,8 @@ class JsbSimInstance(object):
         # config subplot for stick (aileron and elevator control in x/y axes)
         axes_stick.set_xlabel('ailerons [-]', )
         axes_stick.set_ylabel('elevator [-]')
-        # set limits
         axes_stick.set_xlim(left=-1, right=1)
         axes_stick.set_ylim(bottom=-1, top=1)
-        # move axis labels outside subplot
         axes_stick.xaxis.set_label_coords(0.5, 1.08)
         axes_stick.yaxis.set_label_coords(-0.05, 0.5)
         # make axes cross at origin

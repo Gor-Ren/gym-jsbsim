@@ -101,19 +101,19 @@ class JsbSimEnv(gym.Env):
         # TODO: action variables should come from TaskModule
         action_variables = (
             {'name': 'fcs/aileron-cmd-norm',
-             'description': 'right aileron position, normalised',
+             'description': 'aileron commanded position, normalised',
              'high': 1.0,
              'low': -1.0, },
             {'name': 'fcs/elevator-cmd-norm',
-             'description': 'elevator position, normalised',
+             'description': 'elevator commanded position, normalised',
              'high': 1.0,
              'low': -1.0, },
             {'name': 'fcs/rudder-cmd-norm',
-             'description': 'rudder position, normalised',
+             'description': 'rudder commanded position, normalised',
              'high': 1.0,
              'low': -1.0, },
             {'name': 'fcs/throttle-cmd-norm',
-             'description': 'throttle position, normalised',
+             'description': 'throttle commanded position, normalised',
              'high': 1.0,
              'low': 0.0, },
         )
