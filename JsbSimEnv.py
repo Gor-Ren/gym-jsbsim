@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 import math
+from tasks import TaskModule, DummyTask
 from JsbSimInstance import JsbSimInstance
 from typing import Tuple
 
@@ -30,26 +31,30 @@ class JsbSimEnv(gym.Env):
     ATTRIBUTION: this class is based on the OpenAI Gym Env API. Method
     docstrings have been taken from the OpenAI API and modified where required.
     """
+    sim: JsbSimInstance = None
+    task: TaskModule = None
     DT_HZ: int = 120  # JSBSim integration frequency [Hz]
     agent_step_skip: int = None
-    sim: JsbSimInstance = None
     observation_space: gym.spaces.Box = None
     action_space: gym.spaces.Box = None
+    state_variables = None
+    action_variables = None
     observation_names: Tuple[str] = None
     action_names: Tuple[str] = None
 
-    def __init__(self, agent_interaction_freq: int=10):
+    def __init__(self, task: TaskModule=DummyTask(), agent_interaction_freq: int=10):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.
 
         :param agent_interaction_freq: int, how many times per second the agent
-            should make a state-action interaction.
+            should interact with environment.
         """
-        if agent_interaction_freq > 120:
+        if agent_interaction_freq > self.DT_HZ:
             raise ValueError('agent interaction frequency must be less than '
                              'or equal to JSBSim integration frequency of '
                              f'{self.DT_HZ} Hz.')
+        self.task = task
         self.agent_step_skip: int = self.DT_HZ // agent_interaction_freq
         self.init_spaces()
         # TODO: set self.reward_range
@@ -95,11 +100,7 @@ class JsbSimEnv(gym.Env):
                  high=1, low=0),
         )
 
-        # TODO: merge in TaskModule state vars
-        state_variables = base_state_variables + ()
-
-        # TODO: action variables should come from TaskModule
-        action_variables = (
+        base_action_variables = (
             {'name': 'fcs/aileron-cmd-norm',
              'description': 'aileron commanded position, normalised',
              'high': 1.0,
@@ -118,18 +119,21 @@ class JsbSimEnv(gym.Env):
              'low': 0.0, },
         )
 
+        self.state_variables = self.task.get_task_state_variables(base_state_variables)
+        self.action_variables = self.task.get_task_action_variables(base_action_variables)
+
         # create Space objects
-        state_lows = np.array([state_var['low'] for state_var in state_variables])
-        state_highs = np.array([state_var['high'] for state_var in state_variables])
+        state_lows = np.array([state_var['low'] for state_var in self.state_variables])
+        state_highs = np.array([state_var['high'] for state_var in self.state_variables])
         self.observation_space = gym.spaces.Box(low=state_lows, high=state_highs, dtype='float')
 
-        action_lows = np.array([act_var['low'] for act_var in action_variables])
-        action_highs = np.array([act_var['high'] for act_var in action_variables])
+        action_lows = np.array([act_var['low'] for act_var in self.action_variables])
+        action_highs = np.array([act_var['high'] for act_var in self.action_variables])
         self.action_space = gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
 
         # store variable names for getting/setting in the simulation
-        self.observation_names = tuple([state_var['name'] for state_var in state_variables])
-        self.action_names = tuple([act_var['name'] for act_var in action_variables])
+        self.observation_names = tuple([state_var['name'] for state_var in self.state_variables])
+        self.action_names = tuple([act_var['name'] for act_var in self.action_variables])
 
     def step(self, action: np.array):
         """
@@ -147,22 +151,21 @@ class JsbSimEnv(gym.Env):
             done (boolean): whether the episode has ended, in which case further step() calls are undefined
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
-        assert(action.shape == self.action_space.shape,
-               'mismatch between action and action space size')
+        if not (action.shape == self.action_space.shape):
+            raise ValueError('mismatch between action and action space size')
 
         # input actions
         for var, command in zip(self.action_names, action):
             self.sim[var] = command
 
+        # run simulation
         for _ in range(self.agent_step_skip):
             self.sim.run()
 
         # retrieve state observation
         obs = [self.sim[var] for var in self.observation_names]
 
-        # TODO: TaskModule should calc reward and termination
-        reward = None
-        done = None
+        reward, done = self.task.task_step(obs)
         info = {'sim_time': self.sim['simulation/sim-time-sec']}
 
         return np.array(obs), reward, done, info

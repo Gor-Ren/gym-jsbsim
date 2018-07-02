@@ -1,6 +1,7 @@
 import gym
 from abc import ABC
-from typing import Optional, Sequence, Mapping, Dict, Tuple, Any
+from typing import Optional, Sequence, Mapping, Dict, Tuple, Any, Union
+Num = Union[int, float]  # a useful type
 
 
 class TaskModule(ABC):
@@ -25,7 +26,7 @@ class TaskModule(ABC):
         """
         raise NotImplementedError()
 
-    def get_task_state_variables(self, base_state_vars: Tuple[Dict]) -> Tuple[Dict]:
+    def get_task_state_variables(self, base_state_vars):
         """ Returns tuple of information on all of the task's state variables.
 
         Each state variable is defined by a dict with the following entries:
@@ -54,7 +55,7 @@ class TaskModule(ABC):
         """
         raise NotImplementedError()
 
-    def get_task_action_variables(self, base_action_vars: Tuple[Dict]) -> Tuple[Dict]:
+    def get_task_action_variables(self, base_action_vars):
         """ Returns collection of task-specific action variables.
 
         Each action variable is defined by a dict with the following entries:
@@ -107,10 +108,10 @@ class DummyTask(TaskModule):
     def task_step(self, observation: Tuple) -> Tuple:
         return 0, True
 
-    def get_task_state_variables(self, base_state_vars: Tuple[Dict]) -> Tuple[Dict]:
+    def get_task_state_variables(self, base_state_vars):
         return base_state_vars
 
-    def get_task_action_variables(self, base_action_vars: Tuple[Dict]) -> Tuple[Dict]:
+    def get_task_action_variables(self, base_action_vars):
         return base_action_vars
 
     def __init__(self):

@@ -164,6 +164,7 @@ def basic_task():
     """ A simple task involving initing a JSBSimInstance to test multiprocessing. """
     time.sleep(0.05)
     fdm = JsbSimInstance(aircraft_model_name='c172x')
+    fdm.run()
     time.sleep(0.05)
 
     return 0
