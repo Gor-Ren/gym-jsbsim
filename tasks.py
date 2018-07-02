@@ -41,7 +41,7 @@ class TaskModule(ABC):
                 unbounded
             'low': number, the lower range of this variable, or -inf
 
-        An environment may have some default state variables which are always
+        An environment may have some default state variables which are commonly
         used; these are input as base_state_vars matching the same format. The
         task may choose to omit some or all of these base variables.
 
@@ -54,7 +54,7 @@ class TaskModule(ABC):
         """
         raise NotImplementedError()
 
-    def get_task_action_variables(self) -> Tuple[Dict]:
+    def get_task_action_variables(self, base_action_vars: Tuple[Dict]) -> Tuple[Dict]:
         """ Returns collection of task-specific action variables.
 
         Each action variable is defined by a dict with the following entries:
@@ -70,9 +70,14 @@ class TaskModule(ABC):
                 unbounded
             'low': number, the lower range of this variable, or -inf
 
+        An environment may have some default action variables which are commonly
+        used; these are input as base_action_vars matching the same format. The
+        task may choose to omit some or all of these base variables.
+
         The order of variables in the returned tuple corresponds to their order
         in the action array passed to the environment by the agent.
 
+        :param base_action_vars: tuple of dicts, the default action variables
         :return: tuple of dicts, each dict having a 'source', 'name',
             'description', 'high' and 'low' value
         """
@@ -96,3 +101,17 @@ class TaskModule(ABC):
         """
         gym.logger.warn('Task did not provide set of ICs; using default.')
         return None
+
+
+class DummyTask(TaskModule):
+    def task_step(self, observation: Tuple) -> Tuple:
+        return 0, True
+
+    def get_task_state_variables(self, base_state_vars: Tuple[Dict]) -> Tuple[Dict]:
+        return base_state_vars
+
+    def get_task_action_variables(self, base_action_vars: Tuple[Dict]) -> Tuple[Dict]:
+        return base_action_vars
+
+    def __init__(self):
+        super().__init__('DummyTask')
