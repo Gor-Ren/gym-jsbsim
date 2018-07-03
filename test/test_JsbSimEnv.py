@@ -4,13 +4,14 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 from JsbSimEnv import JsbSimEnv
+from test.stubs import TaskStub
 
 
 class TestJsbSimInstance(unittest.TestCase):
 
     def setUp(self, agent_interaction_freq: int=10):
         self.env = None
-        self.env = JsbSimEnv(agent_interaction_freq=agent_interaction_freq)
+        self.env = JsbSimEnv(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
         self.env.reset()
 
     def validate_observation(self, obs: np.array):

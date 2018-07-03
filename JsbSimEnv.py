@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from tasks import TaskModule, DummyTask
+from tasks import TaskModule
 from JsbSimInstance import JsbSimInstance
 from typing import Type
 
@@ -37,7 +37,7 @@ class JsbSimEnv(gym.Env):
     state_variables = None
     action_variables = None
 
-    def __init__(self, task_type: Type[TaskModule]=DummyTask, agent_interaction_freq: int=10,
+    def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10,
                  shaped_reward: bool=True):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be

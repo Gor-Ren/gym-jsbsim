@@ -1,5 +1,6 @@
 import gym
 import math
+import random
 import numpy as np
 from JsbSimInstance import JsbSimInstance
 from abc import ABC
@@ -45,7 +46,6 @@ class TaskModule(ABC):
         dict(name='fcs/throttle-pos-norm', description='throttle position, normalised',
              high=1, low=0),
     )
-
     base_action_variables = (
         dict(name='fcs/aileron-cmd-norm', description='aileron commanded position, normalised',
              high=1.0, low=-1.0),
@@ -203,23 +203,6 @@ class TaskModule(ABC):
     def reset_sim(self, sim: JsbSimInstance):
         state = [sim[prop] for prop in self.state_names]
         return state
-
-
-class DummyTask(TaskModule):
-    """ A minimal task module for testing. """
-    task_state_variables = ()
-
-    def _calculate_reward(self, _):
-        return 0
-
-    def _is_done(self, _):
-        return False
-
-    def get_initial_conditions(self):
-        return None
-
-    def __init__(self, task_name: Optional[str]='DummyTask'):
-        super().__init__(task_name)
 
 
 class SteadyLevelFlightTask(TaskModule):
