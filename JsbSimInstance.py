@@ -124,6 +124,10 @@ class JsbSimInstance(object):
             # name is empty string, no model is loaded
             return None
 
+    def get_sim_time(self) -> float:
+        """ Gets the simulation time from JSBSim, a float. """
+        return self.sim['simulation/sim-time-sec']
+
     def initialise(self, dt: float, model_name: str,
                    init_conditions: Dict[str, Union[int, float]]=None) -> None:
         """

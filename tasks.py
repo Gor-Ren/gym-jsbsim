@@ -100,7 +100,7 @@ class TaskModule(ABC):
         obs = [sim[var] for var in self.state_names]
         reward = self._calculate_reward(sim)
         done = self._is_done(sim)
-        info = {'sim_time': sim['simulation/sim-time-sec']}
+        info = {'sim_time': sim.get_sim_time()}
 
         return np.array(obs), reward, done, info
 
