@@ -9,7 +9,7 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def select_action(self, state, action):
+    def act(self, state):
         pass
 
     @abstractmethod
@@ -23,7 +23,7 @@ class RandomAgent(Agent):
         self.random = random.Random(seed)
         self.action_space = action_space
 
-    def select_action(self, state, action):
+    def act(self, _):
         return self.action_space.sample()
 
     def observe(self, state, action, reward, done):
