@@ -28,12 +28,12 @@ class TaskModule(ABC):
              high=2200, low=-2200),
         # note: limits assume no linear velocity will exceed approx. +- Mach 2
         dict(name='velocities/p-rad_sec', description='roll rate [rad/s]',
-             high=31, low=-31),
+             high=2 * math.pi, low=-2 * math.pi),
         dict(name='velocities/q-rad_sec', description='pitch rate [rad/s]',
-             high=31, low=-31),
+             high=2 * math.pi, low=-2 * math.pi),
         dict(name='velocities/r-rad_sec', description='yaw rate [rad/s]',
-             high=31, low=-31),
-        # note: limits assume no angular velocity will exceed ~5 revolution/s
+             high=2 * math.pi, low=-2 * math.pi),
+        # note: limits assume no angular velocity will exceed ~1 revolution/s
         dict(name='fcs/left-aileron-pos-norm', description='left aileron position, normalised',
              high=1, low=-1),
         dict(name='fcs/right-aileron-pos-norm', description='right aileron position, normalised',
@@ -227,13 +227,14 @@ class SteadyLevelFlightTask(TaskModule):
         # 50 ft/s2 appears to be a reasonable maximum acceleration to clip at
         dict(source='jsbsim', name='accelerations/pdot-rad_sec2',
              description='roll rate acceleration [rad/s^2]',
-             high=31, low=-31),
+             high=0.5 * math.pi, low=-0.5 * math.pi),
         dict(source='jsbsim', name='accelerations/qdot-rad_sec2',
              description='pitch rate acceleration [rad/s^2]',
-             high=31, low=-31),
+             high=0.5 * math.pi, low=-0.5 * math.pi),
         dict(source='jsbsim', name='accelerations/rdot-rad_sec2',
              description='yaw rate acceleration [rad/s^2]',
-             high=31, low=-31),
+             high=0.5 * math.pi, low=-0.5 * math.pi),
+        # arbitrarily chose max angular accel 1/4 of max angular velocity
         dict(source='jsbsim', name='velocities/v-down-fps',
              description='earth frame z-axis velocity [ft/s]',
              high=2200, low=-2200),
