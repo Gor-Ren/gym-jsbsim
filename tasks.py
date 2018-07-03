@@ -96,10 +96,20 @@ class TaskModule(ABC):
 
         return np.array(obs), reward, done, info
 
-    def _calculate_reward(self, sim:JsbSimInstance):
+    def _calculate_reward(self, sim: JsbSimInstance):
+        """ Calculates the reward from the simulation state.
+
+        :param sim: JsbSimInstance, the environment simulation
+        :return: a number, the reward for the timestep
+        """
         raise NotImplementedError
 
-    def _is_done(self, sim:JsbSimInstance):
+    def _is_done(self, sim: JsbSimInstance):
+        """ Determines whether the current episode should terminate.
+
+        :param sim: JsbSimInstance, the environment simulation
+        :return: True if the episode should terminate else False
+        """
         raise NotImplementedError
 
     def get_full_state_variables(self):
@@ -247,12 +257,12 @@ class SteadyLevelFlightTask(TaskModule):
                      ('accelerations/rdot-rad_sec2', 0),
                      ('velocities/v-down-fps', 0),
                      ('attitude/roll-rad', 0),)
-    MAX_TIME = 120
+    MAX_TIME_SECS = 120
     MIN_ALT_FT = 200
+    TOO_LOW_REWARD = -10
 
     def __init__(self, task_name='SteadyLevelFlightTask'):
         super().__init__(task_name)
-        self.controlled_idxs = self.get_target_variable_idxs(self.state_variables)
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
         pass
@@ -273,21 +283,26 @@ class SteadyLevelFlightTask(TaskModule):
         assert len(action_vars) == len(all_action_vars) - 1
         return action_vars
 
-    def get_target_variable_idxs(self, state_variables):
-        controlled_idxs = []
-        for i, state_var in enumerate(state_variables):
-            # determine if we want to control this variable
-            for var_name, target_value in self.TARGET_VALUES:
-                if var_name == state_var['name']:
-                    controlled_idxs.append((i, target_value))
-
-        return tuple(controlled_idxs)  # being defensive
-
     def _calculate_reward(self, sim: JsbSimInstance):
-        # reward = 0
-        # for index, target in self.controlled_idxs:
-        #    reward -= (target - index) ** 0.5  # take square root to help avoid outliers dominating?
-        return 0
+        """ Calculates the reward from the simulation state.
+
+        :param sim: JsbSimInstance, the environment simulation
+        :return: a number, the reward for the timestep
+        """
+        reward = 0
+        for prop, target in self.TARGET_VALUES:
+            reward -= abs(target - sim[prop]) ** 0.5  # take square root to help avoid outliers dominating?
+        too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
+        if too_low:
+            reward += self.TOO_LOW_REWARD
+        return reward
 
     def _is_done(self, sim: JsbSimInstance):
-        return False
+        """ Determines whether the current episode should terminate.
+
+        :param sim: JsbSimInstance, the environment simulation
+        :return: True if the episode should terminate else False
+        """
+        time_out = sim['simulation/sim-time-sec'] > self.MAX_TIME_SECS
+        too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
+        return time_out or too_low
