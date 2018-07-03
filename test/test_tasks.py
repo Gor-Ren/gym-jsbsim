@@ -41,3 +41,28 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         dummy_sim = SimStub({'simulation/sim-time-sec': 9999,
                              'position/h-sl-ft': 5000})
         self.assertTrue(self.task._is_done(dummy_sim))
+
+    def test_task_reset(self):
+        props_value = 5
+        prop_value_pairs = [(prop['name'], props_value) for prop in self.task.state_variables]
+        dummy_sim = SimStub(prop_value_pairs)
+        state = self.task.reset_sim(dummy_sim)
+
+        number_of_state_vars = len(self.task.state_variables)
+        expected_state = np.full(shape=(number_of_state_vars,), fill_value=5, dtype=int)
+
+        self.assertIsInstance(state, np.ndarray)
+        np.testing.assert_array_equal(expected_state, state)
+
+        # check throttle and mixture set
+        self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim['fcs/throttle-cmd-norm'])
+        self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim['fcs/mixture-cmd-norm'])
+
+    def test_get_initial_conditions(self):
+        ics = self.task.get_initial_conditions()
+
+        self.assertIsInstance(ics, dict)
+        for prop_name, value in self.task.base_initial_conditions.items():
+            self.assertAlmostEqual(value, ics[prop_name])
+        for prop_name, value in self.task.initial_conditions.items():
+            self.assertAlmostEqual(value, ics[prop_name])

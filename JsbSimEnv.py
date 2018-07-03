@@ -88,7 +88,7 @@ class JsbSimEnv(gym.Env):
         """
         if self.sim:
             self.sim.close()
-        init_conditions = None
+        init_conditions = self.task.get_initial_conditions()
         self.sim = JsbSimInstance(dt=(1.0 / self.DT_HZ), init_conditions=init_conditions)
         state = self.task.reset_sim(self.sim)
 

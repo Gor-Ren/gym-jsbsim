@@ -56,9 +56,17 @@ class TaskModule(ABC):
         dict(name='fcs/throttle-cmd-norm', description='throttle commanded position, normalised',
              high=1.0, low=0.0),
     )
+    base_initial_conditions = {'ic/h-sl-ft': 5000,
+                               'ic/terrain-elevation-ft': 0.00000001,
+                               'ic/long-gc-deg': 2.3273,
+                               'ic/lat-gc-deg': 51.3781,  # corresp. UoBath
+    }
 
     def __init__(self, task_name: Optional[str]):
-        """ Constructor """
+        """ Constructor
+
+        :param task_name: str, the name of the task
+        """
         self.task_name = task_name
         self.state_variables = self.get_full_state_variables()
         self.action_variables = self.get_full_action_variables()
@@ -201,6 +209,11 @@ class TaskModule(ABC):
         return gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
 
     def reset_sim(self, sim: JsbSimInstance):
+        """ Sets initial controls for episodes and retrieves state observation.
+
+        :param sim: JsbSimInstance, the environment simulation
+        :return: array, the first state observation of the episode
+        """
         state = [sim[prop] for prop in self.state_names]
         return state
 
@@ -240,15 +253,29 @@ class SteadyLevelFlightTask(TaskModule):
                      ('accelerations/rdot-rad_sec2', 0),
                      ('velocities/v-down-fps', 0),
                      ('attitude/roll-rad', 0),)
+    initial_conditions = {'ic/psi-true-deg': random.uniform(0, 360),  # heading
+                          'ic/vt-kts': random.uniform(150, 300),  # true airpseed
+                          'ic/phi-deg': random.uniform(-180, 180),  # roll angle
+                          'ic/theta-deg': random.uniform(-45, 45),  # pitch angle
+                          }
     MAX_TIME_SECS = 120
     MIN_ALT_FT = 200
     TOO_LOW_REWARD = -10
+    THROTTLE_CMD = 0.8
+    MIXTURE_CMD = 0.8
 
     def __init__(self, task_name='SteadyLevelFlightTask'):
         super().__init__(task_name)
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
-        pass
+        """ Returns dictionary mapping initial episode conditions to values.
+
+        The aircraft is initialised at a random orientation and velocity.
+
+        :return: dict mapping string for each initial condition property to
+            a float, or None to use Env defaults
+        """
+        return {**self.base_initial_conditions, **self.initial_conditions}
 
     def get_full_action_variables(self):
         """ Returns information defining all action variables for this task.
@@ -289,3 +316,17 @@ class SteadyLevelFlightTask(TaskModule):
         time_out = sim['simulation/sim-time-sec'] > self.MAX_TIME_SECS
         too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         return time_out or too_low
+
+    def reset_sim(self, sim: JsbSimInstance):
+        """ Sets initial controls for episodes and retrieves state observation.
+
+        :param sim: JsbSimInstance, the environment simulation
+        :return: array, the first state observation of the episode
+        """
+        # set fixed values for throttle and mixture
+        sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
+        sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
+
+        state = [sim[prop] for prop in self.state_names]
+        assert len(state) == len(self.state_variables)
+        return np.array(state)
