@@ -31,11 +31,7 @@ class JsbSimEnv(gym.Env):
     docstrings have been taken from the OpenAI API and modified where required.
     """
     sim: JsbSimInstance = None
-    task: TaskModule = None
     DT_HZ: int = 120  # JSBSim integration frequency [Hz]
-    sim_steps: int = None
-    state_variables = None
-    action_variables = None
 
     def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10,
                  shaped_reward: bool=True):
@@ -90,7 +86,7 @@ class JsbSimEnv(gym.Env):
             self.sim.close()
         init_conditions = self.task.get_initial_conditions()
         self.sim = JsbSimInstance(dt=(1.0 / self.DT_HZ), init_conditions=init_conditions)
-        state = self.task.reset_sim(self.sim)
+        state = self.task.observe_first_state(self.sim)
 
         return np.array(state)
 

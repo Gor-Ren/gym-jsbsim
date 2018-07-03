@@ -42,11 +42,11 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
                              'position/h-sl-ft': 5000})
         self.assertTrue(self.task._is_done(dummy_sim))
 
-    def test_task_reset(self):
+    def test_task_first_observation(self):
         props_value = 5
         prop_value_pairs = [(prop['name'], props_value) for prop in self.task.state_variables]
         dummy_sim = SimStub(prop_value_pairs)
-        state = self.task.reset_sim(dummy_sim)
+        state = self.task.observe_first_state(dummy_sim)
 
         number_of_state_vars = len(self.task.state_variables)
         expected_state = np.full(shape=(number_of_state_vars,), fill_value=5, dtype=int)

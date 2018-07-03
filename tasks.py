@@ -208,14 +208,18 @@ class TaskModule(ABC):
         action_highs = np.array([act_var['high'] for act_var in self.action_variables])
         return gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
 
-    def reset_sim(self, sim: JsbSimInstance):
-        """ Sets initial controls for episodes and retrieves state observation.
+    def observe_first_state(self, sim: JsbSimInstance):
+        """ Get first state observation from reset sim.
+
+        This method will always be called when starting an episode. Tasks may
+        set properties here, e.g. control commands which are not in the agent
+        action space.
 
         :param sim: JsbSimInstance, the environment simulation
         :return: array, the first state observation of the episode
         """
         state = [sim[prop] for prop in self.state_names]
-        return state
+        return np.array(state)
 
 
 class SteadyLevelFlightTask(TaskModule):
@@ -243,7 +247,7 @@ class SteadyLevelFlightTask(TaskModule):
                             dict(source='jsbsim', name='velocities/v-down-fps',
                                  description='earth frame z-axis velocity [ft/s]',
                                  high=2200, low=-2200),
-                            )
+    )
     TARGET_VALUES = (('accelerations/udot-ft_sec2', 0),
                      ('accelerations/vdot-ft_sec2', 0),
                      ('accelerations/wdot-ft_sec2', 0),
@@ -252,12 +256,12 @@ class SteadyLevelFlightTask(TaskModule):
                      ('accelerations/rdot-rad_sec2', 0),
                      ('velocities/v-down-fps', 0),
                      ('attitude/roll-rad', 0),
-                     )
+    )
     initial_conditions = {'ic/psi-true-deg': random.uniform(0, 360),  # heading
-                          'ic/vt-kts': random.uniform(150, 300),  # true airpseed
+                          'ic/vt-kts': random.uniform(150, 300),  # true airspeed
                           'ic/phi-deg': random.uniform(-180, 180),  # roll angle
                           'ic/theta-deg': random.uniform(-45, 45),  # pitch angle
-                          }
+    }
     MAX_TIME_SECS = 120
     MIN_ALT_FT = 200
     TOO_LOW_REWARD = -10
@@ -317,8 +321,8 @@ class SteadyLevelFlightTask(TaskModule):
         too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         return time_out or too_low
 
-    def reset_sim(self, sim: JsbSimInstance):
-        """ Sets initial controls for episodes and retrieves state observation.
+    def observe_first_state(self, sim: JsbSimInstance):
+        """ Sets control inputs for start of episode and retrieves state observation.
 
         :param sim: JsbSimInstance, the environment simulation
         :return: array, the first state observation of the episode

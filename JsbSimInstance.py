@@ -31,7 +31,7 @@ class JsbSimInstance(object):
                                thr=dict(name='fcs/throttle-pos-norm', label='throttle position, [-]'),
                                rud=dict(name='fcs/rudder-pos-norm', label='rudder position, [-]'))
     FT_PER_DEG_LAT: int = 365228
-    ft_per_deg_lon: int = None  # calc at reset(), depends on longitude
+    ft_per_deg_lon: int = None  # calc at reset() - it depends on the longitude value
     figure: plt.Figure = None
     axes: AxesTuple = None
     velocity_arrow = None
@@ -46,7 +46,7 @@ class JsbSimInstance(object):
         :param dt: float, the JSBSim integration timestep in seconds. Defaults
             to 1/120, i.e. 120 Hz
         :param aircraft_model_name: string, name of aircraft to be loaded.
-            JSBSim looks for file \model_name\model_name.xml in root dir.
+            JSBSim looks for file \model_name\model_name.xml from root dir.
         :param init_conditions: dict mapping properties to their initial values.
             Defaults to None, causing a default set of initial props to be used.
         """
