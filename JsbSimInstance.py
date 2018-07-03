@@ -232,9 +232,7 @@ class JsbSimInstance(object):
         axes_state.set_ylabel(self.props_to_plot['y']['label'])
         axes_state.set_zlabel(self.props_to_plot['z']['label'])
         green_rgba = (0.556, 0.764, 0.235, 0.8)
-        # sky_blue_rgba = (0.815, 0.984, 0.980, 0.8)
         axes_state.w_zaxis.set_pane_color(green_rgba)
-
 
         # config subplot for stick (aileron and elevator control in x/y axes)
         axes_stick.set_xlabel('ailerons [-]', )
