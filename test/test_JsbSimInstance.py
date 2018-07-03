@@ -54,6 +54,12 @@ class TestJsbSimWrapper(unittest.TestCase):
             actual = self.sim[prop]
             self.assertAlmostEqual(expected, actual)
 
+    def test_get_bad_property(self):
+        self.setUp()
+        bad_prop = 'bad'
+        with self.assertRaises(KeyError):
+            _ = self.sim[bad_prop]
+
     def test_set_property(self):
         self.setUp()
         set_values = {
