@@ -30,3 +30,6 @@ class TestJsbSimInstance(unittest.TestCase):
             obs, _, _, _ = self.env.step(action=action)
             if i % render_every == 0:
                 self.env.render(mode='human', action_names=self.env.task.action_names, action_values=action)
+
+
+
