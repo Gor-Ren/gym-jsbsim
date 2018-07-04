@@ -1,8 +1,10 @@
 import gym
+import subprocess
 import numpy as np
 from tasks import TaskModule
 from JsbSimInstance import JsbSimInstance
 from typing import Type
+from gym import logger
 
 
 class JsbSimEnv(gym.Env):
@@ -30,11 +32,9 @@ class JsbSimEnv(gym.Env):
     ATTRIBUTION: this class is based on the OpenAI Gym Env API. Method
     docstrings have been taken from the OpenAI API and modified where required.
     """
-    sim: JsbSimInstance = None
     DT_HZ: int = 120  # JSBSim integration frequency [Hz]
 
-    def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10,
-                 shaped_reward: bool=True):
+    def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.
@@ -48,12 +48,13 @@ class JsbSimEnv(gym.Env):
             raise ValueError('agent interaction frequency must be less than '
                              'or equal to JSBSim integration frequency of '
                              f'{self.DT_HZ} Hz.')
+        self.sim: JsbSimInstance = None
         self.sim_steps: int = self.DT_HZ // agent_interaction_freq
         self.task = task_type()
         # set Space objects
         self.observation_space: gym.spaces.Box = self.task.get_observation_space()
         self.action_space: gym.spaces.Box = self.task.get_action_space()
-        self.shaped_reward = shaped_reward
+        self.flightgear_process: subprocess.Popen = None
 
     def step(self, action: np.ndarray):
         """
@@ -126,8 +127,37 @@ class JsbSimEnv(gym.Env):
         """
         if mode == 'human':
             self.sim.plot(action_names=action_names, action_values=action_values)
+        elif mode == 'flightgear':
+            if not self.flightgear_process:
+                # have sim load appropriate output directive
+
+                # start FG
+                self._launch_flightgear()
         else:
             super(JsbSimEnv, self).render(mode=mode)
+
+    def _launch_flightgear(self):
+        TYPE = 'socket'
+        DIRECTION = 'in'
+        RATE = 60
+        SERVER = ''
+        PORT = 5550
+        PROTOCOL = 'udp'
+        flight_model_arg_input = f'{TYPE},{DIRECTION},{RATE},{SERVER},{PORT},{PROTOCOL}'
+
+        flightgear_cmd = 'fgfs'
+        aircraft_arg = '--aircraft=' + self.sim.get_model_name()
+        flight_model_arg = '--native-fdm=' + flight_model_arg_input
+        flight_model_type_arg = '--fdm=' + 'external'
+
+        cmd_line_args = [flightgear_cmd, aircraft_arg, flight_model_arg, flight_model_type_arg]
+        gym.logger.info(f'Subprocess: "{cmd_line_args}"')
+        self.flightgear_process = subprocess.Popen(
+            cmd_line_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        gym.logger.info('Started FlightGear')
 
     def close(self):
         """Override _close in your subclass to perform any necessary cleanup.
@@ -136,6 +166,8 @@ class JsbSimEnv(gym.Env):
         """
         if self.sim:
             self.sim.close()
+        if self.flightgear_process:
+            self.flightgear_process.kill()
 
     def seed(self, seed=None):
         """Sets the seed for this env's random number generator(s).

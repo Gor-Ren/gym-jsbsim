@@ -2,14 +2,17 @@ import unittest
 import gym
 import numpy as np
 import math
+import time
 import matplotlib.pyplot as plt
 from JsbSimEnv import JsbSimEnv
 from test.stubs import TaskStub
+from gym import logger
 
 
 class TestJsbSimInstance(unittest.TestCase):
 
     def setUp(self, agent_interaction_freq: int=10):
+        gym.logger.set_level(gym.logger.DEBUG)
         self.env = None
         self.env = JsbSimEnv(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
         self.env.reset()
@@ -143,3 +146,12 @@ class TestJsbSimInstance(unittest.TestCase):
             alt_sl = self.env.sim['position/h-sl-ft']
             alt_gl = self.env.sim['position/h-agl-ft']
             self.assertAlmostEqual(alt_sl, alt_gl)
+
+    def test_render_flightgear_launches_flightgear(self):
+        self.setUp()
+        self.env.render(mode='flightgear')
+        time.sleep(0.5)
+
+        # check FlightGear has launched by looking at stdout
+        self.assertIn('FlightGear', self.env.flightgear_process.stdout.readline().decode())
+        self.env.close()
