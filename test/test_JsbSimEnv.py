@@ -4,7 +4,7 @@ import numpy as np
 import math
 import time
 import matplotlib.pyplot as plt
-from JsbSimEnv import JsbSimEnv
+from environment import Environment
 from test.stubs import TaskStub
 from gym import logger
 
@@ -14,7 +14,7 @@ class TestJsbSimInstance(unittest.TestCase):
     def setUp(self, agent_interaction_freq: int=10):
         gym.logger.set_level(gym.logger.DEBUG)
         self.env = None
-        self.env = JsbSimEnv(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
+        self.env = Environment(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
         self.env.reset()
 
     def validate_observation(self, obs: np.array):

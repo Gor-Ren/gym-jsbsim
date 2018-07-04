@@ -7,17 +7,17 @@ from typing import Type
 from gym import logger
 
 
-class JsbSimEnv(gym.Env):
+class Environment(gym.Env):
     """
     A class wrapping the JSBSim flight dynamics module (FDM) for simulating
     aircraft as an RL environment conforming to the OpenAI Gym Env
     interface.
 
-    A JsbSimEnv is instantiated with a TaskModule that implements a specific
+    An Environment is instantiated with a TaskModule that implements a specific
     aircraft control task through additional task-related observation/action
     variables and reward calculation.
 
-    The following API methods will be implemented between JsbSimEnv:
+    The following API methods will be implemented between Environment:
         step
         reset
         render
@@ -36,7 +36,7 @@ class JsbSimEnv(gym.Env):
 
     def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10):
         """
-        Constructor. Inits some internal state, but JsbSimEnv.reset() must be
+        Constructor. Inits some internal state, but Environment.reset() must be
         called first before interacting with environment.
 
         :param task_type: a TaskModule class of the task agent is to perform
