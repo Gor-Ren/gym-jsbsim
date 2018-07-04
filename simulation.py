@@ -54,8 +54,8 @@ class Simulation(object):
         self.velocity_arrow = None
 
         self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
-        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
-        self.sim.set_output_directive(output_path)
+        output_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
+        self.sim.set_output_directive(output_config_path)
         self.initialise(dt, aircraft_model_name, init_conditions)
         self.sim.disable_output()
 
