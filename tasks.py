@@ -2,7 +2,7 @@ import gym
 import math
 import random
 import numpy as np
-from JsbSimInstance import JsbSimInstance
+from simulation import Simulation
 from abc import ABC
 from typing import Optional, Sequence, Dict, Tuple
 
@@ -76,10 +76,10 @@ class TaskModule(ABC):
     def __repr__(self):
         return f'<TaskModule {self.task_name}>'
 
-    def task_step(self, sim: JsbSimInstance, action: Sequence[float], sim_steps: int) -> Tuple:
+    def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple:
         """ Calculates step reward and termination from an agent observation.
 
-        :param sim: a JsbSimInstance, the simulation from which to extract state
+        :param sim: a Simulation, the simulation from which to extract state
         :param action: sequence of floats, the agent's last action
         :param sim_steps: number of JSBSim integration steps to perform following action
             prior to making observation
@@ -104,18 +104,18 @@ class TaskModule(ABC):
 
         return np.array(obs), reward, done, info
 
-    def _calculate_reward(self, sim: JsbSimInstance):
+    def _calculate_reward(self, sim: Simulation):
         """ Calculates the reward from the simulation state.
 
-        :param sim: JsbSimInstance, the environment simulation
+        :param sim: Simulation, the environment simulation
         :return: a number, the reward for the timestep
         """
         raise NotImplementedError
 
-    def _is_done(self, sim: JsbSimInstance):
+    def _is_done(self, sim: Simulation):
         """ Determines whether the current episode should terminate.
 
-        :param sim: JsbSimInstance, the environment simulation
+        :param sim: Simulation, the environment simulation
         :return: True if the episode should terminate else False
         """
         raise NotImplementedError
@@ -208,14 +208,14 @@ class TaskModule(ABC):
         action_highs = np.array([act_var['high'] for act_var in self.action_variables])
         return gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
 
-    def observe_first_state(self, sim: JsbSimInstance):
+    def observe_first_state(self, sim: Simulation):
         """ Get first state observation from reset sim.
 
         This method will always be called when starting an episode. Tasks may
         set properties here, e.g. control commands which are not in the agent
         action space.
 
-        :param sim: JsbSimInstance, the environment simulation
+        :param sim: Simulation, the environment simulation
         :return: array, the first state observation of the episode
         """
         state = [sim[prop] for prop in self.state_names]
@@ -297,10 +297,10 @@ class SteadyLevelFlightTask(TaskModule):
         assert len(action_vars) == len(all_action_vars) - 1
         return action_vars
 
-    def _calculate_reward(self, sim: JsbSimInstance):
+    def _calculate_reward(self, sim: Simulation):
         """ Calculates the reward from the simulation state.
 
-        :param sim: JsbSimInstance, the environment simulation
+        :param sim: Simulation, the environment simulation
         :return: a number, the reward for the timestep
         """
         reward = 0
@@ -311,20 +311,20 @@ class SteadyLevelFlightTask(TaskModule):
             reward += self.TOO_LOW_REWARD
         return reward
 
-    def _is_done(self, sim: JsbSimInstance):
+    def _is_done(self, sim: Simulation):
         """ Determines whether the current episode should terminate.
 
-        :param sim: JsbSimInstance, the environment simulation
+        :param sim: Simulation, the environment simulation
         :return: True if the episode should terminate else False
         """
         time_out = sim['simulation/sim-time-sec'] > self.MAX_TIME_SECS
         too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         return time_out or too_low
 
-    def observe_first_state(self, sim: JsbSimInstance):
+    def observe_first_state(self, sim: Simulation):
         """ Sets control inputs for start of episode and retrieves state observation.
 
-        :param sim: JsbSimInstance, the environment simulation
+        :param sim: Simulation, the environment simulation
         :return: array, the first state observation of the episode
         """
         # set fixed values for throttle and mixture

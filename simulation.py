@@ -14,7 +14,7 @@ class AxesTuple(NamedTuple):
     axes_rudder: plt.Axes
 
 
-class JsbSimInstance(object):
+class Simulation(object):
     """
     A class which wraps an instance of JSBSim and manages communication with it.
     """

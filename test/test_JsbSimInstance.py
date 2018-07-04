@@ -2,30 +2,30 @@ import unittest
 import jsbsim
 import multiprocessing
 import time
-from JsbSimInstance import JsbSimInstance
+from simulation import Simulation
 
 
 class TestJsbSimWrapper(unittest.TestCase):
-    sim: JsbSimInstance = None
+    sim: Simulation = None
 
     def setUp(self):
         if self.sim:
             self.sim.close()
-        self.sim = JsbSimInstance()
+        self.sim = Simulation()
 
     def tearDown(self):
         self.sim = None
 
     def test_init_jsbsim(self):
         self.assertIsInstance(self.sim.sim, jsbsim.FGFDMExec,
-                              msg=f'Expected JsbSimInstance.sim to hold an '
+                              msg=f'Expected Simulation.sim to hold an '
                               'instance of JSBSim.')
 
     def test_load_model(self):
         # make fresh sim instance with "X15" plane
         model_name = 'X15'
         self.sim = None
-        self.sim = JsbSimInstance(aircraft_model_name=model_name)
+        self.sim = Simulation(aircraft_model_name=model_name)
         actual_name = self.sim.get_model_name()
 
         self.assertEqual(model_name, actual_name,
@@ -36,7 +36,7 @@ class TestJsbSimWrapper(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             self.sim = None
-            self.sim = JsbSimInstance(aircraft_model_name=bad_name)
+            self.sim = Simulation(aircraft_model_name=bad_name)
 
     def test_get_property(self):
         self.setUp()
@@ -86,7 +86,7 @@ class TestJsbSimWrapper(unittest.TestCase):
         # manually reset JSBSim instance with new initial conditions
         if self.sim:
             self.sim.close()
-        self.sim = JsbSimInstance(dt=0.5, aircraft_model_name=aircraft, init_conditions=None)
+        self.sim = Simulation(dt=0.5, aircraft_model_name=aircraft, init_conditions=None)
 
         self.assertEqual(self.sim.get_model_name(), aircraft,
                          msg='JSBSim did not load expected aircraft model: ' +
@@ -135,7 +135,7 @@ class TestJsbSimWrapper(unittest.TestCase):
         # manually reset JSBSim instance
         if self.sim:
             self.sim.close()
-        self.sim = JsbSimInstance(dt, aircraft, init_conditions)
+        self.sim = Simulation(dt, aircraft, init_conditions)
 
         # check JSBSim initial condition and simulation properties
         for init_prop, expected in init_conditions.items():
@@ -169,7 +169,7 @@ class TestJsbSimWrapper(unittest.TestCase):
 def basic_task():
     """ A simple task involving initing a JSBSimInstance to test multiprocessing. """
     time.sleep(0.05)
-    fdm = JsbSimInstance(aircraft_model_name='c172x')
+    fdm = Simulation(aircraft_model_name='c172x')
     fdm.run()
     time.sleep(0.05)
 

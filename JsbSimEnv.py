@@ -2,7 +2,7 @@ import gym
 import subprocess
 import numpy as np
 from tasks import TaskModule
-from JsbSimInstance import JsbSimInstance
+from simulation import Simulation
 from typing import Type
 from gym import logger
 
@@ -48,7 +48,7 @@ class JsbSimEnv(gym.Env):
             raise ValueError('agent interaction frequency must be less than '
                              'or equal to JSBSim integration frequency of '
                              f'{self.DT_HZ} Hz.')
-        self.sim: JsbSimInstance = None
+        self.sim: Simulation = None
         self.sim_steps: int = self.DT_HZ // agent_interaction_freq
         self.task = task_type()
         # set Space objects
@@ -86,7 +86,7 @@ class JsbSimEnv(gym.Env):
         if self.sim:
             self.sim.close()
         init_conditions = self.task.get_initial_conditions()
-        self.sim = JsbSimInstance(dt=(1.0 / self.DT_HZ), init_conditions=init_conditions)
+        self.sim = Simulation(dt=(1.0 / self.DT_HZ), init_conditions=init_conditions)
         state = self.task.observe_first_state(self.sim)
 
         return np.array(state)
@@ -143,7 +143,6 @@ class JsbSimEnv(gym.Env):
         SERVER = ''
         PORT = 5550
         PROTOCOL = 'udp'
-        flight_model_arg_input = f'{TYPE},{DIRECTION},{RATE},{SERVER},{PORT},{PROTOCOL}'
 
         flightgear_cmd = 'fgfs'
         aircraft_arg = '--aircraft=' + self.sim.get_model_name()
