@@ -1,6 +1,6 @@
 import unittest
 import time
-from environment import Environment
+from environment import JsbSimEnv
 from test.stubs import TaskStub
 from typing import Type
 import tasks
@@ -10,7 +10,7 @@ from agents.random import RandomAgent
 class TestJsbSimInstance(unittest.TestCase):
     def setUp(self, task_type: Type[tasks.TaskModule]=test.stubs.TaskStub):
         self.env = None
-        self.env = Environment(task_type)
+        self.env = JsbSimEnv(task_type)
         self.env.reset()
 
     def test_long_episode_random_actions(self):
@@ -57,7 +57,7 @@ class TestJsbSimInstance(unittest.TestCase):
 class FlightGearRenderTest(unittest.TestCase):
     def setUp(self, task_type: Type[tasks.TaskModule]=test.stubs.TaskStub):
         self.env = None
-        self.env = Environment(task_type)
+        self.env = JsbSimEnv(task_type)
         self.env.reset()
 
     def test_render_steady_level_flight_random(self):

@@ -5,17 +5,16 @@ import math
 import time
 import subprocess
 import matplotlib.pyplot as plt
-from environment import Environment
+from environment import JsbSimEnv
 from test.stubs import TaskStub
-from gym import logger
 
 
-class TestJsbSimInstance(unittest.TestCase):
+class TestJsbSimEnv(unittest.TestCase):
 
     def setUp(self, agent_interaction_freq: int=10):
         gym.logger.set_level(gym.logger.DEBUG)
         self.env = None
-        self.env = Environment(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
+        self.env = JsbSimEnv(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
         self.env.reset()
 
     def tearDown(self):

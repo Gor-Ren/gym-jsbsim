@@ -5,7 +5,7 @@ import time
 from simulation import Simulation
 
 
-class TestJsbSimWrapper(unittest.TestCase):
+class TestSimulation(unittest.TestCase):
     sim: Simulation = None
 
     def setUp(self):
