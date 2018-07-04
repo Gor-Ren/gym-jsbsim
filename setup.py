@@ -1,4 +1,5 @@
-from setuptools import setup
+from setuptools import setup, find_packages
+
 
 setup(name='gym_jsbsim',
       version='0.1',
@@ -12,6 +13,7 @@ setup(name='gym_jsbsim',
             'gym',
             'matplotlib',
       ],
+      packages=find_packages(),
       classifiers=[
             'License :: OSI Approved :: MIT License',
             'Development Status :: 2 - Pre-Alpha',
