@@ -55,6 +55,7 @@ class Simulation(object):
         self.velocity_arrow = None
 
         self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
+        self.sim.set_debug_level(0)
         output_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
         self.sim.set_output_directive(output_config_path)
         self.sim_dt = sim_dt
