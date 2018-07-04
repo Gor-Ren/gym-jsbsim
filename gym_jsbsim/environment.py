@@ -36,7 +36,8 @@ class JsbSimEnv(gym.Env):
     FLIGHTGEAR_TIME_FACTOR = 1
     metadata = {'render.modes': ['human', 'flightgear']}
 
-    def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10):
+    def __init__(self, task_type: Type[TaskModule], aircraft_name: str='c172p',
+                 agent_interaction_freq: int=10):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.
@@ -52,6 +53,7 @@ class JsbSimEnv(gym.Env):
                              f'{self.DT_HZ} Hz.')
         self.sim: Simulation = None
         self.sim_steps: int = self.DT_HZ // agent_interaction_freq
+        self.aircraft = aircraft_name
         self.task = task_type()
         # set Space objects
         self.observation_space: gym.spaces.Box = self.task.get_observation_space()
@@ -89,7 +91,9 @@ class JsbSimEnv(gym.Env):
         if self.sim:
             self.sim.close()
         init_conditions = self.task.get_initial_conditions()
-        self.sim = Simulation(sim_dt=(1.0 / self.DT_HZ), init_conditions=init_conditions)
+        self.sim = Simulation(sim_dt=(1.0 / self.DT_HZ),
+                              aircraft_model_name=self.aircraft,
+                              init_conditions=init_conditions)
         state = self.task.observe_first_state(self.sim)
 
         if self.flightgear_process:
@@ -199,3 +203,9 @@ class JsbSimEnv(gym.Env):
         """
         gym.logger.warn("Could not seed environment %s", self)
         return
+
+
+# convenience classes for specific task/aircraft combos
+class SteadyLevelFlightCessnaEnv(JsbSimEnv):
+    def __init__(self):
+        super().__init__(task_type=SteadyLevelFlightTask, aircraft_name='c172p')
