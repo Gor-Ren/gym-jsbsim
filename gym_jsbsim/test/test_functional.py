@@ -6,7 +6,7 @@ from gym_jsbsim.tasks import SteadyLevelFlightTask
 
 
 class AgentEnvInteractionTest(unittest.TestCase):
-    """ Unit and functional tests for agents interacting with env. """
+    """ Tests for agents interacting with env. """
 
     def test_random_agent_steady_level_task_setup(self):
         # we create an environment with the steady level flight task
