@@ -1,6 +1,7 @@
 import jsbsim
 import os
 import math
+import time
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from typing import NamedTuple, Dict, Union
@@ -35,13 +36,13 @@ class Simulation(object):
     OUTPUT_FILE = 'flightgear.xml'
 
     def __init__(self,
-                 dt: float=1.0/120.0,
+                 sim_dt: float= 1.0 / 120.0,
                  aircraft_model_name: str='c172p',
                  init_conditions: Dict[str, Union[int, float]]=None):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
 
-        :param dt: float, the JSBSim integration timestep in seconds. Defaults
+        :param sim_dt: float, the JSBSim integration timestep in seconds. Defaults
             to 1/120, i.e. 120 Hz
         :param aircraft_model_name: string, name of aircraft to be loaded.
             JSBSim looks for file \model_name\model_name.xml from root dir.
@@ -56,8 +57,10 @@ class Simulation(object):
         self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
         output_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
         self.sim.set_output_directive(output_config_path)
-        self.initialise(dt, aircraft_model_name, init_conditions)
+        self.sim_dt = sim_dt
+        self.initialise(self.sim_dt, aircraft_model_name, init_conditions)
         self.sim.disable_output()
+        self.wall_clock_dt = None
 
     def __getitem__(self, key: str):
         """
@@ -187,7 +190,10 @@ class Simulation(object):
 
         :return: bool, False if sim has met JSBSim termination criteria else True.
         """
-        return self.sim.run()
+        result = self.sim.run()
+        if self.wall_clock_dt is not None:
+            time.sleep(self.wall_clock_dt)
+        return result
 
     def enable_flightgear_output(self):
         self.sim.enable_output()
@@ -220,6 +226,16 @@ class Simulation(object):
         self._plot_state(self.axes, self.props_to_plot)
         self._plot_actions(self.axes, action_names, action_values)
         plt.pause(0.001)  # voodoo pause needed for figure to update
+
+    def set_simulation_time_factor(self, time_factor):
+        """ Specifies a factor, relative to realtime, for simulation to run at.
+
+        The simulation runs at realtime for time_factor = 1. It runs at double
+        speed for time_factor=2, and half speed for 0.5.
+
+        :param time_factor: int or float, nonzero, sim speed relative to realtime
+        """
+        self.wall_clock_dt = self.sim_dt / time_factor
 
     def _plot_configure(self):
         """

@@ -33,6 +33,7 @@ class Environment(gym.Env):
     docstrings have been taken from the OpenAI API and modified where required.
     """
     DT_HZ: int = 120  # JSBSim integration frequency [Hz]
+    FLIGHTGEAR_TIME_FACTOR = 1
 
     def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10):
         """
@@ -55,6 +56,7 @@ class Environment(gym.Env):
         self.observation_space: gym.spaces.Box = self.task.get_observation_space()
         self.action_space: gym.spaces.Box = self.task.get_action_space()
         self.flightgear_process: subprocess.Popen = None
+        self.step_delay = None
 
     def step(self, action: np.ndarray):
         """
@@ -86,8 +88,12 @@ class Environment(gym.Env):
         if self.sim:
             self.sim.close()
         init_conditions = self.task.get_initial_conditions()
-        self.sim = Simulation(dt=(1.0 / self.DT_HZ), init_conditions=init_conditions)
+        self.sim = Simulation(sim_dt=(1.0 / self.DT_HZ), init_conditions=init_conditions)
         state = self.task.observe_first_state(self.sim)
+
+        if self.flightgear_process:
+            self.sim.enable_flightgear_output()
+            self.sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
 
         return np.array(state)
 
@@ -130,8 +136,9 @@ class Environment(gym.Env):
         elif mode == 'flightgear':
             if not self.flightgear_process:
                 self.sim.enable_flightgear_output()
+                self.sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
                 self._launch_flightgear()
-            # block until we see FlightGear is ready to render
+                # TODO: block until we see FlightGear is ready to render
         else:
             super().render(mode=mode)
 

@@ -86,7 +86,7 @@ class TestJsbSimWrapper(unittest.TestCase):
         # manually reset JSBSim instance with new initial conditions
         if self.sim:
             self.sim.close()
-        self.sim = Simulation(dt=0.5, aircraft_model_name=aircraft, init_conditions=None)
+        self.sim = Simulation(sim_dt=0.5, aircraft_model_name=aircraft, init_conditions=None)
 
         self.assertEqual(self.sim.get_model_name(), aircraft,
                          msg='JSBSim did not load expected aircraft model: ' +
