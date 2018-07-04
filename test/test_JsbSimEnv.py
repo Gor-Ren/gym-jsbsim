@@ -122,7 +122,7 @@ class TestJsbSimInstance(unittest.TestCase):
 
         action = np.array([-0.5, 0.9, -0.05, 0.75])
         # repeat action several times
-        for _ in range(10):
+        for _ in range(3):
             obs, _, _, _ = self.env.step(action)
             self.env.render(mode='human')
 
@@ -133,7 +133,7 @@ class TestJsbSimInstance(unittest.TestCase):
         self.env.render(mode='human')
 
         # repeat action several times
-        for _ in range(10):
+        for _ in range(3):
             action = self.env.action_space.sample()
             _, _, _, _ = self.env.step(action)
             self.env.render(mode='human', action_names=self.env.task.action_names, action_values=action)
