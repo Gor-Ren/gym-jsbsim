@@ -3,10 +3,12 @@ import time
 from gym_jsbsim.environment import JsbSimEnv
 from typing import Type
 from gym_jsbsim import tasks
-from gym_jsbsim.agents.random import RandomAgent
+from gym_jsbsim.test.stubs import TaskStub
+from gym_jsbsim.agents import RandomAgent
+
 
 class TestJsbSimInstance(unittest.TestCase):
-    def setUp(self, task_type: Type[tasks.TaskModule]= gym_jsbsim.test.stubs.TaskStub):
+    def setUp(self, task_type: Type[tasks.TaskModule]= TaskStub):
         self.env = None
         self.env = JsbSimEnv(task_type)
         self.env.reset()

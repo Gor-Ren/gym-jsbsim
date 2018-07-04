@@ -2,8 +2,8 @@ import gym
 import subprocess
 import time
 import numpy as np
-from gym_jsbsim.tasks import TaskModule
-from gym_jsbsim.simulation import Simulation
+from .tasks import TaskModule, SteadyLevelFlightTask
+from .simulation import Simulation
 from typing import Type
 
 
