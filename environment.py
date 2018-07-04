@@ -1,5 +1,6 @@
 import gym
 import subprocess
+import time
 import numpy as np
 from tasks import TaskModule
 from simulation import Simulation
@@ -138,7 +139,16 @@ class Environment(gym.Env):
                 self.sim.enable_flightgear_output()
                 self.sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
                 self._launch_flightgear()
-                # TODO: block until we see FlightGear is ready to render
+                # loop until we see FlightGear is ready to render
+                ready_message = 'loading cities done'
+                while True:
+                    msg_out = self.flightgear_process.stdout.readline().decode()
+                    if ready_message in msg_out:
+                        gym.logger.info('FlightGear loading complete; entering world')
+                        break
+                    else:
+                        time.sleep(0.001)
+
         else:
             super().render(mode=mode)
 

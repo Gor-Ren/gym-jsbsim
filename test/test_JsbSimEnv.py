@@ -3,6 +3,7 @@ import gym
 import numpy as np
 import math
 import time
+import subprocess
 import matplotlib.pyplot as plt
 from environment import Environment
 from test.stubs import TaskStub
@@ -16,6 +17,9 @@ class TestJsbSimInstance(unittest.TestCase):
         self.env = None
         self.env = Environment(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
         self.env.reset()
+
+    def tearDown(self):
+        self.env.close()
 
     def validate_observation(self, obs: np.array):
         """ Helper; checks shape and values of an observation. """
@@ -155,3 +159,8 @@ class TestJsbSimInstance(unittest.TestCase):
         # check FlightGear has launched by looking at stdout
         self.assertIn('FlightGear', self.env.flightgear_process.stdout.readline().decode())
         self.env.close()
+
+    def test_render_flightgear_exits(self):
+        self.setUp()
+        self.env.render(mode='flightgear')
+        self.assertIsInstance(self.env.flightgear_process, subprocess.Popen)
