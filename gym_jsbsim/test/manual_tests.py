@@ -1,14 +1,12 @@
 import unittest
 import time
-from environment import JsbSimEnv
-from test.stubs import TaskStub
+from gym_jsbsim.environment import JsbSimEnv
 from typing import Type
-import tasks
-import test
-from agents.random import RandomAgent
+from gym_jsbsim import tasks
+from gym_jsbsim.agents.random import RandomAgent
 
 class TestJsbSimInstance(unittest.TestCase):
-    def setUp(self, task_type: Type[tasks.TaskModule]=test.stubs.TaskStub):
+    def setUp(self, task_type: Type[tasks.TaskModule]= gym_jsbsim.test.stubs.TaskStub):
         self.env = None
         self.env = JsbSimEnv(task_type)
         self.env.reset()
@@ -55,7 +53,7 @@ class TestJsbSimInstance(unittest.TestCase):
 
 
 class FlightGearRenderTest(unittest.TestCase):
-    def setUp(self, task_type: Type[tasks.TaskModule]=test.stubs.TaskStub):
+    def setUp(self, task_type: Type[tasks.TaskModule]= gym_jsbsim.test.stubs.TaskStub):
         self.env = None
         self.env = JsbSimEnv(task_type)
         self.env.reset()

@@ -1,4 +1,4 @@
-from tasks import TaskModule
+from gym_jsbsim.tasks import TaskModule
 from typing import Optional
 
 

@@ -2,7 +2,7 @@ import unittest
 import jsbsim
 import multiprocessing
 import time
-from simulation import Simulation
+from gym_jsbsim.simulation import Simulation
 
 
 class TestSimulation(unittest.TestCase):

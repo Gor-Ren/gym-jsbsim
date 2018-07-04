@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from tasks import SteadyLevelFlightTask
-from test.stubs import SimStub
+from gym_jsbsim.tasks import SteadyLevelFlightTask
+from gym_jsbsim.test import SimStub
 
 
 class TestSteadyLevelFlightTask(unittest.TestCase):

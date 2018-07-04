@@ -5,8 +5,8 @@ import math
 import time
 import subprocess
 import matplotlib.pyplot as plt
-from environment import JsbSimEnv
-from test.stubs import TaskStub
+from gym_jsbsim.environment import JsbSimEnv
+from gym_jsbsim.test import TaskStub
 
 
 class TestJsbSimEnv(unittest.TestCase):

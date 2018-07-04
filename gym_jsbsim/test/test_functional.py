@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
-from agents.random import RandomAgent
-from environment import JsbSimEnv
-from tasks import SteadyLevelFlightTask
+from gym_jsbsim.agents.random import RandomAgent
+from gym_jsbsim.environment import JsbSimEnv
+from gym_jsbsim.tasks import SteadyLevelFlightTask
 
 
 class AgentEnvInteractionTest(unittest.TestCase):

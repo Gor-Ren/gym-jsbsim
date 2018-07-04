@@ -2,7 +2,7 @@ import gym
 import math
 import random
 import numpy as np
-from simulation import Simulation
+from gym_jsbsim.simulation import Simulation
 from abc import ABC
 from typing import Optional, Sequence, Dict, Tuple
 
