@@ -34,6 +34,7 @@ class JsbSimEnv(gym.Env):
     """
     DT_HZ: int = 120  # JSBSim integration frequency [Hz]
     FLIGHTGEAR_TIME_FACTOR = 1
+    metadata = {'render.modes': ['human', 'flightgear']}
 
     def __init__(self, task_type: Type[TaskModule], agent_interaction_freq: int=10):
         """
