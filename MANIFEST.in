@@ -1,0 +1,2 @@
+include README.md
+include gym_jsbsim/*.xml
