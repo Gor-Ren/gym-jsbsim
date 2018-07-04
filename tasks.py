@@ -156,10 +156,6 @@ class TaskModule(ABC):
         """ Returns collection of all task's action variables.
 
         Each action variable is defined by a dict with the following entries:
-            'source': 'jsbsim' or 'task', where to get the variable's value.
-                If 'jsbsim', value is retrieved from JSBSim using 'name'. If
-                'function', a function which will calculate it when input the
-                last observation.
             'name': str, the property name of the variable in JSBSim, e.g.
                 "fcs/aileron-cmd-norm"
             'description': str, a description of what the variable represents,
@@ -175,7 +171,7 @@ class TaskModule(ABC):
         The order of variables in the returned tuple corresponds to their order
         in the action array passed to the environment by the agent.
 
-        :return: tuple of dicts, each dict having a 'source', 'name',
+        :return: tuple of dicts, each dict having a 'name',
             'description', 'high' and 'low' value
         """
         return self.base_action_variables
@@ -224,27 +220,27 @@ class TaskModule(ABC):
 
 class SteadyLevelFlightTask(TaskModule):
     """ A task in which the agent must perform steady, level flight. """
-    task_state_variables = (dict(source='jsbsim', name='accelerations/udot-ft_sec2',
+    task_state_variables = (dict(name='accelerations/udot-ft_sec2',
                                  description='body frame x-axis acceleration, [ft/s^2]',
                                  high=50, low=-50),
-                            dict(source='jsbsim', name='accelerations/vdot-ft_sec2',
+                            dict(name='accelerations/vdot-ft_sec2',
                                  description='body frame y-axis acceleration, [ft/s^2]',
                                  high=50, low=-50),
-                            dict(source='jsbsim', name='accelerations/wdot-ft_sec2',
+                            dict(name='accelerations/wdot-ft_sec2',
                                  description='body frame z-axis acceleration, [ft/s^2]',
                                  high=50, low=-50),
                             # 50 ft/s2 appears to be a reasonable maximum acceleration to clip at
-                            dict(source='jsbsim', name='accelerations/pdot-rad_sec2',
+                            dict(name='accelerations/pdot-rad_sec2',
                                  description='roll rate acceleration [rad/s^2]',
                                  high=0.5 * math.pi, low=-0.5 * math.pi),
-                            dict(source='jsbsim', name='accelerations/qdot-rad_sec2',
+                            dict(name='accelerations/qdot-rad_sec2',
                                  description='pitch rate acceleration [rad/s^2]',
                                  high=0.5 * math.pi, low=-0.5 * math.pi),
-                            dict(source='jsbsim', name='accelerations/rdot-rad_sec2',
+                            dict(name='accelerations/rdot-rad_sec2',
                                  description='yaw rate acceleration [rad/s^2]',
                                  high=0.5 * math.pi, low=-0.5 * math.pi),
                             # arbitrarily chose max angular accel 1/4 of max angular velocity
-                            dict(source='jsbsim', name='velocities/v-down-fps',
+                            dict(name='velocities/v-down-fps',
                                  description='earth frame z-axis velocity [ft/s]',
                                  high=2200, low=-2200),
     )
