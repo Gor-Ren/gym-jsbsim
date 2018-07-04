@@ -19,7 +19,6 @@ class Simulation(object):
     A class which wraps an instance of JSBSim and manages communication with it.
     """
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
-    properties = None
     props_to_plot: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
                                y=dict(name='position/long-gc-deg', label='geocentric longitude [deg]'),
                                z=dict(name='position/h-sl-ft', label='altitude above MSL [ft]'),
@@ -32,9 +31,8 @@ class Simulation(object):
                                rud=dict(name='fcs/rudder-pos-norm', label='rudder position, [-]'))
     FT_PER_DEG_LAT: int = 365228
     ft_per_deg_lon: int = None  # calc at reset() - it depends on the longitude value
-    figure: plt.Figure = None
-    axes: AxesTuple = None
-    velocity_arrow = None
+    ROOT_DIR = os.path.abspath('/home/gordon/apps/jsbsim')
+    OUTPUT_PATH = os.path.join(ROOT_DIR, 'data_output/flightgear.xml')
 
     def __init__(self,
                  dt: float=1.0/120.0,
@@ -50,9 +48,15 @@ class Simulation(object):
         :param init_conditions: dict mapping properties to their initial values.
             Defaults to None, causing a default set of initial props to be used.
         """
-        root_dir = os.path.abspath("/home/gordon/apps/jsbsim")
-        self.sim = jsbsim.FGFDMExec(root_dir=root_dir)
+        self.properties = None
+        self.figure: plt.Figure = None
+        self.axes: AxesTuple = None
+        self.velocity_arrow = None
+
+        self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
+        self.sim.set_output_directive(self.OUTPUT_PATH)
         self.initialise(dt, aircraft_model_name, init_conditions)
+        self.sim.disable_output()
 
     def __getitem__(self, key: str):
         """
@@ -183,6 +187,12 @@ class Simulation(object):
         :return: bool, False if sim has met JSBSim termination criteria else True.
         """
         return self.sim.run()
+
+    def enable_flightgear_output(self):
+        self.sim.enable_output()
+
+    def disable_flightgear_output(self):
+        self.sim.disable_output()
 
     def close(self):
         """ Closes the simulation and any plots. """

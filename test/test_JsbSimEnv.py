@@ -147,9 +147,9 @@ class TestJsbSimInstance(unittest.TestCase):
             alt_gl = self.env.sim['position/h-agl-ft']
             self.assertAlmostEqual(alt_sl, alt_gl)
 
-    def test_render_flightgear_launches_flightgear(self):
+    def test_launch_flightgear(self):
         self.setUp()
-        self.env.render(mode='flightgear')
+        self.env._launch_flightgear()
         time.sleep(0.5)
 
         # check FlightGear has launched by looking at stdout

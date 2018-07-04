@@ -129,12 +129,11 @@ class Environment(gym.Env):
             self.sim.plot(action_names=action_names, action_values=action_values)
         elif mode == 'flightgear':
             if not self.flightgear_process:
-                # have sim load appropriate output directive
-
-                # start FG
+                self.sim.enable_flightgear_output()
                 self._launch_flightgear()
+            # block until we see FlightGear is ready to render
         else:
-            super(JsbSimEnv, self).render(mode=mode)
+            super().render(mode=mode)
 
     def _launch_flightgear(self):
         TYPE = 'socket'
@@ -146,10 +145,10 @@ class Environment(gym.Env):
 
         flightgear_cmd = 'fgfs'
         aircraft_arg = '--aircraft=' + self.sim.get_model_name()
-        flight_model_arg = '--native-fdm=' + flight_model_arg_input
+        flight_model_arg = '--native-fdm=' + f'{TYPE},{DIRECTION},{RATE},{SERVER},{PORT},{PROTOCOL}'
         flight_model_type_arg = '--fdm=' + 'external'
 
-        cmd_line_args = [flightgear_cmd, aircraft_arg, flight_model_arg, flight_model_type_arg]
+        cmd_line_args = (flightgear_cmd, aircraft_arg, flight_model_arg, flight_model_type_arg)
         gym.logger.info(f'Subprocess: "{cmd_line_args}"')
         self.flightgear_process = subprocess.Popen(
             cmd_line_args,
