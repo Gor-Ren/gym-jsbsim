@@ -32,7 +32,7 @@ class Simulation(object):
     FT_PER_DEG_LAT: int = 365228
     ft_per_deg_lon: int = None  # calc at reset() - it depends on the longitude value
     ROOT_DIR = os.path.abspath('/home/gordon/apps/jsbsim')
-    OUTPUT_PATH = os.path.join(ROOT_DIR, 'data_output/flightgear.xml')
+    OUTPUT_FILE = 'flightgear.xml'
 
     def __init__(self,
                  dt: float=1.0/120.0,
@@ -54,7 +54,8 @@ class Simulation(object):
         self.velocity_arrow = None
 
         self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
-        self.sim.set_output_directive(self.OUTPUT_PATH)
+        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
+        self.sim.set_output_directive(output_path)
         self.initialise(dt, aircraft_model_name, init_conditions)
         self.sim.disable_output()
 
