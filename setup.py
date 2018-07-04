@@ -22,4 +22,5 @@ setup(name='gym_jsbsim',
             'Topic :: Scientific/Engineering :: Artificial Intelligence',
       ],
       python_requires='>=3.6',
+      include_package_data=True,
       zip_safe=False)
