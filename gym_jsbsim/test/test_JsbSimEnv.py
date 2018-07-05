@@ -2,11 +2,10 @@ import unittest
 import gym
 import numpy as np
 import math
-import time
-import subprocess
 import matplotlib.pyplot as plt
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.test import TaskStub
+from gym_jsbsim.visualiser import FlightGearVisualiser
 
 
 class TestJsbSimEnv(unittest.TestCase):
@@ -113,9 +112,9 @@ class TestJsbSimEnv(unittest.TestCase):
 
     def test_figure_created_closed(self):
         self.env.render(mode='human')
-        self.assertIsInstance(self.env.plotter.figure, plt.Figure)
+        self.assertIsInstance(self.env.figure_visualiser.figure, plt.Figure)
         self.env.close()
-        self.assertIsNone(self.env.plotter.figure)
+        self.assertIsNone(self.env.figure_visualiser.figure)
 
     def test_plot_state(self):
         # note: this checks that plot works without throwing exception
@@ -132,7 +131,6 @@ class TestJsbSimEnv(unittest.TestCase):
     def test_plot_actions(self):
         # note: this checks that plot works without throwing exception
         # correctness of plot must be checked in appropriate manual_test
-        self.setUp()
         self.env.render(mode='human')
 
         # repeat action several times
@@ -150,16 +148,8 @@ class TestJsbSimEnv(unittest.TestCase):
             alt_gl = self.env.sim['position/h-agl-ft']
             self.assertAlmostEqual(alt_sl, alt_gl)
 
-    def test_launch_flightgear(self):
+    def test_render_flightgear_creates_visualiser(self):
         self.setUp()
-        self.env._launch_flightgear()
-        time.sleep(0.5)
-
-        # check FlightGear has launched by looking at stdout
-        self.assertIn('FlightGear', self.env.flightgear_process.stdout.readline().decode())
+        self.env.render(mode='flightgear', flightgear_blocking=False)
+        self.assertIsInstance(self.env.flightgear_visualiser, FlightGearVisualiser)
         self.env.close()
-
-    def test_render_flightgear_exits(self):
-        self.setUp()
-        self.env.render(mode='flightgear')
-        self.assertIsInstance(self.env.flightgear_process, subprocess.Popen)

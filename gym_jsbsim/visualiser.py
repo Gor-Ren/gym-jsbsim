@@ -1,8 +1,11 @@
+import gym
 import math
-from gym_jsbsim.simulation import Simulation
+import subprocess
+import time
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
-from typing import NamedTuple, Dict, Union
+from gym_jsbsim.simulation import Simulation
+from typing import NamedTuple, Dict
 
 
 class AxesTuple(NamedTuple):
@@ -14,6 +17,7 @@ class AxesTuple(NamedTuple):
 
 
 class FigureVisualiser(object):
+    """ Class for manging a matplotlib Figure displaying agent state and actions """
     props_to_plot: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
                                y=dict(name='position/long-gc-deg', label='geocentric longitude [deg]'),
                                z=dict(name='position/h-sl-ft', label='altitude above MSL [ft]'),
@@ -236,3 +240,63 @@ class FigureVisualiser(object):
             all_axes.axes_throttle.plot([0], [thr_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
         if rud_cmd:
             all_axes.axes_rudder.plot([rud_cmd], [0], 'bo', mfc='none', markersize=10, clip_on=False)
+
+
+class FlightGearVisualiser(object):
+    """ Class for managing a process running FlightGear for visualisation """
+    TYPE = 'socket'
+    DIRECTION = 'in'
+    RATE = 60
+    SERVER = ''
+    PORT = 5550
+    PROTOCOL = 'udp'
+    LOADED_MESSAGE = 'loading cities done'
+    FLIGHTGEAR_TIME_FACTOR = 1
+
+    def __init__(self, sim: Simulation, block_until_loaded=True):
+        self.configure_simulation(sim)
+        self.flightgear_process = self._launch_flightgear(sim.get_model_name())
+        if block_until_loaded:
+            self._block_until_flightgear_loaded()
+
+    @staticmethod
+    def _launch_flightgear(aircraft_name: str):
+        cmd_line_args = FlightGearVisualiser._create_cmd_line_args(aircraft_name)
+        gym.logger.info(f'Subprocess: "{cmd_line_args}"')
+        flightgear_process = subprocess.Popen(
+            cmd_line_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        gym.logger.info('Started FlightGear')
+        return flightgear_process
+
+    def configure_simulation(self, sim: Simulation):
+        sim.enable_flightgear_output()
+        sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
+
+    @staticmethod
+    def _create_cmd_line_args(aircraft_name: str):
+        flightgear_cmd = 'fgfs'
+        aircraft_arg = f'--aircraft={aircraft_name}'
+        flight_model_arg = '--native-fdm=' + f'{FlightGearVisualiser.TYPE},' \
+                                             f'{FlightGearVisualiser.DIRECTION},' \
+                                             f'{FlightGearVisualiser.RATE},' \
+                                             f'{FlightGearVisualiser.SERVER},' \
+                                             f'{FlightGearVisualiser.PORT},' \
+                                             f'{FlightGearVisualiser.PROTOCOL}'
+        flight_model_type_arg = '--fdm=' + 'external'
+        return flightgear_cmd, aircraft_arg, flight_model_arg, flight_model_type_arg
+
+    def _block_until_flightgear_loaded(self):
+        while True:
+            msg_out = self.flightgear_process.stdout.readline().decode()
+            if self.LOADED_MESSAGE in msg_out:
+                gym.logger.info('FlightGear loading complete; entering world')
+                break
+            else:
+                time.sleep(0.001)
+
+    def close(self):
+        if self.flightgear_process:
+            self.flightgear_process.kill()

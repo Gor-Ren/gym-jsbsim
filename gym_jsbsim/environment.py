@@ -1,10 +1,8 @@
 import gym
-import subprocess
-import time
 import numpy as np
-from .tasks import TaskModule, SteadyLevelFlightTask
-from .simulation import Simulation
-from gym_jsbsim.visualiser import FigureVisualiser
+from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask
+from gym_jsbsim.simulation import Simulation
+from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
 from typing import Type
 
 
@@ -34,7 +32,6 @@ class JsbSimEnv(gym.Env):
     docstrings have been taken from the OpenAI API and modified where required.
     """
     DT_HZ: int = 120  # JSBSim integration frequency [Hz]
-    FLIGHTGEAR_TIME_FACTOR = 1
     metadata = {'render.modes': ['human', 'flightgear']}
 
     def __init__(self, task_type: Type[TaskModule], aircraft_name: str='c172p',
@@ -60,8 +57,8 @@ class JsbSimEnv(gym.Env):
         self.observation_space: gym.spaces.Box = self.task.get_observation_space()
         self.action_space: gym.spaces.Box = self.task.get_action_space()
         # set visualisation objects
-        self.plotter: FigureVisualiser = None
-        self.flightgear_process: subprocess.Popen = None
+        self.figure_visualiser: FigureVisualiser = None
+        self.flightgear_visualiser: FlightGearVisualiser = None
         self.step_delay = None
 
     def step(self, action: np.ndarray):
@@ -99,13 +96,13 @@ class JsbSimEnv(gym.Env):
                               init_conditions=init_conditions)
         state = self.task.observe_first_state(self.sim)
 
-        if self.flightgear_process:
-            self.sim.enable_flightgear_output()
-            self.sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
+        if self.flightgear_visualiser:
+            self.flightgear_visualiser.configure_simulation(self.sim)
 
         return np.array(state)
 
-    def render(self, mode='human', action_names=None, action_values=None):
+    def render(self, mode='human', action_names=None, action_values=None,
+               flightgear_blocking=True):
         """Renders the environment.
         The set of supported modes varies per environment. (And some
         environments do not support rendering at all.) By convention,
@@ -128,6 +125,8 @@ class JsbSimEnv(gym.Env):
             by agent action
         :param action_values: list of numbers, the value of the action at
             the same index in action_names
+        :param flightgear_blocking: waits for FlightGear to load before
+            returning if True, else returns immediately
         Example:
         class MyEnv(Env):
             metadata = {'render.modes': ['human', 'rgb_array']}
@@ -140,60 +139,28 @@ class JsbSimEnv(gym.Env):
                     super(MyEnv, self).render(mode=mode) # just raise an exception
         """
         if mode == 'human':
-            if not self.plotter:
-                self.plotter = FigureVisualiser(self.sim)
-            self.plotter.plot(self.sim, action_names=action_names, action_values=action_values)
+            if not self.figure_visualiser:
+                self.figure_visualiser = FigureVisualiser(self.sim)
+            self.figure_visualiser.plot(self.sim, action_names=action_names, action_values=action_values)
         elif mode == 'flightgear':
-            if not self.flightgear_process:
-                self.sim.enable_flightgear_output()
-                self.sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
-                self._launch_flightgear()
-                # loop until we see FlightGear is ready to render
-                ready_message = 'loading cities done'
-                while True:
-                    msg_out = self.flightgear_process.stdout.readline().decode()
-                    if ready_message in msg_out:
-                        gym.logger.info('FlightGear loading complete; entering world')
-                        break
-                    else:
-                        time.sleep(0.001)
-
+            if not self.flightgear_visualiser:
+                self.flightgear_visualiser = FlightGearVisualiser(self.sim,
+                                                                  block_until_loaded=flightgear_blocking)
         else:
             super().render(mode=mode)
 
-    def _launch_flightgear(self):
-        TYPE = 'socket'
-        DIRECTION = 'in'
-        RATE = 60
-        SERVER = ''
-        PORT = 5550
-        PROTOCOL = 'udp'
-
-        flightgear_cmd = 'fgfs'
-        aircraft_arg = '--aircraft=' + self.sim.get_model_name()
-        flight_model_arg = '--native-fdm=' + f'{TYPE},{DIRECTION},{RATE},{SERVER},{PORT},{PROTOCOL}'
-        flight_model_type_arg = '--fdm=' + 'external'
-
-        cmd_line_args = (flightgear_cmd, aircraft_arg, flight_model_arg, flight_model_type_arg)
-        gym.logger.info(f'Subprocess: "{cmd_line_args}"')
-        self.flightgear_process = subprocess.Popen(
-            cmd_line_args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        gym.logger.info('Started FlightGear')
-
     def close(self):
-        """Override _close in your subclass to perform any necessary cleanup.
-        Environments will automatically close() themselves when
-        garbage collected or when the program exits.
+        """ Cleans up this environment's objects
+
+        Environments automatically close() when garbage collected or when the
+        program exits.
         """
         if self.sim:
             self.sim.close()
-        if self.plotter:
-            self.plotter.close()
-        if self.flightgear_process:
-            self.flightgear_process.kill()
+        if self.figure_visualiser:
+            self.figure_visualiser.close()
+        if self.flightgear_visualiser:
+            self.flightgear_visualiser.close()
 
     def seed(self, seed=None):
         """Sets the seed for this env's random number generator(s).
@@ -212,7 +179,7 @@ class JsbSimEnv(gym.Env):
         return
 
 
-# convenience classes for specific task/aircraft combos
+# convenience classes for specific task/aircraft combos for registration with OpenAI Gym
 class SteadyLevelFlightCessnaEnv(JsbSimEnv):
     def __init__(self):
         super().__init__(task_type=SteadyLevelFlightTask, aircraft_name='c172p')
