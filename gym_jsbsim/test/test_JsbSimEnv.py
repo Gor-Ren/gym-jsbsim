@@ -113,9 +113,9 @@ class TestJsbSimEnv(unittest.TestCase):
 
     def test_figure_created_closed(self):
         self.env.render(mode='human')
-        self.assertIsInstance(self.env.sim.figure, plt.Figure)
+        self.assertIsInstance(self.env.plotter.figure, plt.Figure)
         self.env.close()
-        self.assertIsNone(self.env.sim.figure)
+        self.assertIsNone(self.env.plotter.figure)
 
     def test_plot_state(self):
         # note: this checks that plot works without throwing exception

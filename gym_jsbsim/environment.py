@@ -4,6 +4,7 @@ import time
 import numpy as np
 from .tasks import TaskModule, SteadyLevelFlightTask
 from .simulation import Simulation
+from gym_jsbsim.visualiser import FigureVisualiser
 from typing import Type
 
 
@@ -58,6 +59,8 @@ class JsbSimEnv(gym.Env):
         # set Space objects
         self.observation_space: gym.spaces.Box = self.task.get_observation_space()
         self.action_space: gym.spaces.Box = self.task.get_action_space()
+        # set visualisation objects
+        self.plotter: FigureVisualiser = None
         self.flightgear_process: subprocess.Popen = None
         self.step_delay = None
 
@@ -137,7 +140,9 @@ class JsbSimEnv(gym.Env):
                     super(MyEnv, self).render(mode=mode) # just raise an exception
         """
         if mode == 'human':
-            self.sim.plot(action_names=action_names, action_values=action_values)
+            if not self.plotter:
+                self.plotter = FigureVisualiser(self.sim)
+            self.plotter.plot(self.sim, action_names=action_names, action_values=action_values)
         elif mode == 'flightgear':
             if not self.flightgear_process:
                 self.sim.enable_flightgear_output()
@@ -185,6 +190,8 @@ class JsbSimEnv(gym.Env):
         """
         if self.sim:
             self.sim.close()
+        if self.plotter:
+            self.plotter.close()
         if self.flightgear_process:
             self.flightgear_process.kill()
 
