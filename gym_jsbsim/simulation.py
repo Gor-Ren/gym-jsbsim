@@ -186,7 +186,10 @@ class Simulation(object):
 
         :param time_factor: int or float, nonzero, sim speed relative to realtime
         """
-        self.wall_clock_dt = self.sim_dt / time_factor
+        if time_factor is not None:
+            self.wall_clock_dt = self.sim_dt / time_factor
+        else:
+            self.wall_clock_dt = None
 
     def start_engines(self):
         """ Sets all engines running. """

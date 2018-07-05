@@ -251,7 +251,7 @@ class FlightGearVisualiser(object):
     PORT = 5550
     PROTOCOL = 'udp'
     LOADED_MESSAGE = 'loading cities done'
-    FLIGHTGEAR_TIME_FACTOR = 50
+    FLIGHTGEAR_TIME_FACTOR = None
 
     def __init__(self, sim: Simulation, block_until_loaded=True):
         self.configure_simulation(sim)
