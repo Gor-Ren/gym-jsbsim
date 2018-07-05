@@ -29,6 +29,7 @@ class TestFlightGearVisualiser(unittest.TestCase):
         self.flightgear = FlightGearVisualiser(self.sim,
                                                block_until_loaded=False)
         self.flightgear.close()
-        return_code = self.flightgear.flightgear_process.wait()
+        timeout_seconds = 2.0
+        return_code = self.flightgear.flightgear_process.wait(timeout=timeout_seconds)
         # a non-None return code indicates termination
         self.assertIsNotNone(return_code)
