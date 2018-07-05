@@ -55,10 +55,13 @@ class TestJsbSimInstance(unittest.TestCase):
 
 
 class FlightGearRenderTest(unittest.TestCase):
-    def setUp(self, task_type: Type[tasks.TaskModule]= gym_jsbsim.test.stubs.TaskStub):
+    def setUp(self, task_type: Type[tasks.TaskModule]=TaskStub):
         self.env = None
         self.env = JsbSimEnv(task_type)
         self.env.reset()
+
+    def tearDown(self):
+        self.env.close()
 
     def test_render_steady_level_flight_random(self):
         seed = 1

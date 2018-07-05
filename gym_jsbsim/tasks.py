@@ -214,9 +214,19 @@ class TaskModule(ABC):
         :param sim: Simulation, the environment simulation
         :return: array, the first state observation of the episode
         """
+        self._input_initial_controls(sim)
         state = [sim[prop] for prop in self.state_names]
         return np.array(state)
 
+    def _input_initial_controls(self, sim: Simulation):
+        """
+        This method is called at the start of every episode. It is used to set
+        the value of any controls or environment properties not already defined
+        in the task's initial conditions.
+
+        By default it simply starts the aircraft engines.
+        """
+        sim.start_engines()
 
 class SteadyLevelFlightTask(TaskModule):
     """ A task in which the agent must perform steady, level flight. """
@@ -253,11 +263,7 @@ class SteadyLevelFlightTask(TaskModule):
                      ('velocities/v-down-fps', 0),
                      ('attitude/roll-rad', 0),
     )
-    initial_conditions = {'ic/psi-true-deg': random.uniform(0, 360),  # heading
-                          'ic/vt-kts': random.uniform(150, 300),  # true airspeed
-                          'ic/phi-deg': random.uniform(-180, 180),  # roll angle
-                          'ic/theta-deg': random.uniform(-45, 45),  # pitch angle
-    }
+
     MAX_TIME_SECS = 120
     MIN_ALT_FT = 200
     TOO_LOW_REWARD = -10
@@ -275,7 +281,12 @@ class SteadyLevelFlightTask(TaskModule):
         :return: dict mapping string for each initial condition property to
             a float, or None to use Env defaults
         """
-        return {**self.base_initial_conditions, **self.initial_conditions}
+        initial_conditions = {'ic/psi-true-deg': random.uniform(0, 360),  # heading
+                              'ic/vt-kts': random.uniform(150, 300),  # true airspeed
+                              'ic/phi-deg': random.uniform(-180, 180),  # roll angle
+                              'ic/theta-deg': random.uniform(-45, 45),  # pitch angle
+                              }
+        return {**self.base_initial_conditions, **initial_conditions}
 
     def get_full_action_variables(self):
         """ Returns information defining all action variables for this task.
@@ -317,16 +328,13 @@ class SteadyLevelFlightTask(TaskModule):
         too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         return time_out or too_low
 
-    def observe_first_state(self, sim: Simulation):
+    def _input_initial_controls(self, sim: Simulation):
         """ Sets control inputs for start of episode and retrieves state observation.
 
         :param sim: Simulation, the environment simulation
         :return: array, the first state observation of the episode
         """
-        # set fixed values for throttle and mixture
+        # start engines and set values for throttle and mixture
+        sim.start_engines()
         sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
         sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
-
-        state = [sim[prop] for prop in self.state_names]
-        assert len(state) == len(self.state_variables)
-        return np.array(state)

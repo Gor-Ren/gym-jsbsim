@@ -22,3 +22,6 @@ class TaskStub(TaskModule):
 class SimStub(dict):
     def run(self):
         pass
+
+    def start_engines(self):
+        pass

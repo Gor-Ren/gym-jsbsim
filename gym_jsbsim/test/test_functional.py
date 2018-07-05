@@ -66,4 +66,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
         self.assertFalse(done, msg='episode is terminal after only a single step')
 
         # reward should not be positive
-        self.assertGreaterEqual(0, reward)
+        self.assertLessEqual(reward, 0)
+
+        # the aircraft engines are running, as per initial conditions
+        self.assertGreater(env.sim['propulsion/engine/thrust-lbs'], 0)

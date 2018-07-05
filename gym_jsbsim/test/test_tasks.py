@@ -1,5 +1,7 @@
 import unittest
 import numpy as np
+from gym_jsbsim.environment import JsbSimEnv
+from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.tasks import SteadyLevelFlightTask
 from gym_jsbsim.test import SimStub
 
@@ -64,5 +66,32 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         self.assertIsInstance(ics, dict)
         for prop_name, value in self.task.base_initial_conditions.items():
             self.assertAlmostEqual(value, ics[prop_name])
-        for prop_name, value in self.task.initial_conditions.items():
-            self.assertAlmostEqual(value, ics[prop_name])
+
+        steady_level_task_ic_properties = ['ic/psi-true-deg',
+                                           'ic/vt-kts',
+                                           'ic/phi-deg',
+                                           'ic/theta-deg'
+                                           ]
+        for prop_name in steady_level_task_ic_properties:
+            self.assertIn(prop_name, ics.keys(),
+                          msg='expected SteadyLevelFlightTask to set value for'
+                              f'property {prop_name} but not found in ICs')
+
+    def test_engines_init_running(self):
+        env = JsbSimEnv(task_type=SteadyLevelFlightTask)
+
+        # test assumption that property 'propulsion/engine/set-running'
+        #   is zero prior to engine start!
+        check_sim = Simulation(init_conditions={})
+        engine_off_value = 0.0
+        self.assertAlmostEqual(engine_off_value,
+                               check_sim['propulsion/engine/set-running'])
+        check_sim.close()
+
+        # check engines on once env has been reset
+        _ = env.reset()
+        # now check
+        engine_running_value = 1.0
+        self.assertAlmostEqual(engine_running_value,
+                               env.sim['propulsion/engine/set-running'])
+

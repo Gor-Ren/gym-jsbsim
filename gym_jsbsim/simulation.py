@@ -153,7 +153,7 @@ class Simulation(object):
         :param model_name: string, name of aircraft to be loaded
         :param init_conditions: dict mapping properties to their initial values
         """
-        if init_conditions:
+        if init_conditions is not None:
             # if we are specifying conditions, load a minimal file
             ic_file = 'minimal_ic.xml'
         else:
@@ -237,6 +237,11 @@ class Simulation(object):
         :param time_factor: int or float, nonzero, sim speed relative to realtime
         """
         self.wall_clock_dt = self.sim_dt / time_factor
+
+    def start_engines(self):
+        """ Sets all engines running. """
+        for engine_no in range(self.sim.propulsion_get_num_engines()):
+            self.sim.propulsion_init_running(engine_no)
 
     def _plot_configure(self):
         """
