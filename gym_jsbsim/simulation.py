@@ -152,7 +152,6 @@ class Simulation(object):
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')
 
-
     def run(self) -> bool:
         """
         Runs a single timestep in the JSBSim simulation.

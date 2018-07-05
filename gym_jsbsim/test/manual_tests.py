@@ -69,23 +69,24 @@ class FlightGearRenderTest(unittest.TestCase):
         agent = RandomAgent(self.env.action_space, seed=seed)
         render_every = 5
         report_every = 20
+        EPISODES = 10
 
-        ep_reward = 0
-        done = False
-        state = self.env.reset()
-        self.env.render(mode='flightgear')
-        step_number = 0
-        while not done:
-            action = agent.act(state)
-            state, reward, done, info = self.env.step(action)
-            ep_reward += reward
-            if step_number % render_every == 0:
-                self.env.render(mode='flightgear', action_names=self.env.task.action_names, action_values=action)
-                self.env.render(mode='human', action_names=self.env.task.action_names, action_values=action)
-            if step_number % report_every == 0:
-                print(f'time:\t{self.env.sim.get_sim_time()} s')
-                print(f'last reward:\t{reward}')
-                print(f'episode reward:\t{ep_reward}')
-                print(f'thrust:\t{self.env.sim["propulsion/engine/thrust-lbs"]}')
-                print(f'engine running:\t{self.env.sim["propulsion/engine/set-running"]}')
-            step_number += 1
+        for _ in range(EPISODES):
+            ep_reward = 0
+            done = False
+            state = self.env.reset()
+            self.env.render(mode='flightgear')
+            step_number = 0
+            while not done:
+                action = agent.act(state)
+                state, reward, done, info = self.env.step(action)
+                ep_reward += reward
+                if step_number % render_every == 0:
+                    self.env.render(mode='flightgear', action_names=self.env.task.action_names, action_values=action)
+                if step_number % report_every == 0:
+                    print(f'time:\t{self.env.sim.get_sim_time()} s')
+                    print(f'last reward:\t{reward}')
+                    print(f'episode reward:\t{ep_reward}')
+                    print(f'thrust:\t{self.env.sim["propulsion/engine/thrust-lbs"]}')
+                    print(f'engine running:\t{self.env.sim["propulsion/engine/set-running"]}')
+                step_number += 1

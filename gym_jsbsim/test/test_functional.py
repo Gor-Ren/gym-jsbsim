@@ -69,4 +69,4 @@ class AgentEnvInteractionTest(unittest.TestCase):
         self.assertLessEqual(reward, 0)
 
         # the aircraft engines are running, as per initial conditions
-        self.assertGreater(env.sim['propulsion/engine/thrust-lbs'], 0)
+        self.assertNotAlmostEqual(env.sim['propulsion/engine/thrust-lbs'], 0)
