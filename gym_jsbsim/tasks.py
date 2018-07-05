@@ -60,18 +60,21 @@ class TaskModule(ABC):
                                'ic/terrain-elevation-ft': 0.00000001,
                                'ic/long-gc-deg': 2.3273,
                                'ic/lat-gc-deg': 51.3781,  # corresp. UoBath
-    }
+                               }
 
-    def __init__(self, task_name: Optional[str]):
+    def __init__(self, task_name: Optional[str], use_shaped_reward: bool = True):
         """ Constructor
 
         :param task_name: str, the name of the task
+        :param use_shaped_reward: use potential based reward shaping if True
         """
         self.task_name = task_name
         self.state_variables = self.get_full_state_variables()
         self.action_variables = self.get_full_action_variables()
         self.state_names = tuple([state_var['name'] for state_var in self.state_variables])
         self.action_names = tuple([act_var['name'] for act_var in self.action_variables])
+        self.use_shaped_reward = use_shaped_reward
+        self.last_reward = None
 
     def __repr__(self):
         return f'<TaskModule {self.task_name}>'
@@ -99,6 +102,10 @@ class TaskModule(ABC):
 
         obs = [sim[var] for var in self.state_names]
         reward = self._calculate_reward(sim)
+        if self.use_shaped_reward:
+            shaped_reward = reward - self.last_reward
+            self.last_reward = reward
+            reward = shaped_reward
         done = self._is_done(sim)
         info = {'sim_time': sim.get_sim_time()}
 
@@ -216,6 +223,8 @@ class TaskModule(ABC):
         """
         self._input_initial_controls(sim)
         state = [sim[prop] for prop in self.state_names]
+        if self.use_shaped_reward:
+            self.last_reward = self._calculate_reward(sim)
         return np.array(state)
 
     def _input_initial_controls(self, sim: Simulation):
@@ -227,6 +236,7 @@ class TaskModule(ABC):
         By default it simply starts the aircraft engines.
         """
         sim.start_engines()
+
 
 class SteadyLevelFlightTask(TaskModule):
     """ A task in which the agent must perform steady, level flight. """
@@ -253,7 +263,7 @@ class SteadyLevelFlightTask(TaskModule):
                             dict(name='velocities/v-down-fps',
                                  description='earth frame z-axis velocity [ft/s]',
                                  high=2200, low=-2200),
-    )
+                            )
     TARGET_VALUES = (('accelerations/udot-ft_sec2', 0),
                      ('accelerations/vdot-ft_sec2', 0),
                      ('accelerations/wdot-ft_sec2', 0),
@@ -262,7 +272,7 @@ class SteadyLevelFlightTask(TaskModule):
                      ('accelerations/rdot-rad_sec2', 0),
                      ('velocities/v-down-fps', 0),
                      ('attitude/roll-rad', 0),
-    )
+                     )
 
     MAX_TIME_SECS = 120
     MIN_ALT_FT = 200

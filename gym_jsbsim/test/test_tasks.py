@@ -95,3 +95,31 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         self.assertAlmostEqual(engine_running_value,
                                env.sim['propulsion/engine/set-running'])
 
+    def test_shaped_reward(self):
+        low_reward_state_sim = SimStub.make_valid_state_stub(self.task)
+        high_reward_state_sim = SimStub.make_valid_state_stub(self.task)
+
+        # make one sim near the target values, and one relatively far away
+        for prop, ideal_value in SteadyLevelFlightTask.TARGET_VALUES:
+            low_reward_state_sim[prop] = ideal_value + 5
+            high_reward_state_sim[prop] = ideal_value + 0.05
+        # make sure altitude hasn't randomly been set below minimum!
+        low_reward_state_sim['position/h-sl-ft'] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
+        high_reward_state_sim['position/h-sl-ft'] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
+
+        # suppose we start in the low reward state then transition to the high reward state
+        self.task.observe_first_state(low_reward_state_sim)
+        dummy_action = self.task.get_action_space().sample()
+        _, first_reward, _, _ = self.task.task_step(high_reward_state_sim, dummy_action, 1)
+        # shaped reward should be positive
+        self.assertGreater(first_reward, 0)
+
+        # now suppose we transition in the next step back to the low reward state
+        _, second_reward, _, _ = self.task.task_step(low_reward_state_sim, dummy_action, 1)
+        # shaped reward should be negative, and equal to the negative first_reward
+        self.assertLess(second_reward, 0)
+        self.assertAlmostEqual(-1 * first_reward, second_reward)
+
+        # and if we remain in the same low-reward state we should receive 0 shaped reward
+        _, third_reward, _, _ = self.task.task_step(low_reward_state_sim, dummy_action, 1)
+        self.assertAlmostEqual(0, third_reward)
