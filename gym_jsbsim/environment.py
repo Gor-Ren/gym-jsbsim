@@ -101,7 +101,7 @@ class JsbSimEnv(gym.Env):
 
         return np.array(state)
 
-    def render(self, mode='human', action_names=None, action_values=None,
+    def render(self, mode='flightgear', action_names=None, action_values=None,
                flightgear_blocking=True):
         """Renders the environment.
         The set of supported modes varies per environment. (And some
