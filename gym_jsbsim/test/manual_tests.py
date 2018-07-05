@@ -83,7 +83,9 @@ class FlightGearRenderTest(unittest.TestCase):
                 self.env.render(mode='flightgear', action_names=self.env.task.action_names, action_values=action)
                 self.env.render(mode='human', action_names=self.env.task.action_names, action_values=action)
             if step_number % report_every == 0:
-                print(f'time: {self.env.sim.get_sim_time()} s')
+                print(f'time:\t{self.env.sim.get_sim_time()} s')
                 print(f'last reward:\t{reward}')
                 print(f'episode reward:\t{ep_reward}')
+                print(f'thrust:\t{self.env.sim["propulsion/engine/thrust-lbs"]}')
+                print(f'engine running:\t{self.env.sim["propulsion/engine/set-running"]}')
             step_number += 1
