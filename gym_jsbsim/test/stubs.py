@@ -6,6 +6,9 @@ class TaskStub(TaskModule):
     """ A minimal task module for testing. """
     task_state_variables = ()
 
+    def __init__(self, task_name: Optional[str]='TaskStub'):
+        super().__init__(task_name)
+
     def _calculate_reward(self, _):
         return 0
 
@@ -14,9 +17,6 @@ class TaskStub(TaskModule):
 
     def get_initial_conditions(self):
         return None
-
-    def __init__(self, task_name: Optional[str]='TaskStub'):
-        super().__init__(task_name)
 
 
 class SimStub(dict):
