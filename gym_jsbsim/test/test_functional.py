@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from gym_jsbsim.agents.random import RandomAgent
+from gym_jsbsim.agents import RandomAgent
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.tasks import SteadyLevelFlightTask
 
@@ -21,8 +21,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
         self.assertEqual(15, env.sim_steps)
 
         # we init a random agent with a seed
-        seed = 1
-        agent = RandomAgent(action_space=env.action_space, seed=seed)
+        agent = RandomAgent(action_space=env.action_space)
         self.assertEqual(env.action_space, agent.action_space)
 
         # this task has an action space of three controls: aileron, elevator, rudder
@@ -46,8 +45,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
         agent_interaction_hz = 8
         env = JsbSimEnv(task_type=SteadyLevelFlightTask,
                         agent_interaction_freq=agent_interaction_hz)
-        seed = 1
-        agent = RandomAgent(action_space=env.action_space, seed=seed)
+        agent = RandomAgent(action_space=env.action_space)
 
         # we set up for a loop through one episode
         first_state = env.reset()
