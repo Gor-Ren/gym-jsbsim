@@ -141,11 +141,11 @@ class JsbSimEnv(gym.Env):
         if mode == 'human':
             if not self.figure_visualiser:
                 self.figure_visualiser = FigureVisualiser(self.sim)
-            self.figure_visualiser.plot(self.sim, action_names=action_names, action_values=action_values)
+            self.figure_visualiser.plot(self.sim, action_names, action_values)
         elif mode == 'flightgear':
             if not self.flightgear_visualiser:
-                self.flightgear_visualiser = FlightGearVisualiser(self.sim,
-                                                                  block_until_loaded=flightgear_blocking)
+                self.flightgear_visualiser = FlightGearVisualiser(self.sim, flightgear_blocking)
+            self.flightgear_visualiser.plot(self.sim, action_names, action_values)
         else:
             super().render(mode=mode)
 

@@ -30,8 +30,21 @@ class FigureVisualiser(object):
                                rud=dict(name='fcs/rudder-pos-norm', label='rudder position, [-]'))
     FT_PER_DEG_LAT: int = 365228
     ft_per_deg_lon: int = None  # calc at reset() - it depends on the longitude value
+    PLOT_PAUSE_SECONDS = 0.0001
 
-    def __init__(self, sim: Simulation):
+    def __init__(self, sim: Simulation, is_plot_state=True):
+        """
+        Constructor.
+
+        The main attribute set here is ft_per_deg_lon, which depends
+        dynamically on the aircraft's longitude (because of the conversion
+        between geographic and Euclidean coordinate systems). We retrieve
+        longitude from the simulation and assume it is constant thereafter.
+
+        :param sim: Simulation that will be plotted
+        :param is_plot_state: aircraft position and velocity is plotted if True
+        """
+        self.is_plot_state = is_plot_state
         self.figure: plt.Figure = None
         self.axes: AxesTuple = None
         self.velocity_arrow = None
@@ -55,9 +68,10 @@ class FigureVisualiser(object):
                 data = subplot.lines.pop()
                 del data
 
-        self._plot_state(sim, self.axes)
+        if self.is_plot_state:
+            self._plot_state(sim, self.axes)
         self._plot_actions(self.axes, action_names, action_values)
-        plt.pause(0.001)  # voodoo pause needed for figure to update
+        plt.pause(self.PLOT_PAUSE_SECONDS)  # voodoo pause needed for figure to update
 
     def close(self):
         if self.figure:
@@ -84,17 +98,21 @@ class FigureVisualiser(object):
                             wspace=0.3)
 
         # create subplots
-        axes_state: Axes3D = figure.add_subplot(spec[0, 0:], projection='3d')
+        if self.is_plot_state:
+            axes_state: Axes3D = figure.add_subplot(spec[0, 0:], projection='3d')
+        else:
+            axes_state = None
         axes_stick = figure.add_subplot(spec[1, 0])
         axes_throttle = figure.add_subplot(spec[1, 1])
         axes_rudder = figure.add_subplot(spec[2, 0])
 
-        # config subplot for state
-        axes_state.set_xlabel(self.props_to_plot['x']['label'])
-        axes_state.set_ylabel(self.props_to_plot['y']['label'])
-        axes_state.set_zlabel(self.props_to_plot['z']['label'])
-        green_rgba = (0.556, 0.764, 0.235, 0.8)
-        axes_state.w_zaxis.set_pane_color(green_rgba)
+        if self.is_plot_state:
+            # config subplot for state
+            axes_state.set_xlabel(self.props_to_plot['x']['label'])
+            axes_state.set_ylabel(self.props_to_plot['y']['label'])
+            axes_state.set_zlabel(self.props_to_plot['z']['label'])
+            green_rgba = (0.556, 0.764, 0.235, 0.8)
+            axes_state.w_zaxis.set_pane_color(green_rgba)
 
         # config subplot for stick (aileron and elevator control in x/y axes)
         axes_stick.set_xlabel('ailerons [-]', )
@@ -165,7 +183,7 @@ class FigureVisualiser(object):
                       loc='upper center')
 
         plt.show()
-        plt.pause(0.001)  # voodoo pause needed for figure to appear
+        plt.pause(self.PLOT_PAUSE_SECONDS)  # voodoo pause needed for figure to appear
 
         return figure, all_axes
 
@@ -228,7 +246,7 @@ class FigureVisualiser(object):
         thr_cmd = lookup_table.get('fcs/throttle-cmd-norm', None)
         rud_cmd = lookup_table.get('fcs/rudder-cmd-norm', None)
 
-        if ail_cmd or ele_cmd:
+        if ail_cmd is not None or ele_cmd is not None:
             # if we have a value for one but not other,
             #   set other to zero for plotting
             if ail_cmd is None:
@@ -236,14 +254,19 @@ class FigureVisualiser(object):
             if ele_cmd is None:
                 ele_cmd = 0
             all_axes.axes_stick.plot([ail_cmd], [ele_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
-        if thr_cmd:
+        if thr_cmd is not None:
             all_axes.axes_throttle.plot([0], [thr_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
-        if rud_cmd:
+        if rud_cmd is not None:
             all_axes.axes_rudder.plot([rud_cmd], [0], 'bo', mfc='none', markersize=10, clip_on=False)
 
 
 class FlightGearVisualiser(object):
-    """ Class for managing a process running FlightGear for visualisation """
+    """ Class for visualising aircraft using the FlightGear simulator.
+
+     This visualiser launches FlightGear and (by default) waits for it to
+     launch. A Figure is also displayed (by creating its own FigureVisualiser)
+     which is used to display the agent's actions.
+     """
     TYPE = 'socket'
     DIRECTION = 'in'
     RATE = 60
@@ -254,10 +277,26 @@ class FlightGearVisualiser(object):
     FLIGHTGEAR_TIME_FACTOR = 5
 
     def __init__(self, sim: Simulation, block_until_loaded=True):
+        """ Constructor
+
+        Launches FlightGear in a subprocess and starts a figure for plotting
+        actions.
+
+        :param sim: Simulation that will be visualised
+        :param block_until_loaded: visualiser will block until it detects that
+            FlightGear has loaded if True.
+        """
         self.configure_simulation(sim)
         self.flightgear_process = self._launch_flightgear(sim.get_model_name())
+        self.figure = FigureVisualiser(sim, is_plot_state=False)
         if block_until_loaded:
             self._block_until_flightgear_loaded()
+
+    def plot(self, sim: Simulation, action_names=None, action_values=None) -> None:
+        """
+        Updates a 3D plot of agent actions.
+        """
+        self.figure.plot(sim, action_names=action_names, action_values=action_values)
 
     @staticmethod
     def _launch_flightgear(aircraft_name: str):
