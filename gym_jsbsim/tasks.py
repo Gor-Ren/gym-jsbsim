@@ -100,7 +100,7 @@ class TaskModule(ABC):
         for _ in range(sim_steps):
             sim.run()
 
-        obs = [sim[var] for var in self.state_names]
+        obs = [sim[prop] for prop in self.state_names]
         reward = self._calculate_reward(sim)
         if self.use_shaped_reward:
             shaped_reward = reward - self.last_reward
@@ -274,8 +274,8 @@ class SteadyLevelFlightTask(TaskModule):
                      ('attitude/roll-rad', 0),
                      )
 
-    MAX_TIME_SECS = 120
-    MIN_ALT_FT = 200
+    MAX_TIME_SECS = 15
+    MIN_ALT_FT = 1000
     TOO_LOW_REWARD = -10
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
