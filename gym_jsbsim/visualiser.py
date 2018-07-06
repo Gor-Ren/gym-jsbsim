@@ -251,7 +251,7 @@ class FlightGearVisualiser(object):
     PORT = 5550
     PROTOCOL = 'udp'
     LOADED_MESSAGE = 'loading cities done'
-    FLIGHTGEAR_TIME_FACTOR = None
+    FLIGHTGEAR_TIME_FACTOR = 5
 
     def __init__(self, sim: Simulation, block_until_loaded=True):
         self.configure_simulation(sim)
@@ -277,6 +277,10 @@ class FlightGearVisualiser(object):
 
     @staticmethod
     def _create_cmd_line_args(aircraft_name: str):
+        # FlightGear doesn't have a 172X model, use the P instead
+        if aircraft_name == 'c172x':
+            aircraft_name = 'c172p'
+
         flightgear_cmd = 'fgfs'
         aircraft_arg = f'--aircraft={aircraft_name}'
         flight_model_arg = '--native-fdm=' + f'{FlightGearVisualiser.TYPE},' \
@@ -300,3 +304,5 @@ class FlightGearVisualiser(object):
     def close(self):
         if self.flightgear_process:
             self.flightgear_process.kill()
+            timeout_secs = 3
+            self.flightgear_process.wait(timeout=timeout_secs)

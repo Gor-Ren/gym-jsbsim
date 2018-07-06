@@ -39,7 +39,7 @@ class TestJsbSimInstance(unittest.TestCase):
         """ Runs steady level flight task with a random agent. """
         seed = 1
         self.setUp(task_type=tasks.SteadyLevelFlightTask)
-        agent = RandomAgent(self.env.action_space, seed=seed)
+        agent = RandomAgent(self.env.action_space)
         render_every = 5
         ep_reward = 0
         done = False
@@ -55,9 +55,9 @@ class TestJsbSimInstance(unittest.TestCase):
 
 
 class FlightGearRenderTest(unittest.TestCase):
-    def setUp(self, task_type: Type[tasks.TaskModule]=TaskStub):
+    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.TaskModule]=TaskStub):
         self.env = None
-        self.env = JsbSimEnv(task_type)
+        self.env = JsbSimEnv(aircraft_name=aircraft_name, task_type=task_type)
         self.env.reset()
 
     def tearDown(self):
@@ -65,8 +65,8 @@ class FlightGearRenderTest(unittest.TestCase):
 
     def test_render_steady_level_flight_random(self):
         seed = 1
-        self.setUp(task_type=tasks.SteadyLevelFlightTask)
-        agent = RandomAgent(self.env.action_space, seed=seed)
+        self.setUp(aircraft_name='c172x', task_type=tasks.SteadyLevelFlightTask)
+        agent = RandomAgent(self.env.action_space)
         render_every = 5
         report_every = 20
         EPISODES = 10
