@@ -58,7 +58,7 @@ class TaskModule(ABC):
     )
     base_initial_conditions = {'ic/h-sl-ft': 5000,
                                'ic/terrain-elevation-ft': 0.00000001,
-                               'ic/long-gc-deg': 2.3273,
+                               'ic/long-gc-deg': -2.3273,
                                'ic/lat-gc-deg': 51.3781,  # corresp. UoBath
                                }
 
