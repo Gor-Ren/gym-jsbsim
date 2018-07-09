@@ -32,7 +32,7 @@ class FigureVisualiser(object):
     ft_per_deg_lon: int = None  # calc at reset() - it depends on the longitude value
     PLOT_PAUSE_SECONDS = 0.0001
 
-    def __init__(self, sim: Simulation, is_plot_state=True):
+    def __init__(self, sim: Simulation, is_plot_position=True):
         """
         Constructor.
 
@@ -42,9 +42,9 @@ class FigureVisualiser(object):
         longitude from the simulation and assume it is constant thereafter.
 
         :param sim: Simulation that will be plotted
-        :param is_plot_state: aircraft position and velocity is plotted if True
+        :param is_plot_position: aircraft position and velocity is plotted if True
         """
-        self.is_plot_state = is_plot_state
+        self.is_plot_position = is_plot_position
         self.figure: plt.Figure = None
         self.axes: AxesTuple = None
         self.velocity_arrow = None
@@ -68,8 +68,9 @@ class FigureVisualiser(object):
                 data = subplot.lines.pop()
                 del data
 
-        if self.is_plot_state:
-            self._plot_state(sim, self.axes)
+        if self.is_plot_position:
+            self._plot_position_state(sim, self.axes)
+        self._plot_control_state(sim, self.axes)
         self._plot_actions(self.axes, action_names, action_values)
         plt.pause(self.PLOT_PAUSE_SECONDS)  # voodoo pause needed for figure to update
 
@@ -98,7 +99,7 @@ class FigureVisualiser(object):
                             wspace=0.3)
 
         # create subplots
-        if self.is_plot_state:
+        if self.is_plot_position:
             axes_state: Axes3D = figure.add_subplot(spec[0, 0:], projection='3d')
         else:
             axes_state = None
@@ -106,7 +107,7 @@ class FigureVisualiser(object):
         axes_throttle = figure.add_subplot(spec[1, 1])
         axes_rudder = figure.add_subplot(spec[2, 0])
 
-        if self.is_plot_state:
+        if self.is_plot_position:
             # config subplot for state
             axes_state.set_xlabel(self.props_to_plot['x']['label'])
             axes_state.set_ylabel(self.props_to_plot['y']['label'])
@@ -187,7 +188,7 @@ class FigureVisualiser(object):
 
         return figure, all_axes
 
-    def _plot_state(self, sim: Simulation, all_axes: AxesTuple):
+    def _plot_position_state(self, sim: Simulation, all_axes: AxesTuple):
         """
         Plots the state of the simulation on input axes.
 
@@ -202,8 +203,7 @@ class FigureVisualiser(object):
         """
         x, y, z = [sim[self.props_to_plot[var]['name']] for var in 'xyz']
         u, v, w = [sim[self.props_to_plot[var]['name']] for var in 'uvw']
-        control_surfaces = ['ail', 'ele', 'thr', 'rud']
-        ail, ele, thr, rud = [sim[self.props_to_plot[prop]['name']] for prop in control_surfaces]
+
         # get velocity vector coords using scaled velocity
         x2 = x + u / self.FT_PER_DEG_LAT
         y2 = y + v / self.ft_per_deg_lon
@@ -216,14 +216,17 @@ class FigureVisualiser(object):
             self.velocity_arrow.pop().remove()
         self.velocity_arrow = all_axes.axes_state.plot([x, x2], [y, y2], [z, z2], 'r-')
 
+        # rescale the top z-axis limit, but keep bottom limit at 0
+        all_axes.axes_state.set_autoscalez_on(True)
+        all_axes.axes_state.set_zlim3d(bottom=0, top=None)
+
+    def _plot_control_state(self, sim: Simulation, all_axes: AxesTuple):
+        control_surfaces = ['ail', 'ele', 'thr', 'rud']
+        ail, ele, thr, rud = [sim[self.props_to_plot[prop]['name']] for prop in control_surfaces]
         # plot aircraft control surface positions
         all_axes.axes_stick.plot([ail], [ele], 'r+', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_throttle.plot([0], [thr], 'r+', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_rudder.plot([rud], [0], 'r+', mfc='none', markersize=10, clip_on=False)
-
-        # rescale the top z-axis limit, but keep bottom limit at 0
-        all_axes.axes_state.set_autoscalez_on(True)
-        all_axes.axes_state.set_zlim3d(bottom=0, top=None)
 
     def _plot_actions(self, all_axes: AxesTuple, action_names, action_values):
         """
@@ -288,7 +291,7 @@ class FlightGearVisualiser(object):
         """
         self.configure_simulation(sim)
         self.flightgear_process = self._launch_flightgear(sim.get_model_name())
-        self.figure = FigureVisualiser(sim, is_plot_state=False)
+        self.figure = FigureVisualiser(sim, is_plot_position=False)
         if block_until_loaded:
             self._block_until_flightgear_loaded()
 
