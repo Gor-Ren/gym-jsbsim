@@ -332,7 +332,9 @@ class FlightGearVisualiser(object):
                                              f'{FlightGearVisualiser.PORT},' \
                                              f'{FlightGearVisualiser.PROTOCOL}'
         flight_model_type_arg = '--fdm=' + 'external'
-        return flightgear_cmd, aircraft_arg, flight_model_arg, flight_model_type_arg
+        disable_ai_arg = '--disable-ai-traffic'
+        return (flightgear_cmd, aircraft_arg, flight_model_arg,
+                flight_model_type_arg, disable_ai_arg)
 
     def _block_until_flightgear_loaded(self):
         while True:
