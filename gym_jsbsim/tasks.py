@@ -62,7 +62,7 @@ class TaskModule(ABC):
                                'ic/lat-gc-deg': 51.3781,  # corresp. UoBath
                                }
 
-    def __init__(self, task_name: Optional[str], use_shaped_reward: bool = True):
+    def __init__(self, task_name: Optional[str], use_shaped_reward: bool=True):
         """ Constructor
 
         :param task_name: str, the name of the task
@@ -322,7 +322,7 @@ class SteadyLevelFlightTask(TaskModule):
         """
         reward = 0
         for prop, target in self.TARGET_VALUES:
-            reward -= abs(target - sim[prop]) ** 0.5  # take square root to help avoid outliers dominating?
+            reward -= abs(target - sim[prop])
         too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         if too_low:
             reward += self.TOO_LOW_REWARD
@@ -339,12 +339,98 @@ class SteadyLevelFlightTask(TaskModule):
         return time_out or too_low
 
     def _input_initial_controls(self, sim: Simulation):
-        """ Sets control inputs for start of episode and retrieves state observation.
+        """ Sets control inputs for start of episode.
 
         :param sim: Simulation, the environment simulation
-        :return: array, the first state observation of the episode
         """
         # start engines and set values for throttle and mixture
         sim.start_engines()
         sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
         sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
+
+
+class SimplePitchControlTask(TaskModule):
+    """ Simple task where the agent must use the elevator to keep pointed at horizon.
+
+    Aircraft control in other axes will be maintained using wing leveling
+    autopilot at constant throttle.
+
+    This task has been formulated for use with the Cessna 172x.
+    """
+    TARGET_PROPERTY = 'velocities/h-dot-fps'
+    TARGET_ALTITUDE_RATE = 0.0
+    task_state_variables = ()  # no extra state required
+    MAX_TIME_SECS = 15
+    MIN_ALT_FT = 1000
+    TOO_LOW_REWARD = -100
+    THROTTLE_CMD_CRUISE = 0.65  # source: FlightGear wiki
+    CRUISE_VELOCITY_KTS = 100  # source: FG wiki
+    MIXTURE_CMD = 0.8
+
+    def __init__(self):
+        super().__init__(task_name='SimplePitchControlTask')
+
+    def get_initial_conditions(self) -> Optional[Dict[str, float]]:
+        """ Returns dictionary mapping initial episode conditions to values.
+
+        The aircraft is initialised in level flight on a random heading.
+
+        :return: dict mapping string for each initial condition property to
+            a float, or None to use Env defaults
+        """
+        initial_conditions = {'ic/psi-true-deg': random.uniform(0, 360),  # heading
+                              'ic/vt-kts': self.CRUISE_VELOCITY_KTS,  # true airspeed
+                              'ic/phi-deg': 0.0,  # wings level
+                              'ic/theta-deg': 0.0,  # nose level
+                              }
+        return {**self.base_initial_conditions, **initial_conditions}
+
+    def get_full_action_variables(self):
+        """ Returns information defining all action variables for this task.
+
+        For pitch control we need only to act on the elevator.
+
+        :return: tuple of dicts, each dict having a 'source', 'name',
+            'description', 'high' and 'low' key
+        """
+        all_action_vars = super().get_full_action_variables()
+        # omit throttle from default actions
+        action_vars = tuple(var for var in all_action_vars if var['name'] == 'fcs/elevator-cmd-norm')
+        assert len(action_vars) == 1
+        return action_vars
+
+    def _is_done(self, sim: Simulation) -> bool:
+        """ Determines whether the current episode should terminate.
+
+        :param sim: Simulation, the environment simulation
+        :return: True if the episode should terminate else False
+        """
+        time_out = sim['simulation/sim-time-sec'] > self.MAX_TIME_SECS
+        too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
+        return time_out or too_low
+
+    def _input_initial_controls(self, sim: Simulation) -> None:
+        """ Sets control inputs for start of episode.
+
+        :param sim: Simulation, the environment simulation
+        """
+        # start engines and set values for throttle and mixture
+        sim.start_engines()
+        sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD_CRUISE
+        sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
+        # set wing leveler autopilot
+        sim['ap/roll-attitude-mode'] = 0  # wings level mode
+        sim['ap/autopilot-roll-on'] = 1  # on
+
+    def _calculate_reward(self, sim: Simulation) -> float:
+        """ Calculates the reward from the simulation state.
+
+        :param sim: Simulation, the environment simulation
+        :return: float, the reward for the timestep
+        """
+        actual_altitude_rate = sim[self.TARGET_PROPERTY]
+        reward = -1 * abs(self.TARGET_ALTITUDE_RATE - actual_altitude_rate)
+        too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
+        if too_low:
+            reward += self.TOO_LOW_REWARD
+        return reward

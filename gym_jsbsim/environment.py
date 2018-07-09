@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask
+from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask, SimplePitchControlTask
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
 from typing import Type
@@ -183,3 +183,8 @@ class JsbSimEnv(gym.Env):
 class SteadyLevelFlightCessnaEnv(JsbSimEnv):
     def __init__(self):
         super().__init__(task_type=SteadyLevelFlightTask, aircraft_name='c172p')
+
+
+class SteadyLevelPitchControlCessnaEnv(JsbSimEnv):
+    def __init__(self):
+        super().__init__(task_type=SimplePitchControlTask, aircraft_name='c172x')

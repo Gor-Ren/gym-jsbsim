@@ -13,6 +13,9 @@ class TestJsbSimInstance(unittest.TestCase):
         self.env = JsbSimEnv(task_type)
         self.env.reset()
 
+    def tearDown(self):
+        self.env.close()
+
     def test_long_episode_random_actions(self):
         self.setUp()
         tic = time.time()
@@ -108,4 +111,42 @@ class FlightGearRenderTest(unittest.TestCase):
                     print(f'episode reward:\t{ep_reward}')
                     print(f'thrust:\t{self.env.sim["propulsion/engine/thrust-lbs"]}')
                     print(f'engine running:\t{self.env.sim["propulsion/engine/set-running"]}')
+                step_number += 1
+
+class test_simple_pitch_control_task(unittest.TestCase):
+
+    def setUp(self):
+        self.env = None
+        self.env = JsbSimEnv(aircraft_name='c172x', task_type=tasks.SimplePitchControlTask)
+        self.env.reset()
+
+    def tearDown(self):
+        self.env.close()
+
+    def test_flight(self):
+        agent = RandomAgent(self.env.action_space)
+        render_every = 5
+        report_every = 20
+        EPISODES = 99
+
+        for _ in range(EPISODES):
+            ep_reward = 0
+            done = False
+            state = self.env.reset()
+            self.env.render(mode='flightgear')
+            step_number = 0
+            while not done:
+                action = agent.act(state)
+                state, reward, done, info = self.env.step(action)
+                ep_reward += reward
+                if step_number % render_every == 0:
+                    self.env.render(mode='flightgear', action_names=self.env.task.action_names, action_values=action)
+                if step_number % report_every == 0:
+                    print(f'time:\t{self.env.sim.get_sim_time()} s')
+                    print(f'last reward:\t{reward}')
+                    print(f'episode reward:\t{ep_reward}')
+                    print(f'engine running:\t{self.env.sim["propulsion/engine/set-running"]}')
+                    print(f'left aileron pos:\t{self.env.sim["fcs/left-aileron-pos-norm"]}')
+                    print(f'rght aileron pos:\t{self.env.sim["fcs/right-aileron-pos-norm"]}')
+                    print(f'effect. aileron pos:\t {self.env.sim["fcs/effective-aileron-pos"]}')
                 step_number += 1

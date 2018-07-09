@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.tasks import SteadyLevelFlightTask
+from gym_jsbsim.tasks import SteadyLevelFlightTask, SimplePitchControlTask
 from gym_jsbsim.test import SimStub
 
 
@@ -20,7 +20,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
                              'velocities/v-down-fps': 2,
                              'attitude/roll-rad': -2,
         })
-        expected_reward = -sum(abs(val) ** 0.5 for val in dummy_sim.values())
+        expected_reward = -sum(abs(val) for val in dummy_sim.values())
         dummy_sim['position/h-sl-ft'] = 3000  # above minimum
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
 
@@ -123,3 +123,43 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         # and if we remain in the same low-reward state we should receive 0 shaped reward
         _, third_reward, _, _ = self.task.task_step(low_reward_state_sim, dummy_action, 1)
         self.assertAlmostEqual(0, third_reward)
+
+
+class TestSimplePitchControlTask(unittest.TestCase):
+    def setUp(self):
+        self.task = SimplePitchControlTask()
+
+    def test_input_initial_controls_expected_values(self):
+        sim = SimStub()
+        self.task._input_initial_controls(sim)
+
+        throttle_cmd = sim['fcs/throttle-cmd-norm']
+        self.assertAlmostEqual(SimplePitchControlTask.THROTTLE_CMD_CRUISE, throttle_cmd)
+        mixture_cmd = sim['fcs/mixture-cmd-norm']
+        self.assertAlmostEqual(SimplePitchControlTask.MIXTURE_CMD, mixture_cmd)
+        is_wing_level_autopilot = sim['ap/autopilot-roll-on'] == 1
+        self.assertTrue(is_wing_level_autopilot)
+
+    def test_calculate_reward(self):
+        acceptably_high_altitude = 5000
+        high_elevation_rate = 0.01
+        low_elevation_rate = 50
+
+        high_reward_sim = SimStub()
+        high_reward_sim['position/h-sl-ft'] = acceptably_high_altitude
+        high_reward_sim['velocities/h-dot-fps'] = high_elevation_rate
+        low_reward_sim = SimStub()
+        low_reward_sim['position/h-sl-ft'] = acceptably_high_altitude
+        low_reward_sim['velocities/h-dot-fps'] = low_elevation_rate
+
+        expected_high_reward = - abs(high_elevation_rate)
+        expected_low_reward = - abs(low_elevation_rate)
+        high_reward = self.task._calculate_reward(high_reward_sim)
+        low_reward = self.task._calculate_reward(low_reward_sim)
+
+        self.assertAlmostEqual(expected_high_reward, high_reward)
+        self.assertAlmostEqual(expected_low_reward, low_reward)
+        self.assertGreater(high_reward, low_reward)
+
+
+
