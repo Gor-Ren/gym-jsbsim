@@ -144,10 +144,28 @@ class Simulation(object):
         self.properties = set([prop.split(" ")[0] for prop in self.sim.query_property_catalog('')])
 
         # now that IC object is created in JSBSim, specify own conditions
-        if init_conditions:
+        self.set_custom_initial_conditions(init_conditions)
+
+        success = self.sim.run_ic()
+        if not success:
+            raise RuntimeError('JSBSim failed to init simulation conditions.')
+
+    def set_custom_initial_conditions(self, init_conditions=None):
+        if init_conditions is not None:
             for prop, value in init_conditions.items():
                 self[prop] = value
 
+    def reinitialise(self, init_conditions=None) -> None:
+        """
+        Resets JSBSim to initial conditions.
+
+        The same aircraft and other settings are kept loaded in JSBSim. If a
+        dict of ICs is provided, JSBSim is initialised using these, else the
+        last specified ICs are used.
+
+        :param init_conditions: dict mapping properties to their initial values
+        """
+        self.set_custom_initial_conditions(init_conditions=init_conditions)
         success = self.sim.run_ic()
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')

@@ -88,12 +88,14 @@ class JsbSimEnv(gym.Env):
 
         :return: array, the initial observation of the space.
         """
-        if self.sim:
-            self.sim.close()
         init_conditions = self.task.get_initial_conditions()
-        self.sim = Simulation(sim_dt=(1.0 / self.DT_HZ),
-                              aircraft_model_name=self.aircraft,
-                              init_conditions=init_conditions)
+        if self.sim:
+            self.sim.reinitialise(init_conditions)
+        else:
+            self.sim = Simulation(sim_dt=(1.0 / self.DT_HZ),
+                                  aircraft_model_name=self.aircraft,
+                                  init_conditions=init_conditions)
+
         state = self.task.observe_first_state(self.sim)
 
         if self.flightgear_visualiser:
