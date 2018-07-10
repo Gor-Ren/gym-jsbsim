@@ -151,7 +151,3 @@ class test_simple_pitch_control_task(unittest.TestCase):
                     print(f'rght aileron pos:\t{self.env.sim["fcs/right-aileron-pos-norm"]}')
                     print(f'effect. aileron pos:\t {self.env.sim["fcs/effective-aileron-pos"]}')
                 step_number += 1
-
-    def delete_checking_a_thing(self):
-        import gym
-        env = gym.make('')
