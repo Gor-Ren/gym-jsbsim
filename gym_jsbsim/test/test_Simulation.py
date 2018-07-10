@@ -86,7 +86,8 @@ class TestSimulation(unittest.TestCase):
         # manually reset JSBSim instance with new initial conditions
         if self.sim:
             self.sim.close()
-        self.sim = Simulation(sim_dt=0.5, aircraft_model_name=aircraft, init_conditions=None)
+        sim_frequency = 2
+        self.sim = Simulation(sim_frequency_hz=sim_frequency, aircraft_model_name=aircraft, init_conditions=None)
 
         self.assertEqual(self.sim.get_model_name(), aircraft,
                          msg='JSBSim did not load expected aircraft model: ' +
@@ -100,7 +101,7 @@ class TestSimulation(unittest.TestCase):
             'velocities/u-fps': 328.0,
             'velocities/v-fps': 0.0,
             'velocities/w-fps': 0.0,
-            'simulation/dt': 0.5
+            'simulation/dt': 1 / sim_frequency
         }
 
         for prop, expected in expected_values.items():
@@ -130,12 +131,12 @@ class TestSimulation(unittest.TestCase):
             'ic/theta-deg': 'attitude/theta-deg',
             'ic/psi-true-deg': 'attitude/psi-deg',
         }
-        dt = 0.1
+        sim_frequency = 10
 
         # manually reset JSBSim instance
         if self.sim:
             self.sim.close()
-        self.sim = Simulation(dt, aircraft, init_conditions)
+        self.sim = Simulation(sim_frequency, aircraft, init_conditions)
 
         # check JSBSim initial condition and simulation properties
         for init_prop, expected in init_conditions.items():
@@ -148,7 +149,7 @@ class TestSimulation(unittest.TestCase):
             self.assertAlmostEqual(expected, sim_actual,
                                    msg=f'wrong value for property {sim_prop}')
 
-        self.assertAlmostEqual(dt, self.sim['simulation/dt'])
+        self.assertAlmostEqual(1.0 / sim_frequency, self.sim['simulation/dt'])
 
     def test_multiprocess_simulations(self):
         """ JSBSim segfaults when multiple instances are run on one process.

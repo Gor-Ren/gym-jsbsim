@@ -10,15 +10,14 @@ class AgentEnvInteractionTest(unittest.TestCase):
 
     def test_random_agent_steady_level_task_setup(self):
         # we create an environment with the steady level flight task
-        agent_interaction_hz = 8
+        agent_interaction_hz = 5
         env = JsbSimEnv(task_type=SteadyLevelFlightTask,
                         agent_interaction_freq=agent_interaction_hz)
         self.assertIsInstance(env.task, SteadyLevelFlightTask)
 
-        # we interact at 8 Hz, so we expect the sim to run 15 timesteps per
+        # we interact at 5 Hz, so we expect the sim to run 12 timesteps per
         #   interaction since it runs at 120 Hz
-        self.assertEqual(120, env.DT_HZ)
-        self.assertEqual(15, env.sim_steps)
+        self.assertEqual(12, env.sim_steps)
 
         # we init a random agent with a seed
         agent = RandomAgent(action_space=env.action_space)
@@ -42,7 +41,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
 
     def test_random_agent_steady_level_task_run(self):
         # we create an environment and agent for the steady level flight task
-        agent_interaction_hz = 8
+        agent_interaction_hz = int(JsbSimEnv.DT_HZ / 10)
         env = JsbSimEnv(task_type=SteadyLevelFlightTask,
                         agent_interaction_freq=agent_interaction_hz)
         agent = RandomAgent(action_space=env.action_space)
@@ -62,9 +61,6 @@ class AgentEnvInteractionTest(unittest.TestCase):
         time_step = 1.0 / agent_interaction_hz
         self.assertAlmostEqual(time_step, env.sim.get_sim_time())
         self.assertFalse(done, msg='episode is terminal after only a single step')
-
-        # reward should not be positive
-        self.assertLessEqual(reward, 0)
 
         # the aircraft engines are running, as per initial conditions
         self.assertNotAlmostEqual(env.sim['propulsion/engine/thrust-lbs'], 0)
