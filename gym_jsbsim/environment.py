@@ -31,7 +31,7 @@ class JsbSimEnv(gym.Env):
     ATTRIBUTION: this class is based on the OpenAI Gym Env API. Method
     docstrings have been taken from the OpenAI API and modified where required.
     """
-    DT_HZ: int = 120  # JSBSim integration frequency [Hz]
+    DT_HZ: int = 60  # JSBSim integration frequency [Hz]
     metadata = {'render.modes': ['human', 'flightgear']}
 
     def __init__(self, task_type: Type[TaskModule], aircraft_name: str='c172p',
@@ -43,7 +43,6 @@ class JsbSimEnv(gym.Env):
         :param task_type: a TaskModule class of the task agent is to perform
         :param agent_interaction_freq: int, how many times per second the agent
             should interact with environment.
-        :param shaped_reward: agent reward undergoes potential-based shaping if True
         """
         if agent_interaction_freq > self.DT_HZ:
             raise ValueError('agent interaction frequency must be less than '
@@ -92,7 +91,7 @@ class JsbSimEnv(gym.Env):
         if self.sim:
             self.sim.reinitialise(init_conditions)
         else:
-            self.sim = Simulation(sim_dt=(1.0 / self.DT_HZ),
+            self.sim = Simulation(sim_frequency_hz=self.DT_HZ,
                                   aircraft_model_name=self.aircraft,
                                   init_conditions=init_conditions)
 
