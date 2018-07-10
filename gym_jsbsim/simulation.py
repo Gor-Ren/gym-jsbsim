@@ -1,8 +1,6 @@
 import jsbsim
 import os
-import math
 import time
-import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from typing import Dict, Union
 
@@ -89,7 +87,7 @@ class Simulation(object):
 
         :param model_name: string, the aircraft name
         """
-        load_success = self.sim.load_model(model=model_name)
+        load_success = self.sim.load_model(model_name)
 
         if not load_success:
             raise RuntimeError('JSBSim could not find specified model_name model: '
@@ -165,6 +163,7 @@ class Simulation(object):
 
         :param init_conditions: dict mapping properties to their initial values
         """
+        self.sim['simulation/reset'] = 1
         self.set_custom_initial_conditions(init_conditions=init_conditions)
         success = self.sim.run_ic()
         if not success:
@@ -203,11 +202,15 @@ class Simulation(object):
         speed for time_factor=2, and half speed for 0.5.
 
         :param time_factor: int or float, nonzero, sim speed relative to realtime
+            if None, the simulation is run at maximum computational speed
         """
-        if time_factor is not None:
-            self.wall_clock_dt = self.sim_dt / time_factor
-        else:
+        if time_factor is None:
             self.wall_clock_dt = None
+        elif time_factor <= 0:
+            raise ValueError('time factor must be positive and non-zero')
+        else:
+            self.wall_clock_dt = self.sim_dt / time_factor
+
 
     def start_engines(self):
         """ Sets all engines running. """
