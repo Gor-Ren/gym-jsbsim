@@ -14,14 +14,13 @@ class Simulation(object):
     OUTPUT_FILE = 'flightgear.xml'
 
     def __init__(self,
-                 sim_dt: float= 1.0 / 120.0,
+                 sim_frequency_hz: float=60.0,
                  aircraft_model_name: str='c172p',
                  init_conditions: Dict[str, Union[int, float]]=None):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
 
-        :param sim_dt: float, the JSBSim integration timestep in seconds. Defaults
-            to 1/120, i.e. 120 Hz
+        :param sim_frequency_hz: float, the JSBSim integration frequency in Hz.
         :param aircraft_model_name: string, name of aircraft to be loaded.
             JSBSim looks for file \model_name\model_name.xml from root dir.
         :param init_conditions: dict mapping properties to their initial values.
@@ -32,7 +31,7 @@ class Simulation(object):
         self.properties = None
         output_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
         self.sim.set_output_directive(output_config_path)
-        self.sim_dt = sim_dt
+        self.sim_dt = 1.0 / sim_frequency_hz
         self.initialise(self.sim_dt, aircraft_model_name, init_conditions)
         self.sim.disable_output()
         self.wall_clock_dt = None
