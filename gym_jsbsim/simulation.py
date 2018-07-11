@@ -162,11 +162,9 @@ class Simulation(object):
 
         :param init_conditions: dict mapping properties to their initial values
         """
-        self.sim['simulation/reset'] = 1
         self.set_custom_initial_conditions(init_conditions=init_conditions)
-        success = self.sim.run_ic()
-        if not success:
-            raise RuntimeError('JSBSim failed to init simulation conditions.')
+        no_output_reset_mode = 0
+        self.sim.reset_to_initial_conditions(no_output_reset_mode)
 
     def run(self) -> bool:
         """
