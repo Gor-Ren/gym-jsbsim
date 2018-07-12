@@ -58,7 +58,7 @@ class TestFlightGearVisualiser(unittest.TestCase):
                                                block_until_loaded=False)
         action_names = self.env.task.action_names
         action = self.env.task.get_action_space().sample()
-        self.flightgear.plot(self.sim, action_names, action)
+        self.flightgear.plot(self.sim)
 
         # the figure should have plotted a Lines object each axis
         for axis in ['axes_stick', 'axes_rudder', 'axes_throttle']:

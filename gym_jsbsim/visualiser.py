@@ -54,9 +54,11 @@ class FigureVisualiser(object):
         lon = sim[self.props_to_plot['y']['name']]
         self.ft_per_deg_lon = self.FT_PER_DEG_LAT * math.cos(math.radians(lon))
 
-    def plot(self, sim: Simulation, action_names=None, action_values=None) -> None:
+    def plot(self, sim: Simulation) -> None:
         """
         Creates or updates a 3D plot of the episode.
+
+        :param sim: Simulation that will be plotted
         """
         if not self.figure:
             self.figure, self.axes = self._plot_configure()
@@ -70,8 +72,8 @@ class FigureVisualiser(object):
 
         if self.is_plot_position:
             self._plot_position_state(sim, self.axes)
-        self._plot_control_state(sim, self.axes)
-        self._plot_actions(self.axes, action_names, action_values)
+        self._plot_control_states(sim, self.axes)
+        self._plot_control_commands(sim, self.axes)
         plt.pause(self.PLOT_PAUSE_SECONDS)  # voodoo pause needed for figure to update
 
     def close(self):
@@ -179,9 +181,6 @@ class FigureVisualiser(object):
         figure.legend((cmd_entry[0], pos_entry[0]),
                       (cmd_entry[1], pos_entry[1]),
                       loc='lower center')
-        figure.legend((cmd_entry[0],),
-                      (cmd_entry[1],),
-                      loc='upper center')
 
         plt.show()
         plt.pause(self.PLOT_PAUSE_SECONDS)  # voodoo pause needed for figure to appear
@@ -220,7 +219,7 @@ class FigureVisualiser(object):
         all_axes.axes_state.set_autoscalez_on(True)
         all_axes.axes_state.set_zlim3d(bottom=0, top=None)
 
-    def _plot_control_state(self, sim: Simulation, all_axes: AxesTuple):
+    def _plot_control_states(self, sim: Simulation, all_axes: AxesTuple):
         control_surfaces = ['ail', 'ele', 'thr', 'rud']
         ail, ele, thr, rud = [sim[self.props_to_plot[prop]['name']] for prop in control_surfaces]
         # plot aircraft control surface positions
@@ -228,39 +227,21 @@ class FigureVisualiser(object):
         all_axes.axes_throttle.plot([0], [thr], 'r+', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_rudder.plot([rud], [0], 'r+', mfc='none', markersize=10, clip_on=False)
 
-    def _plot_actions(self, all_axes: AxesTuple, action_names, action_values):
+    def _plot_control_commands(self, sim: Simulation, all_axes: AxesTuple):
         """
         Plots agent-commanded actions on the environment figure.
 
+        :param sim: Simulation to plot control commands from
         :param all_axes: AxesTuple, collection of axes of subplots to plot on
-        :param action_names: list of strings corresponding to JSBSim property
-            names of actions
-        :param action_values: list of floats; the value of the action at the
-            same index in action_names
-        :return:
         """
-        if action_names is None and action_values is None:
-            # no actions to plot
-            return
+        ail_cmd = sim['fcs/aileron-cmd-norm']
+        ele_cmd = sim['fcs/elevator-cmd-norm']
+        thr_cmd = sim['fcs/throttle-cmd-norm']
+        rud_cmd = sim['fcs/rudder-cmd-norm']
 
-        lookup_table = dict(zip(action_names, action_values))
-        ail_cmd = lookup_table.get('fcs/aileron-cmd-norm', None)
-        ele_cmd = lookup_table.get('fcs/elevator-cmd-norm', None)
-        thr_cmd = lookup_table.get('fcs/throttle-cmd-norm', None)
-        rud_cmd = lookup_table.get('fcs/rudder-cmd-norm', None)
-
-        if ail_cmd is not None or ele_cmd is not None:
-            # if we have a value for one but not other,
-            #   set other to zero for plotting
-            if ail_cmd is None:
-                ail_cmd = 0
-            if ele_cmd is None:
-                ele_cmd = 0
-            all_axes.axes_stick.plot([ail_cmd], [ele_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
-        if thr_cmd is not None:
-            all_axes.axes_throttle.plot([0], [thr_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
-        if rud_cmd is not None:
-            all_axes.axes_rudder.plot([rud_cmd], [0], 'bo', mfc='none', markersize=10, clip_on=False)
+        all_axes.axes_stick.plot([ail_cmd], [ele_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
+        all_axes.axes_throttle.plot([0], [thr_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
+        all_axes.axes_rudder.plot([rud_cmd], [0], 'bo', mfc='none', markersize=10, clip_on=False)
 
 
 class FlightGearVisualiser(object):
@@ -295,11 +276,11 @@ class FlightGearVisualiser(object):
         if block_until_loaded:
             self._block_until_flightgear_loaded()
 
-    def plot(self, sim: Simulation, action_names=None, action_values=None) -> None:
+    def plot(self, sim: Simulation) -> None:
         """
         Updates a 3D plot of agent actions.
         """
-        self.figure.plot(sim, action_names=action_names, action_values=action_values)
+        self.figure.plot(sim)
 
     @staticmethod
     def _launch_flightgear(aircraft_name: str):
