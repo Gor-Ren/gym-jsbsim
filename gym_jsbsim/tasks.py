@@ -326,7 +326,23 @@ class SteadyLevelFlightTask(TaskModule):
         sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
         sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
         sim.trim(Simulation.FULL)
-        trim_steps = 10
-        for _ in range(trim_steps):
-            sim.run()
-        sim.trim(Simulation.FULL)
+        SteadyLevelFlightTask._transfer_pitch_trim_to_cmd(sim)
+
+    @staticmethod
+    def _transfer_pitch_trim_to_cmd(sim: Simulation):
+        """
+        Removes a pitch trim and adds it to the elevator command.
+
+        JSBSim's trimming utility may stabilise pitch by using a trim, which is
+        a constant offset from the commanded position. However, agents use the
+        elevator command directly and trim is not reflected in their state
+        representation. Therefore we prefer to remove the trim and reflect it
+        directly in the elevator commanded position.
+
+        :param sim: the Simulation instance
+        """
+        PITCH_CMD = 'fcs/elevator-cmd-norm'
+        PITCH_TRIM = 'fcs/pitch-trim-cmd-norm'
+        total_elevator_cmd = sim[PITCH_CMD] + sim[PITCH_TRIM]
+        sim[PITCH_CMD] = total_elevator_cmd
+        sim[PITCH_TRIM] = 0.0

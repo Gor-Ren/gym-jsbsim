@@ -126,3 +126,19 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         # and if we remain in the same low-reward state we should receive 0 shaped reward
         _, third_reward, _, _ = self.task.task_step(low_reward_state_sim, dummy_action, 1)
         self.assertAlmostEqual(0, third_reward)
+
+    def test_transfer_pitch_trim_to_cmd(self):
+        sim = SimStub()
+        PITCH_CMD = 'fcs/elevator-cmd-norm'
+        PITCH_TRIM = 'fcs/pitch-trim-cmd-norm'
+        PITCH_CMD_SETTING = 0.5
+        PITCH_TRIM_SETTING = 0.6
+        sim[PITCH_CMD] = PITCH_CMD_SETTING
+        sim[PITCH_TRIM] = PITCH_TRIM_SETTING
+
+        SteadyLevelFlightTask._transfer_pitch_trim_to_cmd(sim)
+        expect_trim = 0.0
+        expect_cmd = PITCH_CMD_SETTING + PITCH_TRIM_SETTING
+
+        self.assertAlmostEqual(expect_trim, sim[PITCH_TRIM])
+        self.assertAlmostEqual(expect_cmd, sim[PITCH_CMD])
