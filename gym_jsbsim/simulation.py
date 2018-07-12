@@ -208,7 +208,6 @@ class Simulation(object):
         else:
             self.wall_clock_dt = self.sim_dt / time_factor
 
-
     def start_engines(self):
         """ Sets all engines running. """
         for engine_no in range(self.sim.propulsion_get_num_engines()):
