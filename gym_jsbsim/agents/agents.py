@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from gym_jsbsim.simulation import Simulation
+from typing import List
 from abc import ABC, abstractmethod
 
 
@@ -48,30 +48,54 @@ class ConstantAgent(Agent):
         pass
 
 
-class RepeatAgent(Agent):
+class HoldPositionAgent(Agent):
+    action_to_state_name_map = {
+        'fcs/aileron-cmd-norm': 'fcs/left-aileron-pos-norm',
+        'fcs/elevator-cmd-norm': 'fcs/elevator-pos-norm',
+        'fcs/throttle-cmd-norm': 'fcs/throttle-pos-norm',
+        'fcs/rudder-cmd-norm': 'fcs/rudder-pos-norm'
+    }
 
-    def __init__(self, action_space: gym.spaces.Box, action_names, sim: Simulation):
+    def __init__(self, action_space: gym.spaces.Box, action_names, state_names):
         """
         An agent which tries not to change the position of a JSBSim aircraft
         control surfaces.
 
-        This is a bit of a hack of an agent intended for debugging. It requires
-        access to the Simulation object to extract previous commands and repeat
-        them.
+        It will read control surface positions from the state, and return actions
+        with appropriate commands of the same value.
 
         :param action_space: a Box object, the action space of the environment
-        :param action_names: list of strs, the JSBSim property name of each
-            action variable in order of their position in action arrays
-        :param sim: the Simulation being used
+        :param state_indices_for_actions: sequence of ints, the same length as
+           the number of action variables, actions will be selected by
+           looking up the state value at this index
         """
-        if len(action_space.low) != len(action_names):
-            raise ValueError('action_space and action_names should be same size')
         super().__init__()
-        self.action_names = action_names
-        self.sim = sim
+        self.state_indices_for_actions = self._get_state_indices_for_actions(action_names,
+                                                                             state_names)
+        # we should have an index for every action variable
+        assert len(self.state_indices_for_actions) == len(action_space.low)
+
+    def _get_state_indices_for_actions(self, action_names: List[str], state_names: List[str]):
+        """ Given a list of action properties, finds which indices in state arrays
+        that they correspond to.
+
+        For example, the action 'fcs/rudder-cmd-norm' would look for
+        'fcs/rudder-pos-norm' in the state names.
+
+        :param action_names: list of str, the JSBSim property names for all actions
+        :param state_names: list of str, the JSBSim property names for all states
+        :return: sequence of ints, the same length as the number of action variables,
+            actions can be selected by looking up the state value at this index
+        """
+        result = []
+        for action_name in action_names:
+            search_state_name = self.action_to_state_name_map[action_name]
+            index = state_names.index(search_state_name)
+            result.append(index)
+        return result
 
     def act(self, state):
-        action = np.array([self.sim[name] for name in self.action_names])
+        action = np.array([state[i] for i in self.state_indices_for_actions])
         return action
 
     def observe(self, state, action, reward, done):
