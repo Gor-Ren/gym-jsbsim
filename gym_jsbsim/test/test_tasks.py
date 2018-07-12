@@ -12,13 +12,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
 
     def test_reward_calc(self):
         dummy_sim = SimStub({
-            'accelerations/udot-ft_sec2': 1,
-            'accelerations/vdot-ft_sec2': 1,
-            'accelerations/wdot-ft_sec2': 1,
-            'accelerations/pdot-rad_sec2': -2,
-            'accelerations/qdot-rad_sec2': 2,
-            'accelerations/rdot-rad_sec2': 2,
-            'velocities/v-down-fps': 2,
+            'velocities/h-dot-fps': 1,
             'attitude/roll-rad': -2,
         })
         expected_reward = -sum(abs(val) for val in dummy_sim.values())

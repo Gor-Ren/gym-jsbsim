@@ -20,6 +20,7 @@ class TaskStub(TaskModule):
 
 
 class SimStub(dict):
+
     def run(self):
         pass
 
@@ -27,11 +28,12 @@ class SimStub(dict):
         pass
 
     def trim(self, _):
-        pass
+        self['fcs/pitch-trim-cmd-norm'] = 0.01
+        self['fcs/elevator-cmd-norm'] = 0.0
 
     def get_sim_time(self) -> float:
         """ Gets the simulation time from JSBSim, a float. """
-        return self.__getitem__('simulation/sim-time-sec')
+        return self['simulation/sim-time-sec']
 
     @staticmethod
     def make_valid_state_stub(task: TaskModule):
