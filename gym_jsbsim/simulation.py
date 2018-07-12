@@ -212,3 +212,24 @@ class Simulation(object):
         """ Sets all engines running. """
         for engine_no in range(self.sim.propulsion_get_num_engines()):
             self.sim.propulsion_init_running(engine_no)
+
+    def trim(self, trim_mode: str):
+        """
+        Instructs JSBSim to attempt to trim the aircraft to maintain its ICs
+
+        Valid trim_modes are
+            'longitudinal': aircraft's forward velocity, upward velocity and
+                pitch rate are controlled to zero by adjusting controls
+            'full': as with longitudinal, plus aircraft's sidewards velocity,
+                roll rate and yaw rate are controlled to zero
+
+        :param trim_mode: int
+        """
+        if trim_mode == 'longitudinal':
+            trim_code = 0
+        elif trim_mode == 'full':
+            trim_code = 1
+        else:
+            raise ValueError(f'invalid trim mode specified: {trim_mode}')
+
+        self.sim.do_trim(trim_code)
