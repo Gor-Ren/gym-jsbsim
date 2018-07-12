@@ -47,7 +47,7 @@ class ConstantAgent(Agent):
         pass
 
 
-class ConstantChangeNothingAgent(Agent):
+class ConstantNoChangeAgent(Agent):
 
     def __init__(self, action_space: gym.spaces.Box, state_indices_for_actions):
         """

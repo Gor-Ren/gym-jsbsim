@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from gym_jsbsim.agents import RandomAgent, ConstantAgent, ConstantChangeNothingAgent
+from gym_jsbsim.agents import RandomAgent, ConstantAgent, ConstantNoChangeAgent
 from gym_jsbsim.test.stubs import TaskStub
 
 
@@ -42,8 +42,8 @@ class TestConstantChangeNothingAgent(unittest.TestCase):
         self.task = TaskStub()
         self.action_space = self.task.get_action_space()
         self.state_space = self.task.get_observation_space()
-        self.agent = ConstantChangeNothingAgent(action_space=self.action_space,
-                                                state_indices_for_actions=state_indices_for_actions)
+        self.agent = ConstantNoChangeAgent(action_space=self.action_space,
+                                           state_indices_for_actions=state_indices_for_actions)
 
     def test_act_returns_correct_values(self):
         state_indices_for_actions = [2, 1, 0, 2]
