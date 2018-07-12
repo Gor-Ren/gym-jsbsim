@@ -11,14 +11,15 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         self.task = SteadyLevelFlightTask()
 
     def test_reward_calc(self):
-        dummy_sim = SimStub({'accelerations/udot-ft_sec2': 1,
-                             'accelerations/vdot-ft_sec2': 1,
-                             'accelerations/wdot-ft_sec2': 1,
-                             'accelerations/pdot-rad_sec2': -2,
-                             'accelerations/qdot-rad_sec2': 2,
-                             'accelerations/rdot-rad_sec2': 2,
-                             'velocities/v-down-fps': 2,
-                             'attitude/roll-rad': -2,
+        dummy_sim = SimStub({
+            'accelerations/udot-ft_sec2': 1,
+            'accelerations/vdot-ft_sec2': 1,
+            'accelerations/wdot-ft_sec2': 1,
+            'accelerations/pdot-rad_sec2': -2,
+            'accelerations/qdot-rad_sec2': 2,
+            'accelerations/rdot-rad_sec2': 2,
+            'velocities/v-down-fps': 2,
+            'attitude/roll-rad': -2,
         })
         expected_reward = -sum(abs(val) for val in dummy_sim.values())
         dummy_sim['position/h-sl-ft'] = 3000  # above minimum
