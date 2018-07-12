@@ -12,6 +12,8 @@ class Simulation(object):
     encoding = 'utf-8'  # encoding of bytes returned by JSBSim Cython funcs
     ROOT_DIR = os.path.abspath('/home/gordon/apps/jsbsim')
     OUTPUT_FILE = 'flightgear.xml'
+    LONGITUDINAL = 'longitudinal'
+    FULL = 'full'
 
     def __init__(self,
                  sim_frequency_hz: float=60.0,
