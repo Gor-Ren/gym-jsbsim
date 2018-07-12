@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from gym_jsbsim.agents import RandomAgent, ConstantAgent, ConstantNoChangeAgent
+from gym_jsbsim.agents import RandomAgent, ConstantAgent, HoldPositionAgent
 from gym_jsbsim.test.stubs import TaskStub
 
 
@@ -37,24 +37,13 @@ class TestConstantAgent(unittest.TestCase):
             old_action = action
 
 
-class TestConstantChangeNothingAgent(unittest.TestCase):
-    def setUp(self, state_indices_for_actions=(0, 1, 0, 1)):
+class TestHoldPositionAgent(unittest.TestCase):
+    def setUp(self):
         self.task = TaskStub()
-        self.action_space = self.task.get_action_space()
-        self.state_space = self.task.get_observation_space()
-        self.agent = ConstantNoChangeAgent(action_space=self.action_space,
-                                           state_indices_for_actions=state_indices_for_actions)
+        self.agent = HoldPositionAgent(action_space=self.task.get_action_space(),
+                                       action_names=self.task.action_names,
+                                       state_names=self.task.state_names)
 
-    def test_act_returns_correct_values(self):
-        state_indices_for_actions = [2, 1, 0, 2]
-        self.setUp(state_indices_for_actions=state_indices_for_actions)
-        state = self.state_space.sample()
-        action = self.agent.act(state)
-
-        # action should match state values at specified indices
-        expected_action = []
-        for i in state_indices_for_actions:
-            expected_action.append(state[i])
-        expected_action = np.array(expected_action)
-
-        np.testing.assert_array_equal(action, expected_action)
+    def test_agent_inits_correctly(self):
+        indices = self.agent.state_indices_for_actions
+        self.assertEqual(len(indices), len(self.task.get_action_space().low))

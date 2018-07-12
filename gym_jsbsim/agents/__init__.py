@@ -1,1 +1,1 @@
-from gym_jsbsim.agents.agents import Agent, RandomAgent, ConstantAgent, ConstantNoChangeAgent
+from gym_jsbsim.agents.agents import Agent, RandomAgent, ConstantAgent, HoldPositionAgent
