@@ -4,7 +4,7 @@ from gym_jsbsim.environment import JsbSimEnv
 from typing import Type
 from gym_jsbsim import tasks
 from gym_jsbsim.test.stubs import TaskStub
-from gym_jsbsim.agents import RandomAgent, ConstantAgent, HoldPositionAgent
+from gym_jsbsim.agents import RandomAgent, ConstantAgent, RepeatAgent
 
 
 class TestJsbSimInstance(unittest.TestCase):
