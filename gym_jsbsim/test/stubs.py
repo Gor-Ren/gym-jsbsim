@@ -26,6 +26,9 @@ class SimStub(dict):
     def start_engines(self):
         pass
 
+    def trim(self, _):
+        pass
+
     def get_sim_time(self) -> float:
         """ Gets the simulation time from JSBSim, a float. """
         return self.__getitem__('simulation/sim-time-sec')
