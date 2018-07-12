@@ -80,7 +80,7 @@ class TestJsbSimInstance(unittest.TestCase):
         self.setUp(task_type=tasks.SteadyLevelFlightTask)
         agent = RepeatAgent(self.env.action_space,
                             self.env.task.action_names,
-                            self.env.sim)
+                            self.env.task.state_names)
         EPISODES = 50
         report_every = 20
 

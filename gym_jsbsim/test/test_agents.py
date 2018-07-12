@@ -47,3 +47,13 @@ class TestHoldPositionAgent(unittest.TestCase):
     def test_agent_inits_correctly(self):
         indices = self.agent.state_indices_for_actions
         self.assertEqual(len(indices), len(self.task.get_action_space().low))
+
+    def test_init_indices_correspond_to_correct_state(self):
+        indices = self.agent.state_indices_for_actions
+        action_names = self.task.action_names
+        state_names = self.task.state_names
+
+        for i, action_name in zip(indices, action_names):
+            state_name = state_names[i]
+            expected_state_name = RepeatAgent.action_to_state_name_map[action_name]
+            self.assertEqual(expected_state_name, state_name)
