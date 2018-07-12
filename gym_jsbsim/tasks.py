@@ -366,6 +366,10 @@ class SimplePitchControlTask(TaskModule):
     THROTTLE_CMD_CRUISE = 0.65  # source: FlightGear wiki
     CRUISE_VELOCITY_KTS = 100  # source: FG wiki
     MIXTURE_CMD = 0.8
+    action_vars = (
+        dict(name='ap/elevator_cmd', description='elevator commanded position via autopilot, ?normalised?',
+             high=100.0, low=-100.0),
+    )
 
     def __init__(self):
         super().__init__(task_name='SimplePitchControlTask')
@@ -393,11 +397,7 @@ class SimplePitchControlTask(TaskModule):
         :return: tuple of dicts, each dict having a 'source', 'name',
             'description', 'high' and 'low' key
         """
-        all_action_vars = super().get_full_action_variables()
-        # omit throttle from default actions
-        action_vars = tuple(var for var in all_action_vars if var['name'] == 'fcs/elevator-cmd-norm')
-        assert len(action_vars) == 1
-        return action_vars
+        return self.action_vars
 
     def _is_done(self, sim: Simulation) -> bool:
         """ Determines whether the current episode should terminate.
