@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from gym_jsbsim.agents import RandomAgent, ConstantAgent, HoldPositionAgent
+from gym_jsbsim.agents import RandomAgent, ConstantAgent, RepeatAgent
 from gym_jsbsim.test.stubs import TaskStub
 
 
@@ -40,9 +40,9 @@ class TestConstantAgent(unittest.TestCase):
 class TestHoldPositionAgent(unittest.TestCase):
     def setUp(self):
         self.task = TaskStub()
-        self.agent = HoldPositionAgent(action_space=self.task.get_action_space(),
-                                       action_names=self.task.action_names,
-                                       state_names=self.task.state_names)
+        self.agent = RepeatAgent(action_space=self.task.get_action_space(),
+                                 action_names=self.task.action_names,
+                                 state_names=self.task.state_names)
 
     def test_agent_inits_correctly(self):
         indices = self.agent.state_indices_for_actions

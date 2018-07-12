@@ -48,7 +48,7 @@ class ConstantAgent(Agent):
         pass
 
 
-class HoldPositionAgent(Agent):
+class RepeatAgent(Agent):
     action_to_state_name_map = {
         'fcs/aileron-cmd-norm': 'fcs/left-aileron-pos-norm',
         'fcs/elevator-cmd-norm': 'fcs/elevator-pos-norm',
