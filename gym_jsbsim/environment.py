@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask, SimplePitchControlTask
+from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
 from typing import Type
