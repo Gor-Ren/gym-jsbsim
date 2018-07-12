@@ -59,7 +59,7 @@ class TaskModule(ABC):
     base_initial_conditions = {'ic/h-sl-ft': 5000,
                                'ic/terrain-elevation-ft': 0.00000001,
                                'ic/long-gc-deg': -2.3273,
-                               'ic/lat-gc-deg': 51.3781,  # corresp. UoBath
+                               'ic/lat-gc-deg': 51.3781,  # corresponds to UoBath
                                }
 
     def __init__(self, task_name: Optional[str], use_shaped_reward: bool=True):
@@ -240,37 +240,11 @@ class TaskModule(ABC):
 
 class SteadyLevelFlightTask(TaskModule):
     """ A task in which the agent must perform steady, level flight. """
-    task_state_variables = (dict(name='accelerations/udot-ft_sec2',
-                                 description='body frame x-axis acceleration, [ft/s^2]',
-                                 high=50, low=-50),
-                            dict(name='accelerations/vdot-ft_sec2',
-                                 description='body frame y-axis acceleration, [ft/s^2]',
-                                 high=50, low=-50),
-                            dict(name='accelerations/wdot-ft_sec2',
-                                 description='body frame z-axis acceleration, [ft/s^2]',
-                                 high=50, low=-50),
-                            # 50 ft/s2 appears to be a reasonable maximum acceleration to clip at
-                            dict(name='accelerations/pdot-rad_sec2',
-                                 description='roll rate acceleration [rad/s^2]',
-                                 high=0.5 * math.pi, low=-0.5 * math.pi),
-                            dict(name='accelerations/qdot-rad_sec2',
-                                 description='pitch rate acceleration [rad/s^2]',
-                                 high=0.5 * math.pi, low=-0.5 * math.pi),
-                            dict(name='accelerations/rdot-rad_sec2',
-                                 description='yaw rate acceleration [rad/s^2]',
-                                 high=0.5 * math.pi, low=-0.5 * math.pi),
-                            # arbitrarily chose max angular accel 1/4 of max angular velocity
-                            dict(name='velocities/v-down-fps',
-                                 description='earth frame z-axis velocity [ft/s]',
+    task_state_variables = (dict(name='velocities/h-dot-fps',
+                                 description='earth frame altitude change rate [ft/s]',
                                  high=2200, low=-2200),
                             )
-    TARGET_VALUES = (('accelerations/udot-ft_sec2', 0),
-                     ('accelerations/vdot-ft_sec2', 0),
-                     ('accelerations/wdot-ft_sec2', 0),
-                     ('accelerations/pdot-rad_sec2', 0),
-                     ('accelerations/qdot-rad_sec2', 0),
-                     ('accelerations/rdot-rad_sec2', 0),
-                     ('velocities/v-down-fps', 0),
+    TARGET_VALUES = (('velocities/h-dot-fps', 0),
                      ('attitude/roll-rad', 0),
                      )
 
@@ -291,10 +265,14 @@ class SteadyLevelFlightTask(TaskModule):
         :return: dict mapping string for each initial condition property to
             a float, or None to use Env defaults
         """
-        initial_conditions = {'ic/psi-true-deg': random.uniform(0, 360),  # heading
-                              'ic/vt-kts': random.uniform(150, 300),  # true airspeed
-                              'ic/phi-deg': random.uniform(-180, 180),  # roll angle
-                              'ic/theta-deg': random.uniform(-45, 45),  # pitch angle
+        initial_conditions = {'ic/u-fps': 150,
+                              'ic/v-fps': 0,
+                              'ic/w-fps': 0,
+                              'ic/p-rad_sec': 0,
+                              'ic/q-rad_sec': 0,
+                              'ic/r-rad_sec': 0,
+                              'ic/roc-fpm': 0,  # rate of climb
+                              'ic/psi-true-deg': random.uniform(0, 360),  # heading
                               }
         return {**self.base_initial_conditions, **initial_conditions}
 
@@ -343,7 +321,12 @@ class SteadyLevelFlightTask(TaskModule):
 
         :param sim: Simulation, the environment simulation
         """
-        # start engines and set values for throttle and mixture
+        # start engines and trims for steady, level flight
         sim.start_engines()
         sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
         sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
+        sim.trim(Simulation.FULL)
+        trim_steps = 10
+        for _ in range(trim_steps):
+            sim.run()
+        sim.trim(Simulation.FULL)

@@ -67,10 +67,13 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         for prop_name, value in self.task.base_initial_conditions.items():
             self.assertAlmostEqual(value, ics[prop_name])
 
-        steady_level_task_ic_properties = ['ic/psi-true-deg',
-                                           'ic/vt-kts',
-                                           'ic/phi-deg',
-                                           'ic/theta-deg'
+        steady_level_task_ic_properties = ['ic/u-fps',
+                                           'ic/v-fps',
+                                           'ic/w-fps',
+                                           'ic/p-rad_sec',
+                                           'ic/q-rad_sec',
+                                           'ic/r-rad_sec',
+                                           'ic/psi-true-deg'
                                            ]
         for prop_name in steady_level_task_ic_properties:
             self.assertIn(prop_name, ics.keys(),
