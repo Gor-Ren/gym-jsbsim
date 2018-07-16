@@ -244,8 +244,9 @@ class SteadyLevelFlightTask(TaskModule):
                                  description='earth frame altitude change rate [ft/s]',
                                  high=2200, low=-2200),
                             )
-    TARGET_VALUES = (('velocities/h-dot-fps', 0),
-                     ('attitude/roll-rad', 0),
+    # target values: prop_name, target_value, gain
+    TARGET_VALUES = (('velocities/h-dot-fps', 0, 1),
+                     ('attitude/roll-rad', 0, 10),
                      )
 
     MAX_TIME_SECS = 15
@@ -299,8 +300,8 @@ class SteadyLevelFlightTask(TaskModule):
         :return: a number, the reward for the timestep
         """
         reward = 0
-        for prop, target in self.TARGET_VALUES:
-            reward -= abs(target - sim[prop])
+        for prop, target, gain in self.TARGET_VALUES:
+            reward -= abs(target - sim[prop]) * gain
         too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         if too_low:
             reward += self.TOO_LOW_REWARD

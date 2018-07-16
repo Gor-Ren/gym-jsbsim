@@ -15,7 +15,9 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
             'velocities/h-dot-fps': 1,
             'attitude/roll-rad': -2,
         })
-        expected_reward = -sum(abs(val) for val in dummy_sim.values())
+        expected_reward = 0
+        for prop, _, gain in SteadyLevelFlightTask.TARGET_VALUES:
+            expected_reward -= abs(dummy_sim[prop]) * gain
         dummy_sim['position/h-sl-ft'] = 3000  # above minimum
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
 
@@ -98,7 +100,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         high_reward_state_sim = SimStub.make_valid_state_stub(self.task)
 
         # make one sim near the target values, and one relatively far away
-        for prop, ideal_value in SteadyLevelFlightTask.TARGET_VALUES:
+        for prop, ideal_value, _ in SteadyLevelFlightTask.TARGET_VALUES:
             low_reward_state_sim[prop] = ideal_value + 5
             high_reward_state_sim[prop] = ideal_value + 0.05
         # make sure altitude hasn't randomly been set below minimum!
