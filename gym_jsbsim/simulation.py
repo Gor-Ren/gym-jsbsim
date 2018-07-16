@@ -18,7 +18,8 @@ class Simulation(object):
     def __init__(self,
                  sim_frequency_hz: float=60.0,
                  aircraft_model_name: str='c172p',
-                 init_conditions: Dict[str, Union[int, float]]=None):
+                 init_conditions: Dict[str, Union[int, float]]=None,
+                 allow_flightgear_output: bool=True):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
 
@@ -27,12 +28,15 @@ class Simulation(object):
             JSBSim looks for file \model_name\model_name.xml from root dir.
         :param init_conditions: dict mapping properties to their initial values.
             Defaults to None, causing a default set of initial props to be used.
+        :param allow_flightgear_output: bool, loads a config file instructing
+            JSBSim to connect to an output socket if True.
         """
         self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
         self.sim.set_debug_level(0)
         self.properties = None
-        output_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
-        self.sim.set_output_directive(output_config_path)
+        if allow_flightgear_output:
+            flightgear_output_config = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
+            self.sim.set_output_directive(flightgear_output_config)
         self.sim_dt = 1.0 / sim_frequency_hz
         self.initialise(self.sim_dt, aircraft_model_name, init_conditions)
         self.sim.disable_output()
@@ -91,7 +95,7 @@ class Simulation(object):
         load_success = self.sim.load_model(model_name)
 
         if not load_success:
-            raise RuntimeError('JSBSim could not find specified model_name model: '
+            raise RuntimeError('JSBSim could not find specified model_name: '
                                + model_name)
 
     def get_model_name(self) -> str:

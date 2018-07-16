@@ -91,9 +91,7 @@ class JsbSimEnv(gym.Env):
         if self.sim:
             self.sim.reinitialise(init_conditions)
         else:
-            self.sim = Simulation(sim_frequency_hz=self.DT_HZ,
-                                  aircraft_model_name=self.aircraft,
-                                  init_conditions=init_conditions)
+            self.sim = self._init_new_sim(self.DT_HZ, self.aircraft, init_conditions)
 
         state = self.task.observe_first_state(self.sim)
 
@@ -101,6 +99,11 @@ class JsbSimEnv(gym.Env):
             self.flightgear_visualiser.configure_simulation(self.sim)
 
         return np.array(state)
+
+    def _init_new_sim(self, dt, aircraft, initial_conditions):
+        return Simulation(sim_frequency_hz=dt,
+                          aircraft_model_name=aircraft,
+                          init_conditions=initial_conditions)
 
     def render(self, mode='flightgear', action_names=None, action_values=None,
                flightgear_blocking=True):
@@ -180,12 +183,37 @@ class JsbSimEnv(gym.Env):
         return
 
 
+class NoFlightGearJsbSimEnv(JsbSimEnv):
+    """
+    An RL environment for JSBSim with rendering to FlightGear disabled.
+
+    This class exists to be used for training agents where visualisation is not
+    required. Otherwise, restrictions in JSBSim output initialisation cause it
+    to open a new socket for every single episode, eventually leading to
+    failure of the network.
+    """
+    metadata = {'render.modes': ['human']}
+
+    def _init_new_sim(self, dt, aircraft, initial_conditions):
+        return Simulation(sim_frequency_hz=dt,
+                          aircraft_model_name=aircraft,
+                          init_conditions=initial_conditions,
+                          allow_flightgear_output=False)
+
+    def render(self, mode='human', action_names=None, action_values=None,
+               flightgear_blocking=True):
+        if mode == 'flightgear':
+            raise ValueError('flightgear rendering is disabled for this class')
+        else:
+            super().render(mode, action_names, action_values, flightgear_blocking)
+
+
 # convenience classes for specific task/aircraft combos for registration with OpenAI Gym
 class SteadyLevelFlightCessnaEnv(JsbSimEnv):
     def __init__(self):
         super().__init__(task_type=SteadyLevelFlightTask, aircraft_name='c172p')
 
 
-class SteadyLevelPitchControlCessnaEnv(JsbSimEnv):
+class SteadyLevelFlightCessnaEnv_NoFg(NoFlightGearJsbSimEnv):
     def __init__(self):
-        super().__init__(task_type=SimplePitchControlTask, aircraft_name='c172x')
+        super().__init__(task_type=SteadyLevelFlightTask, aircraft_name='c172p')

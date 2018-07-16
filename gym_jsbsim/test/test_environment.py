@@ -3,9 +3,9 @@ import gym
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from gym_jsbsim.environment import JsbSimEnv
+from gym_jsbsim.environment import JsbSimEnv, NoFlightGearJsbSimEnv
 from gym_jsbsim.test import TaskStub
-from gym_jsbsim.visualiser import FlightGearVisualiser
+from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
 
 
 class TestJsbSimEnv(unittest.TestCase):
@@ -13,8 +13,12 @@ class TestJsbSimEnv(unittest.TestCase):
     def setUp(self, agent_interaction_freq: int=10):
         gym.logger.set_level(gym.logger.DEBUG)
         self.env = None
-        self.env = JsbSimEnv(task_type=TaskStub, agent_interaction_freq=agent_interaction_freq)
+        self.init_env(agent_interaction_freq)
         self.env.reset()
+
+    def init_env(self, agent_interaction_freq):
+        self.env = JsbSimEnv(task_type=TaskStub,
+                             agent_interaction_freq=agent_interaction_freq)
 
     def tearDown(self):
         self.env.close()
@@ -148,8 +152,19 @@ class TestJsbSimEnv(unittest.TestCase):
             alt_gl = self.env.sim['position/h-agl-ft']
             self.assertAlmostEqual(alt_sl, alt_gl)
 
-    def test_render_flightgear_creates_visualiser(self):
+    def test_render_flightgear_mode(self):
         self.setUp()
         self.env.render(mode='flightgear', flightgear_blocking=False)
         self.assertIsInstance(self.env.flightgear_visualiser, FlightGearVisualiser)
         self.env.close()
+
+
+class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
+
+    def init_env(self, agent_interaction_freq):
+        self.env = NoFlightGearJsbSimEnv(task_type=TaskStub,
+                                         agent_interaction_freq=agent_interaction_freq)
+
+    def test_render_flightgear_mode(self):
+        with self.assertRaises(ValueError):
+            self.env.render(mode='flightgear')

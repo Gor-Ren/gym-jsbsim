@@ -5,3 +5,8 @@ register(
     id='SteadyLevelFlightCessna-v0',
     entry_point='gym_jsbsim.environment:SteadyLevelFlightCessnaEnv'
 )
+
+register(
+    id='SteadyLevelFlightCessna-NoFG-v0',
+    entry_point='gym_jsbsim.environment:SteadyLevelFlightCessnaEnv_NoFg'
+)
