@@ -2,13 +2,19 @@ import unittest
 import numpy as np
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.tasks import SteadyLevelFlightTask
+from gym_jsbsim.deprecated_tasks import SteadyLevelFlightTask_v0
+from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask
 from gym_jsbsim.test import SimStub
 
 
-class TestSteadyLevelFlightTask(unittest.TestCase):
+class TestSteadyLevelFlightTask_v0(unittest.TestCase):
+
     def setUp(self):
-        self.task = SteadyLevelFlightTask()
+        self.class_under_test = self.get_class_under_test()
+        self.task = self.class_under_test()
+
+    def get_class_under_test(self):
+        return SteadyLevelFlightTask_v0
 
     def test_reward_calc(self):
         dummy_sim = SimStub({
@@ -16,7 +22,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
             'attitude/roll-rad': -2,
         })
         expected_reward = 0
-        for prop, _, gain in SteadyLevelFlightTask.TARGET_VALUES:
+        for prop, _, gain in self.class_under_test.TARGET_VALUES:
             expected_reward -= abs(dummy_sim[prop]) * gain
         dummy_sim['position/h-sl-ft'] = 3000  # above minimum
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
@@ -100,7 +106,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         high_reward_state_sim = SimStub.make_valid_state_stub(self.task)
 
         # make one sim near the target values, and one relatively far away
-        for prop, ideal_value, _ in SteadyLevelFlightTask.TARGET_VALUES:
+        for prop, ideal_value, _ in self.class_under_test.TARGET_VALUES:
             low_reward_state_sim[prop] = ideal_value + 5
             high_reward_state_sim[prop] = ideal_value + 0.05
         # make sure altitude hasn't randomly been set below minimum!
@@ -139,3 +145,33 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
 
         self.assertAlmostEqual(expect_trim, sim[PITCH_TRIM])
         self.assertAlmostEqual(expect_cmd, sim[PITCH_CMD])
+
+
+class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
+
+    def setUp(self):
+        super().setUp()
+        assert isinstance(self.task, SteadyLevelFlightTask)
+
+    def get_class_under_test(self):
+        return SteadyLevelFlightTask
+
+    def test_reward_calc(self):
+        dummy_sim = SimStub({
+            'position/h-sl-ft': 2000,
+            'attitude/psi-deg': -15,
+        })
+        assert dummy_sim['position/h-sl-ft'] >= self.task.MIN_ALT_FT
+
+        target_prop_values = (('position/h-sl-ft', self.task.initial_altitude_ft),
+                              ('attitude/psi-deg', self.task.INITIAL_HEADING_DEG))
+        expected_reward = 0
+        for prop_name, target_value in target_prop_values:
+            expected_reward -= abs(dummy_sim[prop_name] - target_value)
+        self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
+
+    def test_shaped_reward(self):
+        pass
+
+    def test_task_first_observation(self):
+        pass

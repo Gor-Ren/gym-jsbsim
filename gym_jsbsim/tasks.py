@@ -244,19 +244,17 @@ class SteadyLevelFlightTask(TaskModule):
                                  description='earth frame altitude change rate [ft/s]',
                                  high=2200, low=-2200),
                             )
-    # target values: prop_name, target_value, gain
-    TARGET_VALUES = (('velocities/h-dot-fps', 0, 1),
-                     ('attitude/roll-rad', 0, 10),
-                     )
-
     MAX_TIME_SECS = 15
     MIN_ALT_FT = 1000
     TOO_LOW_REWARD = -10
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
+    RUDDER_CMD = 0.0
+    INITIAL_HEADING_DEG = 270
 
     def __init__(self, task_name='SteadyLevelFlightTask'):
         super().__init__(task_name)
+        self.initial_altitude_ft = self.get_initial_conditions()['ic/h-sl-ft']
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
         """ Returns dictionary mapping initial episode conditions to values.
@@ -273,24 +271,25 @@ class SteadyLevelFlightTask(TaskModule):
                               'ic/q-rad_sec': 0,
                               'ic/r-rad_sec': 0,
                               'ic/roc-fpm': 0,  # rate of climb
-                              'ic/psi-true-deg': random.uniform(0, 360),  # heading
+                              'ic/psi-true-deg': self.INITIAL_HEADING_DEG,  # heading
                               }
         return {**self.base_initial_conditions, **initial_conditions}
 
     def get_full_action_variables(self):
         """ Returns information defining all action variables for this task.
 
-        For steady level flight the agent controls ailerons, elevator and rudder.
-        Throttle will be set in the initial conditions and maintained at a
+        For steady level flight the agent controls ailerons and elevator.
+        Throttle and rudder are set in the initial conditions and maintained at a
         constant value.
 
         :return: tuple of dicts, each dict having a 'source', 'name',
             'description', 'high' and 'low' key
         """
         all_action_vars = super().get_full_action_variables()
-        # omit throttle from default actions
-        action_vars = tuple(var for var in all_action_vars if var['name'] != 'fcs/throttle-cmd-norm')
-        assert len(action_vars) == len(all_action_vars) - 1
+        desired_action_var_names = ['fcs/aileron-cmd-norm',
+                                    'fcs/elevator-cmd-norm']
+        action_vars = tuple(var for var in all_action_vars if var['name'] in desired_action_var_names)
+        assert len(action_vars) == 2
         return action_vars
 
     def _calculate_reward(self, sim: Simulation):
@@ -299,10 +298,12 @@ class SteadyLevelFlightTask(TaskModule):
         :param sim: Simulation, the environment simulation
         :return: a number, the reward for the timestep
         """
-        reward = 0
-        for prop, target, gain in self.TARGET_VALUES:
-            reward -= abs(target - sim[prop]) * gain
-        too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
+        alt_ft = sim['position/h-sl-ft']
+        heading_deg = sim['attitude/psi-deg']
+        reward = -1 * (abs(self.initial_altitude_ft - alt_ft)
+                       + abs(self.INITIAL_HEADING_DEG - heading_deg))
+
+        too_low = alt_ft < self.MIN_ALT_FT
         if too_low:
             reward += self.TOO_LOW_REWARD
         return reward
@@ -326,6 +327,7 @@ class SteadyLevelFlightTask(TaskModule):
         sim.start_engines()
         sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
         sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
+        sim['fcs/rudder-cmd-norm'] = self.RUDDER_CMD
         sim.trim(Simulation.FULL)
         SteadyLevelFlightTask._transfer_pitch_trim_to_cmd(sim)
 
