@@ -3,6 +3,8 @@ import gym
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import gym_jsbsim.tasks as tasks
+import gym_jsbsim.deprecated_tasks as dep_tasks
 from gym_jsbsim.environment import JsbSimEnv, NoFlightGearJsbSimEnv
 from gym_jsbsim.test import TaskStub
 from gym_jsbsim.visualiser import FlightGearVisualiser
@@ -168,3 +170,26 @@ class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
     def test_render_flightgear_mode(self):
         with self.assertRaises(ValueError):
             self.env.render(mode='flightgear')
+
+
+class TestGymEnvs(unittest.TestCase):
+    """ Test that JSBSim environments are correctly registered with OpenAI Gym """
+    id_class_pairs = (
+        ('SteadyLevelFlightCessna-v0', dep_tasks.SteadyLevelFlightTask_v0),
+        ('SteadyLevelFlightCessna-NoFG-v0', dep_tasks.SteadyLevelFlightTask_v0),
+        ('SteadyLevelFlightCessna-v1', tasks.SteadyLevelFlightTask),
+        ('SteadyLevelFlightCessna-NoFG-v1', tasks.SteadyLevelFlightTask)
+    )
+
+    def test_gym_inits_correct_task(self):
+        for gym_id, task_module in self.id_class_pairs:
+            env = gym.make(gym_id)
+            self.assertIsInstance(env.task, task_module)
+
+    def test_no_fg_uses_correct_class(self):
+        for gym_id, task_module in self.id_class_pairs:
+            env = gym.make(gym_id)
+            if 'NoFG' in gym_id:
+                self.assertIsInstance(env, NoFlightGearJsbSimEnv)
+            else:
+                self.assertIsInstance(env, JsbSimEnv)
