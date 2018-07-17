@@ -5,7 +5,7 @@ import math
 import matplotlib.pyplot as plt
 from gym_jsbsim.environment import JsbSimEnv, NoFlightGearJsbSimEnv
 from gym_jsbsim.test import TaskStub
-from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
+from gym_jsbsim.visualiser import FlightGearVisualiser
 
 
 class TestJsbSimEnv(unittest.TestCase):
