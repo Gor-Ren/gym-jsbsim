@@ -22,7 +22,7 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
             'attitude/roll-rad': -2,
         })
         expected_reward = 0
-        for prop, _, gain in self.class_under_test.TARGET_VALUES:
+        for prop, _, gain in self.class_under_test.target_values:
             expected_reward -= abs(dummy_sim[prop]) * gain
         dummy_sim['position/h-sl-ft'] = 3000  # above minimum
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
@@ -106,7 +106,7 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
         high_reward_state_sim = SimStub.make_valid_state_stub(self.task)
 
         # make one sim near the target values, and one relatively far away
-        for prop, ideal_value, _ in self.class_under_test.TARGET_VALUES:
+        for prop, ideal_value, _ in self.task.target_values:
             low_reward_state_sim[prop] = ideal_value + 5
             high_reward_state_sim[prop] = ideal_value + 0.05
         # make sure altitude hasn't randomly been set below minimum!
@@ -139,7 +139,7 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
         sim[PITCH_CMD] = PITCH_CMD_SETTING
         sim[PITCH_TRIM] = PITCH_TRIM_SETTING
 
-        SteadyLevelFlightTask._transfer_pitch_trim_to_cmd(sim)
+        SteadyLevelFlightTask_v0._transfer_pitch_trim_to_cmd(sim)
         expect_trim = 0.0
         expect_cmd = PITCH_CMD_SETTING + PITCH_TRIM_SETTING
 
@@ -160,18 +160,11 @@ class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
         dummy_sim = SimStub({
             'position/h-sl-ft': 2000,
             'attitude/psi-deg': -15,
+            'attitude/roll-rad': 1
         })
         assert dummy_sim['position/h-sl-ft'] >= self.task.MIN_ALT_FT
 
-        target_prop_values = (('position/h-sl-ft', self.task.initial_altitude_ft),
-                              ('attitude/psi-deg', self.task.INITIAL_HEADING_DEG))
         expected_reward = 0
-        for prop_name, target_value in target_prop_values:
-            expected_reward -= abs(dummy_sim[prop_name] - target_value)
+        for prop_name, target_value, gain in self.task.target_values:
+            expected_reward -= abs(dummy_sim[prop_name] - target_value) * gain
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
-
-    def test_shaped_reward(self):
-        pass
-
-    def test_task_first_observation(self):
-        pass

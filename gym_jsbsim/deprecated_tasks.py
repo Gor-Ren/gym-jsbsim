@@ -11,7 +11,7 @@ class SteadyLevelFlightTask_v0(TaskModule):
                                  high=2200, low=-2200),
                             )
     # target values: prop_name, target_value, gain
-    TARGET_VALUES = (('velocities/h-dot-fps', 0, 1),
+    target_values = (('velocities/h-dot-fps', 0, 1),
                      ('attitude/roll-rad', 0, 10),
                      )
 
@@ -21,7 +21,7 @@ class SteadyLevelFlightTask_v0(TaskModule):
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
 
-    def __init__(self, task_name='SteadyLevelFlightTask'):
+    def __init__(self, task_name='SteadyLevelFlightTask-v0'):
         super().__init__(task_name)
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
@@ -66,7 +66,7 @@ class SteadyLevelFlightTask_v0(TaskModule):
         :return: a number, the reward for the timestep
         """
         reward = 0
-        for prop, target, gain in self.TARGET_VALUES:
+        for prop, target, gain in self.target_values:
             reward -= abs(target - sim[prop]) * gain
         too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         if too_low:

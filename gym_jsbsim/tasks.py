@@ -240,9 +240,9 @@ class TaskModule(ABC):
 
 class SteadyLevelFlightTask(TaskModule):
     """ A task in which the agent must perform steady, level flight. """
-    task_state_variables = (dict(name='velocities/h-dot-fps',
-                                 description='earth frame altitude change rate [ft/s]',
-                                 high=2200, low=-2200),
+    task_state_variables = (dict(name='attitude/psi-deg',
+                                 description='heading [ft/s]',
+                                 high=360, low=0),
                             )
     MAX_TIME_SECS = 15
     MIN_ALT_FT = 1000
@@ -252,9 +252,30 @@ class SteadyLevelFlightTask(TaskModule):
     RUDDER_CMD = 0.0
     INITIAL_HEADING_DEG = 270
 
-    def __init__(self, task_name='SteadyLevelFlightTask'):
+    def __init__(self, task_name='SteadyLevelFlightTask-v1'):
         super().__init__(task_name)
-        self.initial_altitude_ft = self.get_initial_conditions()['ic/h-sl-ft']
+        self._set_target_values()
+
+    def _set_target_values(self):
+        """ Sets an attribute specifying the desired state of the aircraft.
+
+        target_values is a tuple of triples of format
+            (property, target_value, gain) where:
+            property: str, the name of the property in JSBSim
+            target_value: number, the desired value to be controlled to
+            gain: number, a multiplier by which the error between actual and
+                target value is multiplied to calculate error
+        """
+        ALT_GAIN = 0.1
+        HEADING_GAIN = 1
+        ROLL_GAIN = 60
+        initial_altitude_ft = self.get_initial_conditions()['ic/h-sl-ft']
+
+        self.target_values = (
+            ('position/h-sl-ft', initial_altitude_ft, ALT_GAIN),
+            ('attitude/roll-rad', 0, ROLL_GAIN),
+            ('attitude/psi-deg', self.INITIAL_HEADING_DEG, HEADING_GAIN)
+                              )
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
         """ Returns dictionary mapping initial episode conditions to values.
@@ -295,15 +316,16 @@ class SteadyLevelFlightTask(TaskModule):
     def _calculate_reward(self, sim: Simulation):
         """ Calculates the reward from the simulation state.
 
+        For this task the agent is required to maintain its initial altitude
+        and heading.
+
         :param sim: Simulation, the environment simulation
         :return: a number, the reward for the timestep
         """
-        alt_ft = sim['position/h-sl-ft']
-        heading_deg = sim['attitude/psi-deg']
-        reward = -1 * (abs(self.initial_altitude_ft - alt_ft)
-                       + abs(self.INITIAL_HEADING_DEG - heading_deg))
-
-        too_low = alt_ft < self.MIN_ALT_FT
+        reward = 0
+        for prop, target_value, gain in self.target_values:
+            reward -= abs(target_value - sim[prop]) * gain
+        too_low = sim['position/h-sl-ft'] < self.MIN_ALT_FT
         if too_low:
             reward += self.TOO_LOW_REWARD
         return reward
@@ -328,24 +350,3 @@ class SteadyLevelFlightTask(TaskModule):
         sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
         sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
         sim['fcs/rudder-cmd-norm'] = self.RUDDER_CMD
-        sim.trim(Simulation.FULL)
-        SteadyLevelFlightTask._transfer_pitch_trim_to_cmd(sim)
-
-    @staticmethod
-    def _transfer_pitch_trim_to_cmd(sim: Simulation):
-        """
-        Removes a pitch trim and adds it to the elevator command.
-
-        JSBSim's trimming utility may stabilise pitch by using a trim, which is
-        a constant offset from the commanded position. However, agents use the
-        elevator command directly and trim is not reflected in their state
-        representation. Therefore we prefer to remove the trim and reflect it
-        directly in the elevator commanded position.
-
-        :param sim: the Simulation instance
-        """
-        PITCH_CMD = 'fcs/elevator-cmd-norm'
-        PITCH_TRIM = 'fcs/pitch-trim-cmd-norm'
-        total_elevator_cmd = sim[PITCH_CMD] + sim[PITCH_TRIM]
-        sim[PITCH_CMD] = total_elevator_cmd
-        sim[PITCH_TRIM] = 0.0
