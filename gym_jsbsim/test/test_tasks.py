@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.deprecated_tasks import SteadyLevelFlightTask_v0
+from gym_jsbsim.deprecated_tasks import SteadyLevelFlightTask_v0, SteadyLevelFlightTask_v1
 from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask
 from gym_jsbsim.test import SimStub
 
@@ -97,7 +97,6 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
 
         # check engines on once env has been reset
         _ = env.reset()
-        # now check
         engine_running_value = 1.0
         self.assertAlmostEqual(engine_running_value,
                                env.sim['propulsion/engine/set-running'])
@@ -152,10 +151,10 @@ class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
 
     def setUp(self):
         super().setUp()
-        assert isinstance(self.task, SteadyLevelFlightTask)
+        assert isinstance(self.task, self.get_class_under_test())
 
     def get_class_under_test(self):
-        return SteadyLevelFlightTask
+        return SteadyLevelFlightTask_v1
 
     def test_reward_calc(self):
         dummy_sim = SimStub({
@@ -170,3 +169,8 @@ class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
         for prop_name, target_value, gain in self.task.target_values:
             expected_reward -= abs(dummy_sim[prop_name] - target_value) * gain
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
+
+class TestSteadyLevelFlightTask_v2(TestSteadyLevelFlightTask_v1):
+
+    def get_class_under_test(self):
+        return SteadyLevelFlightTask
