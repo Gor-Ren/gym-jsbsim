@@ -177,8 +177,10 @@ class TestGymEnvs(unittest.TestCase):
     id_class_pairs = (
         ('SteadyLevelFlightCessna-v0', dep_tasks.SteadyLevelFlightTask_v0),
         ('SteadyLevelFlightCessna-NoFG-v0', dep_tasks.SteadyLevelFlightTask_v0),
-        ('SteadyLevelFlightCessna-v1', tasks.SteadyLevelFlightTask),
-        ('SteadyLevelFlightCessna-NoFG-v1', tasks.SteadyLevelFlightTask)
+        ('SteadyLevelFlightCessna-v1', dep_tasks.SteadyLevelFlightTask_v1),
+        ('SteadyLevelFlightCessna-NoFG-v1', dep_tasks.SteadyLevelFlightTask_v1),
+        ('SteadyLevelFlightCessna-v2', tasks.SteadyLevelFlightTask),
+        ('SteadyLevelFlightCessna-NoFG-v2', tasks.SteadyLevelFlightTask)
     )
 
     def test_gym_inits_correct_task(self):

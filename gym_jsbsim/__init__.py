@@ -20,3 +20,13 @@ register(
     id='SteadyLevelFlightCessna-NoFG-v1',
     entry_point='gym_jsbsim.environment_aliases:SteadyLevelFlightCessnaEnv_NoFg_v1'
 )
+
+register(
+    id='SteadyLevelFlightCessna-v2',
+    entry_point='gym_jsbsim.environment_aliases:SteadyLevelFlightCessnaEnv_v2'
+)
+
+register(
+    id='SteadyLevelFlightCessna-NoFG-v2',
+    entry_point='gym_jsbsim.environment_aliases:SteadyLevelFlightCessnaEnv_NoFg_v2'
+)

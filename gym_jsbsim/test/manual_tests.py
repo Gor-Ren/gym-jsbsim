@@ -98,6 +98,7 @@ class TestJsbSimInstance(unittest.TestCase):
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
                     print(f'last reward:\t{reward}')
                     print(f'episode reward:\t{ep_reward}')
+                    print(f'throttle:\t{self.env.sim["fcs/throttle-pos-norm"]}')
                 step_number += 1
 
 

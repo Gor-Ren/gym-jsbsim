@@ -51,6 +51,7 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
         props_value = 5
         prop_value_pairs = [(prop['name'], props_value) for prop in self.task.state_variables]
         dummy_sim = SimStub(prop_value_pairs)
+        dummy_sim['flight-path/gamma-deg'] = props_value
         state = self.task.observe_first_state(dummy_sim)
 
         number_of_state_vars = len(self.task.state_variables)
@@ -160,7 +161,8 @@ class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
         dummy_sim = SimStub({
             'position/h-sl-ft': 2000,
             'attitude/psi-deg': -15,
-            'attitude/roll-rad': 1
+            'attitude/roll-rad': 1,
+            'flight-path/gamma-deg': 1
         })
         assert dummy_sim['position/h-sl-ft'] >= self.task.MIN_ALT_FT
 

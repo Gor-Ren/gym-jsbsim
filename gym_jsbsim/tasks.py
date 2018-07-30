@@ -239,9 +239,12 @@ class TaskModule(ABC):
 
 
 class SteadyLevelFlightTask(TaskModule):
-    """ A task in which the agent must perform steady, level flight. """
+    """
+    A task in which the agent must perform steady, level flight maintaining its
+    current heading.
+    """
     task_state_variables = (dict(name='attitude/psi-deg',
-                                 description='heading [ft/s]',
+                                 description='heading [deg]',
                                  high=360, low=0),
                             )
     MAX_TIME_SECS = 15
@@ -252,7 +255,7 @@ class SteadyLevelFlightTask(TaskModule):
     RUDDER_CMD = 0.0
     INITIAL_HEADING_DEG = 270
 
-    def __init__(self, task_name='SteadyLevelFlightTask-v1'):
+    def __init__(self, task_name='SteadyLevelFlightTask-v2'):
         super().__init__(task_name)
         self._set_target_values()
 
@@ -263,18 +266,20 @@ class SteadyLevelFlightTask(TaskModule):
             (property, target_value, gain) where:
             property: str, the name of the property in JSBSim
             target_value: number, the desired value to be controlled to
-            gain: number, a multiplier by which the error between actual and
-                target value is multiplied to calculate error
+            gain: number, by which the error between actual and target value
+                 is multiplied to calculate reward
         """
         ALT_GAIN = 0.1
         HEADING_GAIN = 1
         ROLL_GAIN = 60
+        FLIGHT_PATH_GAIN = 1  # gamma
         initial_altitude_ft = self.get_initial_conditions()['ic/h-sl-ft']
 
         self.target_values = (
             ('position/h-sl-ft', initial_altitude_ft, ALT_GAIN),
             ('attitude/roll-rad', 0, ROLL_GAIN),
-            ('attitude/psi-deg', self.INITIAL_HEADING_DEG, HEADING_GAIN)
+            ('attitude/psi-deg', self.INITIAL_HEADING_DEG, HEADING_GAIN),
+            ('flight-path/gamma-deg', 0, FLIGHT_PATH_GAIN)
                               )
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
