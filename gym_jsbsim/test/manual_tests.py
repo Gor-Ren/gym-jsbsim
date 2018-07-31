@@ -137,3 +137,40 @@ class FlightGearRenderTest(unittest.TestCase):
                     print(f'thrust:\t{self.env.sim["propulsion/engine/thrust-lbs"]}')
                     print(f'engine running:\t{self.env.sim["propulsion/engine/set-running"]}')
                 step_number += 1
+
+class HeadingControlTest(unittest.TestCase):
+    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.TaskModule]=tasks.HeadingControlTask):
+        self.env = None
+        self.env = JsbSimEnv(aircraft_name=aircraft_name, task_type=task_type)
+        self.env.reset()
+
+    def tearDown(self):
+        self.env.close()
+
+    def test_render_heading_control(self):
+        self.setUp(aircraft_name='c172x', task_type=tasks.HeadingControlTask)
+        agent = RandomAgent(self.env.action_space)
+        render_every = 5
+        report_every = 20
+        EPISODES = 50
+
+        for _ in range(EPISODES):
+            ep_reward = 0
+            done = False
+            state = self.env.reset()
+            self.env.render(mode='flightgear')
+            step_number = 0
+            while not done:
+                action = agent.act(state)
+                state, reward, done, info = self.env.step(action)
+                ep_reward += reward
+                if step_number % render_every == 0:
+                    self.env.render(mode='flightgear')
+                if step_number % report_every == 0:
+                    print(f'time:\t{self.env.sim.get_sim_time()} s')
+                    print(f'last reward:\t{reward}')
+                    print(f'episode reward:\t{ep_reward}')
+                    print(f'heading:\t{self.env.sim["attitude/psi-deg"]}')
+                    print(f'target heading:\t{self.env.sim["target/heading-deg"]}')
+                    print('\n')
+                step_number += 1
