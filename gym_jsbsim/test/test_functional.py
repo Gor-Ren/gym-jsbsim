@@ -23,11 +23,12 @@ class AgentEnvInteractionTest(unittest.TestCase):
         agent = RandomAgent(action_space=env.action_space)
         self.assertEqual(env.action_space, agent.action_space)
 
-        # this task has an action space of three controls: aileron, elevator
-        self.assertEqual(2, len(agent.action_space.low))
+        # this task has an action space of three controls: aileron, elevator, rudder
+        expected_num_actions = 3
+        self.assertEqual(expected_num_actions, len(agent.action_space.low))
         # we see that the action space has the correct low and high range of +-1.0
-        expect_low = np.array([-1.0, -1.0])
-        expect_high = np.array([1.0, 1.0])
+        expect_low = np.array([-1.0] * expected_num_actions)
+        expect_high = np.array([1.0] * expected_num_actions)
         np.testing.assert_array_almost_equal(expect_high, env.action_space.high)
         np.testing.assert_array_almost_equal(expect_low, env.action_space.low)
 

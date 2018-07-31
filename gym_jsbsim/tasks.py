@@ -252,35 +252,45 @@ class SteadyLevelFlightTask(TaskModule):
     TOO_LOW_REWARD = -10
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
-    RUDDER_CMD = 0.0
     INITIAL_HEADING_DEG = 270
 
     def __init__(self, task_name='SteadyLevelFlightTask-v2'):
         super().__init__(task_name)
-        self._set_target_values()
+        self.target_values = self._make_target_values()
 
-    def _set_target_values(self):
-        """ Sets an attribute specifying the desired state of the aircraft.
+    def _make_target_values(self):
+        """
+        Makes a tuple representing the desired state of the aircraft.
 
-        target_values is a tuple of triples of format
-            (property, target_value, gain) where:
+        :return: tuple of triples (property, target_value, gain) where:
             property: str, the name of the property in JSBSim
             target_value: number, the desired value to be controlled to
             gain: number, by which the error between actual and target value
                  is multiplied to calculate reward
         """
+        PROPORTIONAL_TO_DERIV_RATIO = 2  # how many times lower are rate terms vs absolute terms
+        RAD_TO_DEG = 57
         ALT_GAIN = 0.1
+        ALT_RATE_GAIN = ALT_GAIN / PROPORTIONAL_TO_DERIV_RATIO
+        ROLL_GAIN = 1 * RAD_TO_DEG
+        ROLL_RATE_GAIN = ROLL_GAIN / PROPORTIONAL_TO_DERIV_RATIO
         HEADING_GAIN = 1
-        ROLL_GAIN = 60
-        FLIGHT_PATH_GAIN = 1  # gamma
-        initial_altitude_ft = self.get_initial_conditions()['ic/h-sl-ft']
+        HEADING_RATE_GAIN = HEADING_GAIN * RAD_TO_DEG / PROPORTIONAL_TO_DERIV_RATIO
+        PITCH_RATE_GAIN = 1 * RAD_TO_DEG / PROPORTIONAL_TO_DERIV_RATIO
 
-        self.target_values = (
+        initial_altitude_ft = self.get_initial_conditions()['ic/h-sl-ft']
+        target_values = (
             ('position/h-sl-ft', initial_altitude_ft, ALT_GAIN),
+            ('velocities/h-dot-fps', 0, ALT_RATE_GAIN),
             ('attitude/roll-rad', 0, ROLL_GAIN),
+            ('velocities/phidot-rad_sec', 0, ROLL_RATE_GAIN),
             ('attitude/psi-deg', self.INITIAL_HEADING_DEG, HEADING_GAIN),
-            ('flight-path/gamma-deg', 0, FLIGHT_PATH_GAIN)
-                              )
+            ('velocities/psidot-rad_sec', 0, HEADING_RATE_GAIN),
+            # absolute pitch is implicitly controlled throught altitude, so just control rate
+            ('velocities/thetadot-rad_sec', 0, PITCH_RATE_GAIN)
+        )
+
+        return target_values
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
         """ Returns dictionary mapping initial episode conditions to values.
@@ -313,9 +323,10 @@ class SteadyLevelFlightTask(TaskModule):
         """
         all_action_vars = super().get_full_action_variables()
         desired_action_var_names = ['fcs/aileron-cmd-norm',
-                                    'fcs/elevator-cmd-norm']
+                                    'fcs/elevator-cmd-norm',
+                                    'fcs/rudder-cmd-norm']
         action_vars = tuple(var for var in all_action_vars if var['name'] in desired_action_var_names)
-        assert len(action_vars) == 2
+        assert len(action_vars) == len(desired_action_var_names)
         return action_vars
 
     def _calculate_reward(self, sim: Simulation):
@@ -354,4 +365,63 @@ class SteadyLevelFlightTask(TaskModule):
         sim.start_engines()
         sim['fcs/throttle-cmd-norm'] = self.THROTTLE_CMD
         sim['fcs/mixture-cmd-norm'] = self.MIXTURE_CMD
-        sim['fcs/rudder-cmd-norm'] = self.RUDDER_CMD
+
+
+class HeadingControlTask(SteadyLevelFlightTask):
+    """
+    A task in which the agent must make a turn and fly level on a desired heading.
+    """
+    HEADING_MIN = 0
+    HEADING_MAX = 360
+    task_state_variables = (dict(name='attitude/psi-deg',
+                                 description='heading [deg]',
+                                 low=HEADING_MIN, high=HEADING_MAX),
+                            dict(name='target/heading-deg',
+                                 description='desired heading [deg]',
+                                 low=HEADING_MIN, high=HEADING_MAX)
+                            )
+
+    def __init__(self, task_name='HeadingControlTask-v0'):
+        super().__init__(task_name)
+
+    def _make_target_values(self):
+        """ Sets an attribute specifying the desired state of the aircraft.
+
+        target_values is a tuple of triples of format
+            (property, target_value, gain) where:
+            property: str, the name of the property in JSBSim
+            target_value: number, the desired value to be controlled to
+            gain: number, by which the error between actual and target value
+                 is multiplied to calculate reward
+        """
+        super_target_values = super()._make_target_values()
+        heading_target_index = 4
+        old_heading_triple = super_target_values[heading_target_index]
+        random_target_heading = random.uniform(self.HEADING_MIN, self.HEADING_MAX)
+        new_heading_triple = (old_heading_triple[0], random_target_heading, old_heading_triple[2])
+
+        target_values = []
+        for i, target_triple in enumerate(super_target_values):
+            if i != heading_target_index:
+                target_values.append(target_triple)
+            else:
+                target_values.append(new_heading_triple)
+        assert len(target_values) == len(super_target_values)
+        return target_values
+
+    def get_initial_conditions(self) -> Optional[Dict[str, float]]:
+        """ Returns dictionary mapping initial episode conditions to values.
+
+        The aircraft is initialised at a random orientation and velocity.
+
+        :return: dict mapping string for each initial condition property to
+            a float, or None to use Env defaults
+        """
+        initial_conditions = super().get_initial_conditions()
+        random_heading = random.uniform(self.HEADING_MIN, self.HEADING_MAX)
+        initial_conditions['ic/psi-true-deg'] = random_heading
+        return initial_conditions
+
+    def _input_initial_controls(self, sim: Simulation):
+        sim['target/heading-deg'] = random.uniform(self.HEADING_MIN, self.HEADING_MAX)
+        return super()._input_initial_controls(sim)

@@ -1,10 +1,12 @@
 import unittest
 import numpy as np
+import itertools
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.deprecated_tasks import SteadyLevelFlightTask_v0, SteadyLevelFlightTask_v1
-from gym_jsbsim.tasks import TaskModule, SteadyLevelFlightTask
+from gym_jsbsim.tasks import SteadyLevelFlightTask, HeadingControlTask
 from gym_jsbsim.test import SimStub
+from typing import Iterable, Dict
 
 
 class TestSteadyLevelFlightTask_v0(unittest.TestCase):
@@ -47,11 +49,13 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
                              'position/h-sl-ft': 5000})
         self.assertTrue(self.task._is_done(dummy_sim))
 
-    def test_task_first_observation(self):
+    def test_task_first_observation(self, custom_properties=None):
         props_value = 5
-        prop_value_pairs = [(prop['name'], props_value) for prop in self.task.state_variables]
-        dummy_sim = SimStub(prop_value_pairs)
-        dummy_sim['flight-path/gamma-deg'] = props_value
+        if custom_properties is None:
+            props = self.task.state_variables
+        else:
+            props = custom_properties
+        dummy_sim = self.make_dummy_sim_with_all_props_set(props, props_value)
         state = self.task.observe_first_state(dummy_sim)
 
         number_of_state_vars = len(self.task.state_variables)
@@ -63,6 +67,11 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
         # check throttle and mixture set
         self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim['fcs/throttle-cmd-norm'])
         self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim['fcs/mixture-cmd-norm'])
+
+    def make_dummy_sim_with_all_props_set(self, prop_dicts: Iterable[Dict], value):
+        """ Makes a DummySim, creates keys of 'name' from each property set to value """
+        prop_names = (prop['name'] for prop in prop_dicts)
+        return SimStub(zip(prop_names, itertools.repeat(value)))
 
     def test_get_initial_conditions(self):
         ics = self.task.get_initial_conditions()
@@ -161,7 +170,11 @@ class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
             'position/h-sl-ft': 2000,
             'attitude/psi-deg': -15,
             'attitude/roll-rad': 1,
-            'flight-path/gamma-deg': 1
+            'flight-path/gamma-deg': 1.1,
+            'velocities/h-dot-fps': 2.5,
+            'velocities/phidot-rad_sec': 0.2,
+            'velocities/psidot-rad_sec': 0.1,
+            'velocities/thetadot-rad_sec': 0.3
         })
         assert dummy_sim['position/h-sl-ft'] >= self.task.MIN_ALT_FT
 
@@ -170,7 +183,78 @@ class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
             expected_reward -= abs(dummy_sim[prop_name] - target_value) * gain
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
 
+
 class TestSteadyLevelFlightTask_v2(TestSteadyLevelFlightTask_v1):
+    task_prop_names = (
+        'position/h-sl-ft',
+        'velocities/h-dot-fps',
+        'attitude/roll-rad',
+        'velocities/phidot-rad_sec',
+        'attitude/psi-deg',
+        'velocities/psidot-rad_sec',
+        'velocities/thetadot-rad_sec',
+    )
 
     def get_class_under_test(self):
         return SteadyLevelFlightTask
+
+    def test_task_first_observation(self):
+        # need dummy sim to hold values for additional properties for this task version
+        extra_task_props = tuple({'name': prop_name} for prop_name in self.task_prop_names)
+        custom_props = self.task.state_variables + extra_task_props
+
+        super().test_task_first_observation(custom_properties=custom_props)
+
+
+class TestHeadingControlTask(TestSteadyLevelFlightTask_v2):
+    task_prop_names = (
+        'position/h-sl-ft',
+        'velocities/h-dot-fps',
+        'attitude/roll-rad',
+        'velocities/phidot-rad_sec',
+        'attitude/psi-deg',
+        'velocities/psidot-rad_sec',
+        'velocities/thetadot-rad_sec',
+        'target/heading-deg',
+    )
+
+    def get_class_under_test(self):
+        return HeadingControlTask
+
+    def test_task_first_observation(self):
+        props_value = 5
+        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(), props_value)
+        state = self.task.observe_first_state(dummy_sim)
+
+        number_of_state_vars = len(self.task.state_variables)
+        expected_state = np.full(shape=(number_of_state_vars,), fill_value=5, dtype=int)
+
+        self.assertIsInstance(state, np.ndarray)
+        np.testing.assert_array_equal(expected_state[:-1], state[:-1])  # last element holds random value
+
+        # check throttle and mixture set
+        self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim['fcs/throttle-cmd-norm'])
+        self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim['fcs/mixture-cmd-norm'])
+
+    def test_observe_first_state_creates_desired_heading_in_expected_range(self):
+        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(), 0)
+
+        state = self.task.observe_first_state(dummy_sim)
+
+        desired_heading = state[-1]
+        self.assertGreaterEqual(desired_heading, 0)
+        self.assertLessEqual(desired_heading, 360)
+
+    def test_observe_first_state_changes_desired_heading(self):
+        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(), 0)
+        state = self.task.observe_first_state(dummy_sim)
+        desired_heading = state[-1]
+
+        new_episode_state = self.task.observe_first_state(dummy_sim)
+        new_desired_heading = new_episode_state[-1]
+
+        self.assertNotEqual(desired_heading, new_desired_heading)
+
+    def task_state_property_dicts(self) -> Dict:
+        extra_task_props = tuple({'name': prop_name} for prop_name in self.task_prop_names)
+        return self.task.state_variables + extra_task_props
