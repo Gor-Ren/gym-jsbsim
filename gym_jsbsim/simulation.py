@@ -34,7 +34,6 @@ class Simulation(object):
         """
         self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
         self.sim.set_debug_level(0)
-        self.properties = None
         if allow_flightgear_output:
             flightgear_output_config = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
             self.sim.set_output_directive(flightgear_output_config)
@@ -74,7 +73,6 @@ class Simulation(object):
         :raises KeyError: if key is not a valid parameter
         """
         self.sim[key] = value
-        warnings.warn(f'new JSBSim property created - do you have a typo?: {key}')
 
     def load_model(self, model_name: str) -> None:
         """
@@ -119,8 +117,6 @@ class Simulation(object):
         can be passed a dictionary with ICs. In the latter case a minimal IC
         XML file is loaded, and then the dictionary values are fed in.
 
-        This method sets the self.properties set of valid property names.
-
         :param dt: float, the JSBSim integration timestep in seconds
         :param model_name: string, name of aircraft to be loaded
         :param init_conditions: dict mapping properties to their initial values
@@ -137,7 +133,6 @@ class Simulation(object):
         self.sim.set_dt(dt)
         # extract set of legal property names for this aircraft
         # TODO: can remove the .split(" ")[0] once JSBSim bug has been fixed (in progress)
-        self.properties = set([prop.split(" ")[0] for prop in self.sim.query_property_catalog('')])
 
         # now that IC object is created in JSBSim, specify own conditions
         self.set_custom_initial_conditions(init_conditions)
