@@ -3,6 +3,7 @@ import os
 import time
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from typing import Dict, Union
+import warnings
 
 
 class Simulation(object):
@@ -54,13 +55,7 @@ class Simulation(object):
         :return: object?, property value
         :raises KeyError: if key is not a valid parameter
         """
-
-        if key in self.properties:
-            # TODO: can remove guard once JSBSim updated; JSBSim will check this
-            #   alternatively leave in, and bypass JSBSim check by using .get_property_value()
-            return self.sim[key]
-        else:
-            raise KeyError('property not found:' + key)
+        return self.sim[key]
 
     def __setitem__(self, key: str, value) -> None:
         """
@@ -78,10 +73,8 @@ class Simulation(object):
         :param value: object?, the value to be set
         :raises KeyError: if key is not a valid parameter
         """
-        if key in self.properties:
-            self.sim[key] = value
-        else:
-            raise KeyError('property not found: ' + key)
+        self.sim[key] = value
+        warnings.warn(f'new JSBSim property created - do you have a typo?: {key}')
 
     def load_model(self, model_name: str) -> None:
         """
