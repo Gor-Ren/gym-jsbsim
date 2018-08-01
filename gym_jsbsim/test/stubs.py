@@ -55,3 +55,21 @@ class SimStub(dict):
             sim[name] = (low + high) / 2  # take halfway value
         sim['simulation/sim-time-sec'] = 1.0
         return sim
+
+class DefaultSimStub(object):
+    """
+    A stub for a Sim object which never throws KeyErrors when retrieving
+    properties; a default value is always returned instead.
+    """
+    def __init__(self, default_value=5.0):
+        self.default_value = default_value
+        self.properties = {}
+
+    def __getitem__(self, item):
+        return self.properties.get(item, self.default_value)
+
+    def run(self):
+        pass
+
+    def start_engines(self):
+        pass

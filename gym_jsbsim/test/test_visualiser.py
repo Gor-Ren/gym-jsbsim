@@ -2,8 +2,63 @@ import time
 import unittest
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
-from gym_jsbsim.test.stubs import TaskStub
+from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser, AxesTuple
+from gym_jsbsim.test.stubs import TaskStub, SimStub, DefaultSimStub
+import matplotlib.pyplot as plt
+import gym_jsbsim.visualiser
+
+
+class TestFigureVisualiser(unittest.TestCase):
+    sim = None
+    visualiser = None
+
+    def setUp(self, plot_position=True):
+        self.sim = DefaultSimStub()
+        self.visualiser = FigureVisualiser(sim=DefaultSimStub(), is_plot_position=plot_position)
+
+    def tearDown(self):
+        self.visualiser.close()
+
+    def test_plot_creates_figure_and_axes(self):
+        self.setUp()
+
+        self.visualiser.plot(self.sim)
+
+        self.assertIsInstance(self.visualiser.figure, plt.Figure)
+        self.assertIsInstance(self.visualiser.axes, gym_jsbsim.visualiser.AxesTuple)
+
+    def test_plot_plots_aircraft_position(self):
+        self.setUp(plot_position=True)
+
+        self.visualiser.plot(self.sim)
+
+        position_axis = self.visualiser.axes.axes_state
+        is_empty_plot = len(position_axis.axes.lines) == 0
+        self.assertFalse(is_empty_plot)
+
+    def test_plot_doesnt_plot_position_when_set_by_init(self):
+        self.setUp(plot_position=False)
+
+        self.visualiser.plot(self.sim)
+
+        position_axis = self.visualiser.axes.axes_state
+        is_empty_plot = position_axis is None or len(position_axis.axes.lines) == 0
+        self.assertTrue(is_empty_plot)
+
+    def test_plot_plots_control_state(self):
+        self.setUp()
+
+        self.visualiser.plot(self.sim)
+
+    def test_close_removes_figure(self):
+        self.setUp()
+        self.visualiser.plot(self.sim)
+
+        self.visualiser.close()
+
+        self.assertIsNone(self.visualiser.figure)
+        self.assertIsNone(self.visualiser.axes)
+
 
 class TestFlightGearVisualiser(unittest.TestCase):
     env = None
@@ -56,8 +111,6 @@ class TestFlightGearVisualiser(unittest.TestCase):
         self.setUp()
         self.flightgear = FlightGearVisualiser(self.sim,
                                                block_until_loaded=False)
-        action_names = self.env.task.action_names
-        action = self.env.task.get_action_space().sample()
         self.flightgear.plot(self.sim)
 
         # the figure should have plotted a Lines object each axis

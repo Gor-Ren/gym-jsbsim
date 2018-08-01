@@ -36,10 +36,10 @@ class FigureVisualiser(object):
         """
         Constructor.
 
-        The main attribute set here is ft_per_deg_lon, which depends
-        dynamically on the aircraft's longitude (because of the conversion
-        between geographic and Euclidean coordinate systems). We retrieve
-        longitude from the simulation and assume it is constant thereafter.
+        Sets here is ft_per_deg_lon, which depends dynamically on aircraft's
+        longitude (because of the conversion between geographic and Euclidean
+        coordinate systems). We retrieve longitude from the simulation and
+        assume it is constant thereafter.
 
         :param sim: Simulation that will be plotted
         :param is_plot_position: aircraft position and velocity is plotted if True
