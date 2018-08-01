@@ -180,7 +180,9 @@ class TestGymEnvs(unittest.TestCase):
         ('SteadyLevelFlightCessna-v1', dep_tasks.SteadyLevelFlightTask_v1),
         ('SteadyLevelFlightCessna-NoFG-v1', dep_tasks.SteadyLevelFlightTask_v1),
         ('SteadyLevelFlightCessna-v2', tasks.SteadyLevelFlightTask),
-        ('SteadyLevelFlightCessna-NoFG-v2', tasks.SteadyLevelFlightTask)
+        ('SteadyLevelFlightCessna-NoFG-v2', tasks.SteadyLevelFlightTask),
+        ('HeadingControlCessna-v0', tasks.HeadingControlTask),
+        ('HeadingControlCessna-NoFG-v0', tasks.HeadingControlTask)
     )
 
     def test_gym_inits_correct_task(self):
@@ -188,7 +190,7 @@ class TestGymEnvs(unittest.TestCase):
             env = gym.make(gym_id)
             self.assertIsInstance(env.task, task_module)
 
-    def test_no_fg_uses_correct_class(self):
+    def test_no_fg_uses_no_fg_class(self):
         for gym_id, task_module in self.id_class_pairs:
             env = gym.make(gym_id)
             if 'NoFG' in gym_id:

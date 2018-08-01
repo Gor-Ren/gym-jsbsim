@@ -35,9 +35,9 @@ class SteadyLevelFlightCessnaEnv_NoFg_v2(NoFlightGearJsbSimEnv):
 
 class HeadingControlCessnaEnv_v0(JsbSimEnv):
     def __init__(self):
-        super().__init__(task_type=SteadyLevelFlightTask_v0, aircraft_name='c172p')
+        super().__init__(task_type=HeadingControlTask, aircraft_name='c172p')
 
 
 class HeadingControlCessnaEnv_NoFg_v0(NoFlightGearJsbSimEnv):
     def __init__(self):
-        super().__init__(task_type=SteadyLevelFlightTask_v0, aircraft_name='c172p')
+        super().__init__(task_type=HeadingControlTask, aircraft_name='c172p')
