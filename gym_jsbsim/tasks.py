@@ -59,7 +59,7 @@ class Task(ABC):
     base_initial_conditions = {'ic/h-sl-ft': 5000,
                                'ic/terrain-elevation-ft': 0.00000001,
                                'ic/long-gc-deg': -2.3273,
-                               'ic/lat-gc-deg': 51.3781,  # corresponds to UoBath
+                               'ic/lat-geod-deg': 51.3781,  # corresponds to UoBath
                                }
 
     def __init__(self, task_name: Optional[str], use_shaped_reward: bool=True):
