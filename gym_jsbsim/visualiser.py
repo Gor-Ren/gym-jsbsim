@@ -192,7 +192,7 @@ class FigureVisualiser(object):
         Plots the state of the simulation on input axes.
 
         State is given by three translational coords (x, y, z) and three
-        linear velocities (v_x, v_y, v_z).
+        linear velocities (u, v, w).
 
         The dict 'props' provides a mapping of these variable names to a
         dict specifying their 'name', the property to be retrieved from
@@ -206,7 +206,7 @@ class FigureVisualiser(object):
         # get velocity vector coords using scaled velocity
         x2 = x + u / self.FT_PER_DEG_LAT
         y2 = y + v / self.ft_per_deg_lon
-        z2 = z - w    # negative because v_z is positive down
+        z2 = z - w    # negative because w is positive in 'down' direction
 
         # plot aircraft position and velocity
         all_axes.axes_state.scatter([x], [y], zs=[z], c='k', s=10)
