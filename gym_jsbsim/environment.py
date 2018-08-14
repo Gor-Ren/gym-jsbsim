@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-from gym_jsbsim.tasks import TaskModule
+from gym_jsbsim.tasks import Task
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
 from typing import Type
@@ -12,7 +12,7 @@ class JsbSimEnv(gym.Env):
     aircraft as an RL environment conforming to the OpenAI Gym Env
     interface.
 
-    An JsbSimEnv is instantiated with a TaskModule that implements a specific
+    An JsbSimEnv is instantiated with a Task that implements a specific
     aircraft control task through additional task-related observation/action
     variables and reward calculation.
 
@@ -34,13 +34,13 @@ class JsbSimEnv(gym.Env):
     DT_HZ: int = 60  # JSBSim integration frequency [Hz]
     metadata = {'render.modes': ['human', 'flightgear']}
 
-    def __init__(self, task_type: Type[TaskModule], aircraft_name: str='c172p',
+    def __init__(self, task_type: Type[Task], aircraft_name: str= 'c172p',
                  agent_interaction_freq: int=5):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.
 
-        :param task_type: a TaskModule class of the task agent is to perform
+        :param task_type: a Task class of the task agent is to perform
         :param agent_interaction_freq: int, how many times per second the agent
             should interact with environment.
         """

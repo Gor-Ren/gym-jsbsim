@@ -1,10 +1,10 @@
 import random
 from typing import Dict, Optional
-from gym_jsbsim.tasks import TaskModule
+from gym_jsbsim.tasks import Task
 from gym_jsbsim.simulation import Simulation
 
 
-class SteadyLevelFlightTask_v0(TaskModule):
+class SteadyLevelFlightTask_v0(Task):
     """ A task in which the agent must perform steady, level flight. """
     task_state_variables = (dict(name='velocities/h-dot-fps',
                                  description='earth frame altitude change rate [ft/s]',
@@ -115,7 +115,7 @@ class SteadyLevelFlightTask_v0(TaskModule):
         sim[PITCH_TRIM] = 0.0
 
 
-class SteadyLevelFlightTask_v1(TaskModule):
+class SteadyLevelFlightTask_v1(Task):
     """ A task in which the agent must perform steady, level flight. """
     task_state_variables = (dict(name='attitude/psi-deg',
                                  description='heading [ft/s]',

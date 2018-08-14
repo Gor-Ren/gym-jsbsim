@@ -1,8 +1,8 @@
-from gym_jsbsim.tasks import TaskModule
+from gym_jsbsim.tasks import Task
 from typing import Optional
 
 
-class TaskStub(TaskModule):
+class TaskStub(Task):
     """ A minimal task module for testing. """
     task_state_variables = ()
 
@@ -36,7 +36,7 @@ class SimStub(dict):
         return self['simulation/sim-time-sec']
 
     @staticmethod
-    def make_valid_state_stub(task: TaskModule):
+    def make_valid_state_stub(task: Task):
         """
         A factory method for SimStubs with valid state values for a task.
 

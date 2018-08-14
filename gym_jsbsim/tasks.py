@@ -7,7 +7,7 @@ from abc import ABC
 from typing import Optional, Sequence, Dict, Tuple
 
 
-class TaskModule(ABC):
+class Task(ABC):
     task_state_variables = None  # should be specified by concrete implementations
     base_state_variables = (
         dict(name='position/h-sl-ft', description='altitude above mean sea level [ft]',
@@ -77,7 +77,7 @@ class TaskModule(ABC):
         self.last_reward = None
 
     def __repr__(self):
-        return f'<TaskModule {self.task_name}>'
+        return f'<Task {self.task_name}>'
 
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple:
         """ Calculates step reward and termination from an agent observation.
@@ -238,7 +238,7 @@ class TaskModule(ABC):
         sim.start_engines()
 
 
-class SteadyLevelFlightTask(TaskModule):
+class SteadyLevelFlightTask(Task):
     """
     A task in which the agent must perform steady, level flight maintaining its
     current heading.
