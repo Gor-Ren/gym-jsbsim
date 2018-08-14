@@ -1,39 +1,43 @@
 import math
 from typing import Tuple
-import pyproj
+from gym_jsbsim.simulation import Simulation
 
 
-class Position(object):
-    CARTESIAN_COORD_ID = 'epsg:27700'  # British National Grid cartesian coord system
-    cartesian_projection = pyproj.Proj(init=CARTESIAN_COORD_ID)
-
+class GeodeticPosition(object):
     def __init__(self, latitude_deg: float, longitude_deg: float):
         self.lat = latitude_deg
         self.lon = longitude_deg
-        # calculate Cartesian x,y coord
-        self.x_m, self.y_m = self.cartesian_projection(self.lon, self.lat)
 
-    def heading_deg_to(self, destination: 'Position') -> float:
+    def heading_deg_to(self, destination: 'GeodeticPosition') -> float:
         """ Determines heading in degrees of course between self and destination """
-        delta_x, delta_y = destination - self
-        heading_rad = math.atan2(delta_x, delta_y)
+        delta_lat, delta_lon = destination - self
+        heading_rad = math.atan2(delta_lon, delta_lat)
         heading_deg_normalised = (math.degrees(heading_rad) + 360) % 360
         return heading_deg_normalised
 
-    def distance_m_to(self, destination: 'Position') -> float:
-        """ Determines distance in metres to destination """
-        delta_x, delta_y = destination - self
-        return math.hypot(delta_x, delta_y)
-
-    def distance_parallel_to_heading_ft(self, finish: 'Position', desired_heading_deg: float) -> float:
-        """ Determines distance in feet travelled parallel to the desired heading """
-        total_distance_m = self.distance_m_to(finish)
-        actual_heading_deg = self.heading_deg_to(finish)
-        heading_error_rad = math.radians(actual_heading_deg - desired_heading_deg)
-
-        parallel_distance_m = total_distance_m * math.cos(heading_error_rad)
-        return parallel_distance_m
+    @staticmethod
+    def from_sim(sim: Simulation) -> 'GeodeticPosition':
+        """ Return a GeodeticPosition object with lat and lon from simulation """
+        lat_deg = sim['position/lat-geod-deg']
+        lon_deg = sim['position/long-gc-deg']
+        return GeodeticPosition(lat_deg, lon_deg)
 
     def __sub__(self, other) -> Tuple[float, float]:
-        """ Returns difference between two Cartesian coords as (delta_x, delta_y) """
-        return self.x_m - other.x_m, self.y_m - other.y_m
+        """ Returns difference between two Cartesian coords as (delta_lat, delta_long) """
+        return self.lat - other.lat, self.lon - other.lon
+
+
+def normalise_unbounded_error(absolute_error, error_scaling):
+    """
+    Given an error in the interval [0, +inf], returns a normalised error in [0, 1]
+
+    The normalised error asymptotically approaches 1 as absolute_error -> +inf.
+
+    The parameter error_scaling is used to scale for magnitude.
+    When absolute_error == error_scaling, the normalised error is equal to 0.75
+    """
+    if absolute_error < 0:
+        raise ValueError(f'Error to be normalised must be non-negative '
+                         f'(use abs()): {absolute_error}')
+    scaled_error = absolute_error / error_scaling
+    return (scaled_error / (scaled_error + 1)) ** 0.5
