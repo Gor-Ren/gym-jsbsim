@@ -12,6 +12,7 @@ setup(name='gym_jsbsim',
             'numpy',
             'gym',
             'matplotlib',
+            'pyproj',
       ],
       packages=find_packages(),
       classifiers=[
