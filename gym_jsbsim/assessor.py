@@ -72,39 +72,3 @@ class HeadingControlBaseAssessor(Assessor):
         altitude_error_ft = abs(self.target_altitude_ft - altitude_ft)
         norm_error = utils.normalise_unbounded_error(altitude_error_ft, self.ALTITUDE_ERROR_SCALING_FT)
         return (1 - norm_error) / self.max_timesteps
-
-
-class ShapingReward(object):
-    """
-    A class containing shaping reward components which can be added like a
-    scalar reward.
-
-    Conventionally, a reward is an integer or float which is summed to give an
-    episode reward. This class can be __add__ed just like an int or float and
-    it will act as though its value is its shaping reward. However, it stores
-    additional information on its individual components to permit further
-    analysis.
-    """
-    def __init__(self, base_components: Tuple, shaping_components: Tuple):
-        self.base_components = base_components
-        self.shaping_components = shaping_components
-
-        self._set_base_reward()
-        self._set_shaping_reward()
-
-    def _set_base_reward(self):
-        """ Calculates the base reward average across its components.
-        Excludes shaping components. """
-        self.base_reward = sum(self.base_components) / len(self.base_components)
-
-    def _set_shaping_reward(self):
-        """ Calculates the shaping reward averaged across its components. """
-        components_sum = sum(self.base_components) + sum(self.shaping_components)
-        components_num = len(self.base_components) + len(self.shaping_components)
-        self.shaping_reward = components_sum / components_num
-
-    def __add__(self, other):
-        return self.shaping_reward + other
-
-    def __radd__(self, other):
-        return self.__add__(other)
