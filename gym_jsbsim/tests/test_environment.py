@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import gym_jsbsim.tasks as tasks
 import gym_jsbsim.deprecated_tasks as dep_tasks
 from gym_jsbsim.environment import JsbSimEnv, NoFlightGearJsbSimEnv
-from gym_jsbsim.test import TaskStub
+from gym_jsbsim.tests import TaskStub
 from gym_jsbsim.visualiser import FlightGearVisualiser
 
 

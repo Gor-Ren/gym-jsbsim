@@ -3,7 +3,7 @@ import unittest
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser, AxesTuple
-from gym_jsbsim.test.stubs import TaskStub, SimStub, DefaultSimStub
+from gym_jsbsim.tests.stubs import TaskStub, SimStub, DefaultSimStub
 import matplotlib.pyplot as plt
 import gym_jsbsim.visualiser
 

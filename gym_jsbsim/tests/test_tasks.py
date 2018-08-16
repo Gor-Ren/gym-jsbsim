@@ -5,7 +5,7 @@ from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.deprecated_tasks import SteadyLevelFlightTask_v0, SteadyLevelFlightTask_v1
 from gym_jsbsim.tasks import SteadyLevelFlightTask, HeadingControlTask
-from gym_jsbsim.test import SimStub
+from gym_jsbsim.tests import SimStub
 from typing import Iterable, Dict
 
 

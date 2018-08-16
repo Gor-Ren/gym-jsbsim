@@ -3,7 +3,7 @@ import time
 from gym_jsbsim.environment import JsbSimEnv
 from typing import Type
 from gym_jsbsim import tasks
-from gym_jsbsim.test.stubs import TaskStub
+from gym_jsbsim.tests.stubs import TaskStub
 from gym_jsbsim.agents import RandomAgent, ConstantAgent, RepeatAgent
 
 
