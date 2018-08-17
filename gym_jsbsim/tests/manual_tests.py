@@ -22,10 +22,10 @@ class TestJsbSimInstance(unittest.TestCase):
         self.env.reset()
         for i in range(2000):
             self.env.step(action=self.env.action_space.sample())
-            print(f'sim {i / 10} s\n')
+            print(f'jsbsim {i / 10} s\n')
         toc = time.time()
         wall_time = (toc - tic)
-        sim_time = self.env.sim['simulation/sim-time-sec']
+        sim_time = self.env.sim['simulation/jsbsim-time-sec']
         print(f'Simulated {sim_time} s of flight in {wall_time} s')
 
     def test_render_episode(self):
@@ -71,7 +71,7 @@ class TestJsbSimInstance(unittest.TestCase):
                 state, reward, done, info = self.env.step(action)
                 ep_reward += reward
                 if step_number % report_every == 0:
-                    print(f'time:\t{self.env.sim.get_sim_time()} s')
+                    print(f'time:\t{self.env.jsbsim.get_sim_time()} s')
                     print(f'last reward:\t{reward}')
                     print(f'episode reward:\t{ep_reward}')
                 step_number += 1
@@ -95,10 +95,10 @@ class TestJsbSimInstance(unittest.TestCase):
                 state, reward, done, info = self.env.step(action)
                 ep_reward += reward
                 if step_number % report_every == 0:
-                    print(f'time:\t{self.env.sim.get_sim_time()} s')
+                    print(f'time:\t{self.env.jsbsim.get_sim_time()} s')
                     print(f'last reward:\t{reward}')
                     print(f'episode reward:\t{ep_reward}')
-                    print(f'throttle:\t{self.env.sim["fcs/throttle-pos-norm"]}')
+                    print(f'throttle:\t{self.env.jsbsim["fcs/throttle-pos-norm"]}')
                 step_number += 1
 
 
@@ -131,11 +131,11 @@ class FlightGearRenderTest(unittest.TestCase):
                 if step_number % render_every == 0:
                     self.env.render(mode='flightgear')
                 if step_number % report_every == 0:
-                    print(f'time:\t{self.env.sim.get_sim_time()} s')
+                    print(f'time:\t{self.env.jsbsim.get_sim_time()} s')
                     print(f'last reward:\t{reward}')
                     print(f'episode reward:\t{ep_reward}')
-                    print(f'thrust:\t{self.env.sim["propulsion/engine/thrust-lbs"]}')
-                    print(f'engine running:\t{self.env.sim["propulsion/engine/set-running"]}')
+                    print(f'thrust:\t{self.env.jsbsim["propulsion/engine/thrust-lbs"]}')
+                    print(f'engine running:\t{self.env.jsbsim["propulsion/engine/set-running"]}')
                 step_number += 1
 
 class HeadingControlTest(unittest.TestCase):
@@ -167,10 +167,10 @@ class HeadingControlTest(unittest.TestCase):
                 if step_number % render_every == 0:
                     self.env.render(mode='flightgear')
                 if step_number % report_every == 0:
-                    print(f'time:\t{self.env.sim.get_sim_time()} s')
+                    print(f'time:\t{self.env.jsbsim.get_sim_time()} s')
                     print(f'last reward:\t{reward}')
                     print(f'episode reward:\t{ep_reward}')
-                    print(f'heading:\t{self.env.sim["attitude/psi-deg"]}')
-                    print(f'target heading:\t{self.env.sim["target/heading-deg"]}')
+                    print(f'heading:\t{self.env.jsbsim["attitude/psi-deg"]}')
+                    print(f'target heading:\t{self.env.jsbsim["target/heading-deg"]}')
                     print('\n')
                 step_number += 1

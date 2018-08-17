@@ -1,13 +1,15 @@
 from gym_jsbsim.tasks import FlightTask
+from gym_jsbsim.properties import aileron_cmd, elevator_cmd, rudder_cmd, throttle_cmd
 from typing import Optional
 
 
 class TaskStub(FlightTask):
     """ A minimal task module for testing. """
-    task_state_variables = ()
 
-    def __init__(self, task_name: Optional[str]='TaskStub'):
-        super().__init__(task_name)
+    def __init__(self):
+        super().__init__()
+        self.state_variables = super().base_state_variables
+        self.action_variables = (aileron_cmd, elevator_cmd, rudder_cmd, throttle_cmd)
 
     def _calculate_reward(self, _):
         return 0
@@ -48,7 +50,7 @@ class SimStub(dict):
         :return: a SimStub configured with valid state for the task
         """
         sim = SimStub()
-        for prop in task.get_full_state_variables():
+        for prop in task.get_state_variables():
             name = prop['name']
             low = prop['low']
             high = prop['high']

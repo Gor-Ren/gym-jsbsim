@@ -3,6 +3,7 @@ import jsbsim
 import multiprocessing
 import time
 from gym_jsbsim.simulation import Simulation
+import gym_jsbsim.properties as prp
 
 
 class TestSimulation(unittest.TestCase):
@@ -17,8 +18,8 @@ class TestSimulation(unittest.TestCase):
         self.sim = None
 
     def test_init_jsbsim(self):
-        self.assertIsInstance(self.sim.sim, jsbsim.FGFDMExec,
-                              msg=f'Expected Simulation.sim to hold an '
+        self.assertIsInstance(self.sim.jsbsim, jsbsim.FGFDMExec,
+                              msg=f'Expected Simulation.jsbsim to hold an '
                               'instance of JSBSim.')
 
     def test_load_model(self):
@@ -95,17 +96,17 @@ class TestSimulation(unittest.TestCase):
 
         # check that properties are as we expected them to be
         expected_values = {
-            'ic/u-fps': 328.0,
-            'ic/v-fps': 0.0,
-            'ic/w-fps': 0.0,
-            'velocities/u-fps': 328.0,
-            'velocities/v-fps': 0.0,
-            'velocities/w-fps': 0.0,
-            'simulation/dt': 1 / sim_frequency
+            prp.initial_u_fps: 328.0,
+            prp.initial_v_fps: 0.0,
+            prp.initial_w_fps: 0.0,
+            prp.u_fps: 328.0,
+            prp.v_fps: 0.0,
+            prp.initial_w_fps: 0.0,
+            prp.Property('simulation/dt', '', None, None): 1 / sim_frequency
         }
 
         for prop, expected in expected_values.items():
-            actual = self.sim[prop]
+            actual = self.sim[prop.name]
             self.assertAlmostEqual(expected, actual)
 
     def test_initialise_conditions_custom_config(self):
@@ -113,23 +114,21 @@ class TestSimulation(unittest.TestCase):
 
         aircraft = 'f15'
         init_conditions = {
-            'ic/u-fps': 1000.0,
-            'ic/v-fps': 0.0,
-            'ic/w-fps': 1.0,
-            'ic/h-sl-ft': 5000,
-            'ic/phi-deg': 12,
-            'ic/theta-deg': -5,
-            'ic/psi-true-deg': 45,
+            prp.initial_u_fps: 1000.0,
+            prp.initial_v_fps: 0.0,
+            prp.initial_w_fps: 1.0,
+            prp.initial_altitude_ft: 5000,
+            prp.initial_heading_deg: 12,
+            prp.initial_r_radps: -0.1,
         }
         # map JSBSim initial condition properties to sim properties
         init_to_sim_conditions = {
-            'ic/u-fps': 'velocities/u-fps',
-            'ic/v-fps': 'velocities/v-fps',
-            'ic/w-fps': 'velocities/w-fps',
-            'ic/h-sl-ft': 'position/h-sl-ft',
-            'ic/phi-deg': 'attitude/phi-deg',
-            'ic/theta-deg': 'attitude/theta-deg',
-            'ic/psi-true-deg': 'attitude/psi-deg',
+            prp.initial_u_fps: prp.u_fps,
+            prp.initial_v_fps: prp.v_fps,
+            prp.initial_w_fps: prp.w_fps,
+            prp.initial_altitude_ft: prp.altitude_ft,
+            prp.initial_heading_deg: prp.heading_deg,
+            prp.initial_r_radps: prp.r_radps,
         }
         sim_frequency = 10
 
@@ -142,8 +141,8 @@ class TestSimulation(unittest.TestCase):
         for init_prop, expected in init_conditions.items():
             sim_prop = init_to_sim_conditions[init_prop]
 
-            init_actual = self.sim[init_prop]
-            sim_actual = self.sim[sim_prop]
+            init_actual = self.sim[init_prop.name]
+            sim_actual = self.sim[sim_prop.name]
             self.assertAlmostEqual(expected, init_actual,
                                    msg=f'wrong value for property {init_prop}')
             self.assertAlmostEqual(expected, sim_actual,

@@ -4,7 +4,6 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import gym_jsbsim.tasks as tasks
-import gym_jsbsim.deprecated_tasks as dep_tasks
 from gym_jsbsim.environment import JsbSimEnv, NoFGJsbSimEnv
 from gym_jsbsim.tests import TaskStub
 from gym_jsbsim.visualiser import FlightGearVisualiser
@@ -175,10 +174,6 @@ class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
 class TestGymEnvs(unittest.TestCase):
     """ Test that JSBSim environments are correctly registered with OpenAI Gym """
     id_class_pairs = (
-        ('SteadyLevelFlightCessna-v0', dep_tasks.SteadyLevelFlightTask_v0),
-        ('SteadyLevelFlightCessna-NoFG-v0', dep_tasks.SteadyLevelFlightTask_v0),
-        ('SteadyLevelFlightCessna-v1', dep_tasks.SteadyLevelFlightTask_v1),
-        ('SteadyLevelFlightCessna-NoFG-v1', dep_tasks.SteadyLevelFlightTask_v1),
         ('SteadyLevelFlightCessna-v2', tasks.SteadyLevelFlightTask),
         ('SteadyLevelFlightCessna-NoFG-v2', tasks.SteadyLevelFlightTask),
         ('HeadingControlCessna-v0', tasks.HeadingControlTask),

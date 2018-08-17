@@ -2,8 +2,8 @@ import jsbsim
 import os
 import time
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
-from typing import Dict, Union
-import warnings
+from typing import Dict, TYPE_CHECKING
+from gym_jsbsim.properties import InitialProperty
 
 
 class Simulation(object):
@@ -19,7 +19,7 @@ class Simulation(object):
     def __init__(self,
                  sim_frequency_hz: float=60.0,
                  aircraft_model_name: str='c172p',
-                 init_conditions: Dict[str, Union[int, float]]=None,
+                 init_conditions: Dict['InitialProperty', float]=None,
                  allow_flightgear_output: bool=True):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
@@ -32,14 +32,14 @@ class Simulation(object):
         :param allow_flightgear_output: bool, loads a config file instructing
             JSBSim to connect to an output socket if True.
         """
-        self.sim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
-        self.sim.set_debug_level(0)
+        self.jsbsim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
+        self.jsbsim.set_debug_level(0)
         if allow_flightgear_output:
             flightgear_output_config = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
-            self.sim.set_output_directive(flightgear_output_config)
+            self.jsbsim.set_output_directive(flightgear_output_config)
         self.sim_dt = 1.0 / sim_frequency_hz
         self.initialise(self.sim_dt, aircraft_model_name, init_conditions)
-        self.sim.disable_output()
+        self.jsbsim.disable_output()
         self.wall_clock_dt = None
 
     def __getitem__(self, key: str):
@@ -54,7 +54,7 @@ class Simulation(object):
         :return: object?, property value
         :raises KeyError: if key is not a valid parameter
         """
-        return self.sim[key]
+        return self.jsbsim[key]
 
     def __setitem__(self, key: str, value) -> None:
         """
@@ -72,7 +72,7 @@ class Simulation(object):
         :param value: object?, the value to be set
         :raises KeyError: if key is not a valid parameter
         """
-        self.sim[key] = value
+        self.jsbsim[key] = value
 
     def load_model(self, model_name: str) -> None:
         """
@@ -83,7 +83,7 @@ class Simulation(object):
 
         :param model_name: string, the aircraft name
         """
-        load_success = self.sim.load_model(model_name)
+        load_success = self.jsbsim.load_model(model_name)
 
         if not load_success:
             raise RuntimeError('JSBSim could not find specified model_name: '
@@ -96,7 +96,7 @@ class Simulation(object):
         :return: string, the name of the aircraft model if one is loaded, or
             None if no model is loaded.
         """
-        name: str = self.sim.get_model_name().decode(self.encoding)
+        name: str = self.jsbsim.get_model_name().decode(self.encoding)
         if name:
             return name
         else:
@@ -105,10 +105,10 @@ class Simulation(object):
 
     def get_sim_time(self) -> float:
         """ Gets the simulation time from JSBSim, a float. """
-        return self.sim['simulation/sim-time-sec']
+        return self.jsbsim['simulation/sim-time-sec']
 
     def initialise(self, dt: float, model_name: str,
-                   init_conditions: Dict[str, Union[int, float]]=None) -> None:
+                   init_conditions: Dict['InitialProperty', float]=None) -> None:
         """
         Loads an aircraft and initialises simulation conditions.
 
@@ -128,25 +128,25 @@ class Simulation(object):
             ic_file = 'basic_ic.xml'
 
         ic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ic_file)
-        self.sim.load_ic(ic_path, useStoredPath=False)
+        self.jsbsim.load_ic(ic_path, useStoredPath=False)
         self.load_model(model_name)
-        self.sim.set_dt(dt)
+        self.jsbsim.set_dt(dt)
         # extract set of legal property names for this aircraft
         # TODO: can remove the .split(" ")[0] once JSBSim bug has been fixed (in progress)
 
         # now that IC object is created in JSBSim, specify own conditions
         self.set_custom_initial_conditions(init_conditions)
 
-        success = self.sim.run_ic()
+        success = self.jsbsim.run_ic()
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')
 
-    def set_custom_initial_conditions(self, init_conditions=None):
+    def set_custom_initial_conditions(self, init_conditions: Dict['InitialProperty', float]=None) -> None:
         if init_conditions is not None:
             for prop, value in init_conditions.items():
-                self[prop] = value
+                self[prop.name] = value
 
-    def reinitialise(self, init_conditions=None) -> None:
+    def reinitialise(self, init_conditions: Dict['InitialProperty', float]=None) -> None:
         """
         Resets JSBSim to initial conditions.
 
@@ -158,7 +158,7 @@ class Simulation(object):
         """
         self.set_custom_initial_conditions(init_conditions=init_conditions)
         no_output_reset_mode = 0
-        self.sim.reset_to_initial_conditions(no_output_reset_mode)
+        self.jsbsim.reset_to_initial_conditions(no_output_reset_mode)
 
     def run(self) -> bool:
         """
@@ -170,24 +170,25 @@ class Simulation(object):
 
         :return: bool, False if sim has met JSBSim termination criteria else True.
         """
-        result = self.sim.run()
+        result = self.jsbsim.run()
         if self.wall_clock_dt is not None:
             time.sleep(self.wall_clock_dt)
         return result
 
     def enable_flightgear_output(self):
-        self.sim.enable_output()
+        self.jsbsim.enable_output()
 
     def disable_flightgear_output(self):
-        self.sim.disable_output()
+        self.jsbsim.disable_output()
 
     def close(self):
         """ Closes the simulation and any plots. """
-        if self.sim:
-            self.sim = None
+        if self.jsbsim:
+            self.jsbsim = None
 
     def set_simulation_time_factor(self, time_factor):
-        """ Specifies a factor, relative to realtime, for simulation to run at.
+        """
+        Specifies a factor, relative to realtime, for simulation to run at.
 
         The simulation runs at realtime for time_factor = 1. It runs at double
         speed for time_factor=2, and half speed for 0.5.
@@ -204,8 +205,8 @@ class Simulation(object):
 
     def start_engines(self):
         """ Sets all engines running. """
-        for engine_no in range(self.sim.propulsion_get_num_engines()):
-            self.sim.propulsion_init_running(engine_no)
+        for engine_no in range(self.jsbsim.propulsion_get_num_engines()):
+            self.jsbsim.propulsion_init_running(engine_no)
 
     def trim(self, trim_mode: str):
         """
@@ -226,4 +227,4 @@ class Simulation(object):
         else:
             raise ValueError(f'invalid trim mode specified: {trim_mode}')
 
-        self.sim.do_trim(trim_code)
+        self.jsbsim.do_trim(trim_code)

@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from gym_jsbsim.agents import RandomAgent, ConstantAgent, RepeatAgent
+from gym_jsbsim.agents import RandomAgent, ConstantAgent
 from gym_jsbsim.tests.stubs import TaskStub
 
 
@@ -35,25 +35,3 @@ class TestConstantAgent(unittest.TestCase):
             action = self.agent.act(None)
             np.testing.assert_array_almost_equal(old_action, action)
             old_action = action
-
-
-class TestHoldPositionAgent(unittest.TestCase):
-    def setUp(self):
-        self.task = TaskStub()
-        self.agent = RepeatAgent(action_space=self.task.get_action_space(),
-                                 action_names=self.task.action_names,
-                                 state_names=self.task.state_names)
-
-    def test_agent_inits_correctly(self):
-        indices = self.agent.state_indices_for_actions
-        self.assertEqual(len(indices), len(self.task.get_action_space().low))
-
-    def test_init_indices_correspond_to_correct_state(self):
-        indices = self.agent.state_indices_for_actions
-        action_names = self.task.action_names
-        state_names = self.task.state_names
-
-        for i, action_name in zip(indices, action_names):
-            state_name = state_names[i]
-            expected_state_name = RepeatAgent.action_to_state_name_map[action_name]
-            self.assertEqual(expected_state_name, state_name)

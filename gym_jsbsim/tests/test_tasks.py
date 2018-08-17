@@ -3,20 +3,19 @@ import numpy as np
 import itertools
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.deprecated_tasks import SteadyLevelFlightTask_v0, SteadyLevelFlightTask_v1
 from gym_jsbsim.tasks import SteadyLevelFlightTask, HeadingControlTask
 from gym_jsbsim.tests import SimStub
 from typing import Iterable, Dict
 
 
-class TestSteadyLevelFlightTask_v0(unittest.TestCase):
+class TestSteadyLevelFlightTask(unittest.TestCase):
 
     def setUp(self):
         self.class_under_test = self.get_class_under_test()
         self.task = self.class_under_test()
 
     def get_class_under_test(self):
-        return SteadyLevelFlightTask_v0
+        return SteadyLevelFlightTask
 
     def test_reward_calc(self):
         dummy_sim = SimStub({
@@ -156,57 +155,7 @@ class TestSteadyLevelFlightTask_v0(unittest.TestCase):
         self.assertAlmostEqual(expect_cmd, sim[PITCH_CMD])
 
 
-class TestSteadyLevelFlightTask_v1(TestSteadyLevelFlightTask_v0):
-
-    def setUp(self):
-        super().setUp()
-        assert isinstance(self.task, self.get_class_under_test())
-
-    def get_class_under_test(self):
-        return SteadyLevelFlightTask_v1
-
-    def test_reward_calc(self):
-        dummy_sim = SimStub({
-            'position/h-sl-ft': 2000,
-            'attitude/psi-deg': -15,
-            'attitude/roll-rad': 1,
-            'flight-path/gamma-deg': 1.1,
-            'velocities/h-dot-fps': 2.5,
-            'velocities/phidot-rad_sec': 0.2,
-            'velocities/psidot-rad_sec': 0.1,
-            'velocities/thetadot-rad_sec': 0.3
-        })
-        assert dummy_sim['position/h-sl-ft'] >= self.task.MIN_ALT_FT
-
-        expected_reward = 0
-        for prop_name, target_value, gain in self.task.target_values:
-            expected_reward -= abs(dummy_sim[prop_name] - target_value) * gain
-        self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
-
-
-class TestSteadyLevelFlightTask_v2(TestSteadyLevelFlightTask_v1):
-    task_prop_names = (
-        'position/h-sl-ft',
-        'velocities/h-dot-fps',
-        'attitude/roll-rad',
-        'velocities/phidot-rad_sec',
-        'attitude/psi-deg',
-        'velocities/psidot-rad_sec',
-        'velocities/thetadot-rad_sec',
-    )
-
-    def get_class_under_test(self):
-        return SteadyLevelFlightTask
-
-    def test_task_first_observation(self):
-        # need dummy sim to hold values for additional properties for this task version
-        extra_task_props = tuple({'name': prop_name} for prop_name in self.task_prop_names)
-        custom_props = self.task.state_variables + extra_task_props
-
-        super().test_task_first_observation(custom_properties=custom_props)
-
-
-class TestHeadingControlTask(TestSteadyLevelFlightTask_v2):
+class TestHeadingControlTask(TestSteadyLevelFlightTask):
     task_prop_names = (
         'position/h-sl-ft',
         'velocities/h-dot-fps',

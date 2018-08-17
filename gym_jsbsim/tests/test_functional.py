@@ -38,7 +38,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
 
         # we close the env and JSBSim closes with it
         env.close()
-        self.assertIsNone(env.sim.sim)
+        self.assertIsNone(env.sim.jsbsim)
 
     def test_random_agent_steady_level_task_run(self):
         # we create an environment and agent for the steady level flight task
