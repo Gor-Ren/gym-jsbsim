@@ -3,11 +3,80 @@ import math
 import random
 import numpy as np
 from gym_jsbsim.simulation import Simulation
-from abc import ABC
+import abc
 from typing import Optional, Sequence, Dict, Tuple
 
 
-class Task(ABC):
+class Task(abc.ABC):
+    """
+    Interface for Tasks, modules implementing specific environments in JSBSim.
+
+    A task defines its own state space, action space, termination conditions and reward function.
+    """
+
+    @abc.abstractmethod
+    def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int)\
+            -> Tuple[np.ndarray, float, bool, Dict]:
+        """
+        Calculates step reward and termination from an agent observation.
+
+        :param sim: a Simulation, the simulation from which to extract state
+        :param action: sequence of floats, the agent's last action
+        :param sim_steps: number of JSBSim integration steps to perform following action
+            prior to making observation
+        :return: tuple of (observation, reward, done, info) where,
+            observation: np.ndarray, agent's observation of the environment state
+            reward: float, the reward for that step
+            done: bool, True if the episode is over else False
+            info: dict, optional, containing diagnostic info for debugging etc.
+        """
+    ...
+
+    @abc.abstractmethod
+    def observe_first_state(self, sim: Simulation) -> np.ndarray:
+        """
+        Get first state observation from reset sim. Tasks may initialise any book keeping.
+
+        :param sim: Simulation, the environment simulation
+        :return: array, the first state observation of the episode
+        """
+        ...
+
+    @abc.abstractmethod
+    def get_initial_conditions(self) -> Optional[Dict[str, float]]:
+        """
+        Returns dictionary mapping initial episode conditions to values.
+
+        Episode initial conditions (ICs) are defined by specifying values for
+        JSBSim properties, represented by their name (string) in JSBSim.
+
+        JSBSim uses a distinct set of properties for ICs, beginning with 'ic/'
+        which differ from property names during the simulation, e.g. "ic/u-fps"
+        instead of "velocities/u-fps". See https://jsbsim-team.github.io/jsbsim/
+
+        :return: dict mapping string for each initial condition property to
+            initial value, a float, or None to use Env defaults
+        """
+        ...
+
+    @abc.abstractmethod
+    def get_observation_space(self) -> gym.Space:
+        """ Get the task's observation Space object """
+        ...
+
+    @abc.abstractmethod
+    def get_action_space(self) -> gym.Space:
+        """ Get the task's action Space object """
+        ...
+
+
+
+class FlightTask(Task, abc.ABC):
+    """
+    Abstract superclass for several flight tasks.
+
+
+    """
     task_state_variables = None  # should be specified by concrete implementations
     base_state_variables = (
         dict(name='position/h-sl-ft', description='altitude above mean sea level [ft]',
@@ -77,21 +146,9 @@ class Task(ABC):
         self.last_reward = None
 
     def __repr__(self):
-        return f'<Task {self.task_name}>'
+        return f'<FlightTask {self.task_name}>'
 
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple:
-        """ Calculates step reward and termination from an agent observation.
-
-        :param sim: a Simulation, the simulation from which to extract state
-        :param action: sequence of floats, the agent's last action
-        :param sim_steps: number of JSBSim integration steps to perform following action
-            prior to making observation
-        :return: tuple of (observation, reward, done, info) where,
-            observation: np.array, agent's observation of the current environment
-            reward: float, the reward for that step
-            done: bool, True if the episode is over else False
-            info: dict, containing diagnostic info for debugging
-        """
         # input actions
         for var, command in zip(self.action_names, action):
             sim[var] = command
@@ -184,21 +241,6 @@ class Task(ABC):
         return self.base_action_variables
 
     def get_initial_conditions(self) -> Optional[Dict[str, float]]:
-        """ Returns dictionary mapping initial episode conditions to values.
-
-        Episode initial conditions (ICs) are defined by specifying values for
-        JSBSim properties, represented by their name (string) in JSBSim.
-
-        JSBSim uses a distinct set of properties for ICs, beginning with 'ic/'
-        which differ from property names during the simulation, e.g. "ic/u-fps"
-        instead of "velocities/u-fps"
-
-        JSBSim properties can be found in its C++ API documentation, see
-        https://jsbsim-team.github.io/jsbsim/
-
-        :return: dict mapping string for each initial condition property to
-            initial value, a float, or None to use Env defaults
-        """
         raise NotImplementedError()
 
     def get_observation_space(self):
@@ -212,15 +254,6 @@ class Task(ABC):
         return gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
 
     def observe_first_state(self, sim: Simulation):
-        """ Get first state observation from reset sim.
-
-        This method will always be called when starting an episode. Tasks may
-        set properties here, e.g. control commands which are not in the agent
-        action space.
-
-        :param sim: Simulation, the environment simulation
-        :return: array, the first state observation of the episode
-        """
         self._input_initial_controls(sim)
         state = [sim[prop] for prop in self.state_names]
         if self.use_shaped_reward:
@@ -238,7 +271,7 @@ class Task(ABC):
         sim.start_engines()
 
 
-class SteadyLevelFlightTask(Task):
+class SteadyLevelFlightTask(FlightTask):
     """
     A task in which the agent must perform steady, level flight maintaining its
     current heading.

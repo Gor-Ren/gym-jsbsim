@@ -8,7 +8,7 @@ from gym_jsbsim.agents import RandomAgent, ConstantAgent, RepeatAgent
 
 
 class TestJsbSimInstance(unittest.TestCase):
-    def setUp(self, task_type: Type[tasks.Task]= TaskStub):
+    def setUp(self, task_type: Type[tasks.FlightTask]= TaskStub):
         self.env = None
         self.env = JsbSimEnv(task_type)
         self.env.reset()
@@ -103,7 +103,7 @@ class TestJsbSimInstance(unittest.TestCase):
 
 
 class FlightGearRenderTest(unittest.TestCase):
-    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.Task]=TaskStub):
+    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.FlightTask]=TaskStub):
         self.env = None
         self.env = JsbSimEnv(aircraft_name=aircraft_name, task_type=task_type)
         self.env.reset()
@@ -139,7 +139,7 @@ class FlightGearRenderTest(unittest.TestCase):
                 step_number += 1
 
 class HeadingControlTest(unittest.TestCase):
-    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.Task]=tasks.HeadingControlTask):
+    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.FlightTask]=tasks.HeadingControlTask):
         self.env = None
         self.env = JsbSimEnv(aircraft_name=aircraft_name, task_type=task_type)
         self.env.reset()

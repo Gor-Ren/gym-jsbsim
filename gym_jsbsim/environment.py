@@ -40,7 +40,7 @@ class JsbSimEnv(gym.Env):
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.
 
-        :param task_type: a Task class of the task agent is to perform
+        :param task_type: the Task subclass for the task agent is to perform
         :param agent_interaction_freq: int, how many times per second the agent
             should interact with environment.
         """
