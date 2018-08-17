@@ -5,7 +5,7 @@ import math
 import matplotlib.pyplot as plt
 import gym_jsbsim.tasks as tasks
 import gym_jsbsim.deprecated_tasks as dep_tasks
-from gym_jsbsim.environment import JsbSimEnv, NoFlightGearJsbSimEnv
+from gym_jsbsim.environment import JsbSimEnv, NoFGJsbSimEnv
 from gym_jsbsim.tests import TaskStub
 from gym_jsbsim.visualiser import FlightGearVisualiser
 
@@ -164,8 +164,8 @@ class TestJsbSimEnv(unittest.TestCase):
 class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
 
     def init_env(self, agent_interaction_freq):
-        self.env = NoFlightGearJsbSimEnv(task_type=TaskStub,
-                                         agent_interaction_freq=agent_interaction_freq)
+        self.env = NoFGJsbSimEnv(task_type=TaskStub,
+                                 agent_interaction_freq=agent_interaction_freq)
 
     def test_render_flightgear_mode(self):
         with self.assertRaises(ValueError):
@@ -194,6 +194,6 @@ class TestGymEnvs(unittest.TestCase):
         for gym_id, task_module in self.id_class_pairs:
             env = gym.make(gym_id)
             if 'NoFG' in gym_id:
-                self.assertIsInstance(env, NoFlightGearJsbSimEnv)
+                self.assertIsInstance(env, NoFGJsbSimEnv)
             else:
                 self.assertIsInstance(env, JsbSimEnv)

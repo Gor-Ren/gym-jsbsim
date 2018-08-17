@@ -1,5 +1,6 @@
 import collections
 import math
+import numpy as np
 from gym_jsbsim import utils
 from gym_jsbsim.simulation import Simulation
 from typing import Tuple
@@ -48,7 +49,7 @@ class Rewarder(ABC):
     should return a tuple of reward components.
     """
     @abstractmethod
-    def __call__(self, sim: Simulation, is_terminal: bool) -> Tuple:
+    def __call__(self, state: np.ndarray, is_terminal: bool) -> Tuple:
         ...
 
     def reset(self, *args):

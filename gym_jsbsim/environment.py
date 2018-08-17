@@ -13,23 +13,11 @@ class JsbSimEnv(gym.Env):
     interface.
 
     An JsbSimEnv is instantiated with a Task that implements a specific
-    aircraft control task through additional task-related observation/action
+    aircraft control task with its own specific observation/action space and
     variables and reward calculation.
 
-    The following API methods will be implemented between JsbSimEnv:
-        step
-        reset
-        render
-        close
-        seed
-
-    Along with the following attributes:
-        action_space: The Space object corresponding to valid actions
-        observation_space: The Space object corresponding to valid observations
-        reward_range: A tuple corresponding to the min and max possible rewards
-
-    ATTRIBUTION: this class is based on the OpenAI Gym Env API. Method
-    docstrings have been taken from the OpenAI API and modified where required.
+    ATTRIBUTION: this class implements the OpenAI Gym Env API. Method
+    docstrings have been adapted or copied from the OpenAI Gym source code.
     """
     DT_HZ: int = 60  # JSBSim integration frequency [Hz]
     metadata = {'render.modes': ['human', 'flightgear']}
@@ -131,16 +119,6 @@ class JsbSimEnv(gym.Env):
             the same index in action_names
         :param flightgear_blocking: waits for FlightGear to load before
             returning if True, else returns immediately
-        Example:
-        class MyEnv(Env):
-            metadata = {'render.modes': ['human', 'rgb_array']}
-            def render(self, mode='human'):
-                if mode == 'rgb_array':
-                    return np.array(...) # return RGB frame suitable for video
-                elif mode is 'human':
-                    ... # pop up a window and render
-                else:
-                    super(MyEnv, self).render(mode=mode) # just raise an exception
         """
         if mode == 'human':
             if not self.figure_visualiser:
@@ -167,7 +145,8 @@ class JsbSimEnv(gym.Env):
             self.flightgear_visualiser.close()
 
     def seed(self, seed=None):
-        """Sets the seed for this env's random number generator(s).
+        """
+        Sets the seed for this env's random number generator(s).
         Note:
             Some environments use multiple pseudorandom number generators.
             We want to capture all such seeds used in order to ensure that
@@ -183,7 +162,7 @@ class JsbSimEnv(gym.Env):
         return
 
 
-class NoFlightGearJsbSimEnv(JsbSimEnv):
+class NoFGJsbSimEnv(JsbSimEnv):
     """
     An RL environment for JSBSim with rendering to FlightGear disabled.
 
