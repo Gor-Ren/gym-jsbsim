@@ -1,9 +1,9 @@
-import abc
 import collections
 import math
 from gym_jsbsim import utils
 from gym_jsbsim.simulation import Simulation
 from typing import Tuple
+from abc import ABC, abstractmethod
 
 
 class ShapingReward(object):
@@ -36,7 +36,7 @@ class ShapingReward(object):
         return bool(self.shaping_reward_elements)
 
 
-class Rewarder(abc.ABC):
+class Rewarder(ABC):
     """
     Interface for a Rewarder, a callable object which calculates components of a reward signal.
 
@@ -47,7 +47,7 @@ class Rewarder(abc.ABC):
         rewarder(simulation, is_terminal)
     should return a tuple of reward components.
     """
-    @abc.abstractmethod
+    @abstractmethod
     def __call__(self, sim: Simulation, is_terminal: bool) -> Tuple:
         ...
 
@@ -70,7 +70,7 @@ class EmptyRewarder(object):
         return ()
 
 
-class HeadingControlRewarder(abc.ABC, Rewarder):
+class HeadingControlRewarder(ABC, Rewarder):
     """
     Abstract Rewarder for heading control tasks.
 
