@@ -6,16 +6,12 @@ from abc import ABC, abstractmethod
 
 class Agent(ABC):
     @abstractmethod
-    def __init__(self):
-        pass
-
-    @abstractmethod
     def act(self, state) -> np.ndarray:
-        pass
+        ...
 
     @abstractmethod
     def observe(self, state, action, reward, done):
-        pass
+        ...
 
 
 class RandomAgent(Agent):
@@ -25,7 +21,6 @@ class RandomAgent(Agent):
     Space.sample() method. Its seed is set by gym.
     """
     def __init__(self, action_space: gym.Space):
-        super().__init__()
         self.action_space = action_space
 
     def act(self, _):
@@ -69,7 +64,6 @@ class RepeatAgent(Agent):
            the number of action variables, actions will be selected by
            looking up the state value at this index
         """
-        super().__init__()
         self.state_indices_for_actions = self._get_state_indices_for_actions(action_names,
                                                                              state_names)
         # we should have an index for every action variable
