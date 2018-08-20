@@ -1,22 +1,22 @@
 import collections
 import math
 import numpy as np
+import gym_jsbsim.properties as prp
 from gym_jsbsim import utils
 from gym_jsbsim.simulation import Simulation
-from typing import Tuple
-from abc import ABC, abstractmethod
+from typing import Tuple, Callable, Union
 
 
-class ShapingReward(object):
+class Reward(object):
     """
     Immutable class storing an RL reward.
 
     We decompose rewards into tuples of component values, reflecting contributions
     from different goals. Separate tuples are maintained for the base (non-shaping)
-    components and the shaping components to allow better analysis.
+    components and the shaping components to allow analysis.
 
-    Scalar reward values can be retrieved from a ShapingReward by calling .reward()
-    or non_shaping_reward() as required.
+    Scalar reward values are retrieved by calling .reward() or non_shaping_reward().
+    The scalar value is the mean of the components.
     """
     def __init__(self, base_reward_elements: Tuple, shaping_reward_elements: Tuple):
         self.base_reward_elements = base_reward_elements
@@ -37,43 +37,101 @@ class ShapingReward(object):
         return bool(self.shaping_reward_elements)
 
 
-class Rewarder(ABC):
+class Assessor(object):
     """
-    Interface for a Rewarder, a callable object which calculates components of a reward signal.
+    Interface for a Assessor, a callable object which calculates a Reward.
 
-    We decompose the reward into a tuple of component values. A Rewarder
-    calculates each component from a simulation state and returns the tuple.
+    A Reward is decomposed into two tuples of component values. An Assessor
+    stores two corresponding tuples of functions, which calculate these values
+    from environment state.
 
-    When called,
-        rewarder(simulation, is_terminal)
-    should return a tuple of reward components.
+    An assessor object can be called thus:
+        rewarder(state, last_state, is_terminal)
+    and will return a Reward object.
     """
-    @abstractmethod
-    def __call__(self, state: np.ndarray, is_terminal: bool) -> Tuple:
-        ...
-
-    def reset(self, *args):
-        """ Called at the end of each episode, reset() should clear any state.
-
-        Default behaviour is to do nothing.
+    def __init__(self, base_reward_functions: Tuple[Callable, ...],
+                 shaping_reward_functions: Tuple[Callable, ...]=()):
         """
-        pass
+        Constructor. Sets the functions that will be used to calculate reward components.
+
+        :param base_reward_functions: collection of functions r(s, s', is_terminal)
+        :param shaping_reward_functions: optional, collection of functions f(s, s', is_terminal)
+            defaults to empty tuple resulting in no reward shaping
+        """
+        self.base_reward_functions = base_reward_functions
+        self.shaping_reward_functions = shaping_reward_functions
+
+    def __call__(self, state: np.ndarray, last_state: np.ndarray, is_terminal: bool) -> Reward:
+        """ Calculates reward from environment's state, previous state and terminal condition """
+        return Reward(tuple(R(state, last_state, is_terminal) for R in self.base_reward_functions),
+                      tuple(F(state,last_state, is_terminal) for F in self.shaping_reward_functions))
 
 
-class EmptyRewarder(object):
+class RewardFunctionFactory(object):
+    
+
+    def get_property_closeness_to_target_function(controlled_prop: prp.Property, target_prop: prp.Property,
+                                                  scale_factor: float) -> Callable:
+        """ Returns a function on States that calculates how close a controlled property is to its target.
+
+        :param controlled_prop: the property in State that is to be examined
+        :param target_prop: the property in State which is the target value, at
+            which the returned function outputs 1.0
+        :param scale_factor: float, the returned function outputs 0.25 when there
+            is this error to target. Used to account for units of measure etc.
+        :return: a function: State -> float, calculating how close the controlled prop is to target
+        """
+        def normalised_goodness_function(state: Tuple[float, ...]) -> float:
+            """
+            Calculates how "good" a state is considering we wish one state
+            variable to be equal to a target state variable.
+
+            Returns 1.0 when controlled variable is equal to target value, and
+            asymptotically approaches 0.0 as their absolute error approaches
+            infinity.
+
+            :param state: State namedtuple, the environment state
+            :return: float, how close the controlled prop is to target, 1.0 if equal, reducing to 0.0
+            """
+            actual_value = state.__getattribute__(controlled_prop)
+            target_value = state.__getattribute__(target_prop)
+            abs_error = abs(actual_value - target_value)
+            return 1 - normalise_unbounded_error(abs_error, scale_factor)
+
+        return normalised_goodness_function
+
+
+    def get_property_closeness_to_constant_function(controlled_prop: prp.Property, target_value: float,
+                                                    scale_factor: float) -> Callable:
+        """ Returns a function on States that calculates how close a controlled property is to its target.
+
+        :param controlled_prop: the property in State that is to be examined
+        :param target_value: the target for controlled_prop, at which returned function outputs 1.0
+        :param scale_factor: float, the difference at which the returned function outputs 0.75
+        :return: a function: State -> float, calculating how close the controlled prop is to target
+        """
+        def normalised_goodness_function(state: Tuple[float, ...]) -> float:
+            """
+            Calculates how "good" a state is considering we wish one state
+            variable to be equal to a constant target value.
+
+            Returns 1.0 when controlled variable is equal to target value, and
+            asymptotically approaches 0.0 as their absolute error approaches
+            infinity.
+
+            :param state: State namedtuple, the environment state
+            :return: float, how close the controlled prop is to target, 1.0 if equal, reducing to 0.0
+            """
+            actual_value = state.__getattribute__(controlled_prop)
+            abs_error = abs(actual_value - target_value)
+            return 1 - normalise_unbounded_error(abs_error, scale_factor)
+
+        return normalised_goodness_function
+
+
+class HeadingControlRewarder(Assessor):
     """
-    A Rewarder which always returns empty tuple.
-
-    Use this as your shaping rewarder when you don't want to use shaping.
-    """
-    def __call__(self, _, __) -> Tuple:
-        """ Given any Simulation and is_terminal condition, returns empty tuple. """
-        return ()
-
-
-class HeadingControlRewarder(ABC, Rewarder):
-    """
-    Abstract Rewarder for heading control tasks.
+    Abstract Assessor for heading control tasks.
 
     Contains common methods for calculating rewards or potentials for re-use by
     inheriting classes.
@@ -105,7 +163,7 @@ class HeadingControlRewarder(ABC, Rewarder):
         target_altitude_ft and its altitude in the sim is zero. Each timestep
         it can receive 1 / max_timesteps altitude keeping reward.
         """
-        altitude_ft = sim['position/h-sl-ft']
+        altitude_ft = sim[prp.altitude_sl_ft]
         altitude_error_ft = abs(self.target_altitude_ft - altitude_ft)
         norm_error = utils.normalise_unbounded_error(altitude_error_ft, self.ALTITUDE_ERROR_SCALING_FT)
         return (1 - norm_error) / self.max_timesteps
@@ -123,7 +181,7 @@ class HeadingControlRewarder(ABC, Rewarder):
     def _parallel_distance_travelled_ft(self, sim: Simulation):
         """ Calculates distance travelled in the sim parallel to the target heading """
         final_position = utils.GeodeticPosition.from_sim(sim)
-        distance_travelled_m = sim['position/distance-from-start-mag-mt']
+        distance_travelled_m = sim[prp.dist_travel_m]
         heading_travelled_deg = self.initial_position.heading_deg_to(final_position)
 
         heading_error_rad = math.radians(heading_travelled_deg - self.target_heading_deg)
@@ -178,3 +236,19 @@ class HeadingControlSimpleShapingRewarder(HeadingControlRewarder):
         shaping_reward_component = self.last_potential - new_potential
         self.last_potential = new_potential
         return shaping_reward_component
+
+
+def normalise_unbounded_error(absolute_error: float, error_scaling: float):
+    """
+    Given an error in the interval [0, +inf], returns a normalised error in [0, 1]
+
+    The normalised error asymptotically approaches 1 as absolute_error -> +inf.
+
+    The parameter error_scaling is used to scale for magnitude.
+    When absolute_error == error_scaling, the normalised error is equal to 0.75
+    """
+    if absolute_error < 0:
+        raise ValueError(f'Error to be normalised must be non-negative '
+                         f'(use abs()): {absolute_error}')
+    scaled_error = absolute_error / error_scaling
+    return (scaled_error / (scaled_error + 1)) ** 0.5

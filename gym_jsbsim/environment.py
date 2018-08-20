@@ -3,7 +3,7 @@ import numpy as np
 from gym_jsbsim.tasks import Task
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
-from typing import Type
+from typing import Type, Tuple, Dict
 
 
 class JsbSimEnv(gym.Env):
@@ -48,7 +48,7 @@ class JsbSimEnv(gym.Env):
         self.flightgear_visualiser: FlightGearVisualiser = None
         self.step_delay = None
 
-    def step(self, action: np.ndarray):
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict]:
         """
         Run one timestep of the environment's dynamics. When end of
         episode is reached, you are responsible for calling `reset()`
@@ -67,7 +67,8 @@ class JsbSimEnv(gym.Env):
         if not (action.shape == self.action_space.shape):
             raise ValueError('mismatch between action and action space size')
 
-        return self.task.task_step(self.sim, action, self.sim_steps)
+        state, reward, done, info = self.task.task_step(self.sim, action, self.sim_steps)
+        return np.ndarray(state), reward, done, info
 
     def reset(self):
         """

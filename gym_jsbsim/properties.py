@@ -17,6 +17,7 @@ roll_rad = BoundedProperty('attitude/roll-rad', 'roll [rad]', -math.pi, math.pi)
 heading_deg = BoundedProperty('attitude/psi-deg', 'heading [deg]', 0, 360)
 lat_geod_deg = BoundedProperty('position/lat-geod-deg', 'geocentric latitude [deg]', -90, 90)
 lng_geoc_deg = BoundedProperty('position/long-gc-deg', 'geodesic longitude [deg]', -180, 180)
+dist_travel_m = Property('position/distance-from-start-mag-mt', 'distance travelled from starting position [m]')
 
 # velocities
 u_fps = BoundedProperty('velocities/u-fps', 'body frame x-axis velocity [ft/s]', -2200, 2200)
@@ -38,8 +39,8 @@ rudder = BoundedProperty('fcs/rudder-pos-norm', 'rudder position, normalised', -
 throttle = BoundedProperty('fcs/throttle-pos-norm', 'throttle position, normalised', 0, 1)
 
 # engines
-engine_thrust_lbs = Property('propulsion/engine/thrust-lbs', 'engine thrust [lb]')
 engine_running = Property('propulsion/engine/set-running', 'engine running (0/1 bool)')
+engine_thrust_lbs = Property('propulsion/engine/thrust-lbs', 'engine thrust [lb]')
 
 # controls command
 aileron_cmd = BoundedProperty('fcs/aileron-cmd-norm', 'aileron commanded position, normalised', -1.0, 1.0)

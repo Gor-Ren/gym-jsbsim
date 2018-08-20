@@ -2,11 +2,15 @@ import gym
 import numpy as np
 import random
 import types
+import math
 import gym_jsbsim.properties as prp
-from gym_jsbsim.properties import BoundedProperty, Property
+from gym_jsbsim import utils
+from collections import namedtuple
 from gym_jsbsim.simulation import Simulation
+from gym_jsbsim.reward_functions import Assessor, Reward
+from gym_jsbsim.properties import BoundedProperty, Property
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence, Dict, Tuple
+from typing import Optional, Sequence, Dict, Tuple, Type
 
 
 class Task(ABC):
@@ -39,12 +43,12 @@ class Task(ABC):
         Initialise any state/controls and get first state observation from reset sim.
 
         :param sim: Simulation, the environment simulation
-        :return: array, the first state observation of the episode
+        :return: np array, the first state observation of the episode
         """
         ...
 
     @abstractmethod
-    def get_initial_conditions(self) -> Optional[Dict[str, float]]:
+    def get_initial_conditions(self) -> Optional[Dict[Property, float]]:
         """
         Returns dictionary mapping initial episode conditions to values.
 
@@ -78,10 +82,11 @@ class FlightTask(Task, ABC):
     Concrete subclasses should implement the following:
         state_variables attribute: tuple of Propertys, the task's state representation
         action_variables attribute: tuple of Propertys, the task's actions
+        assessor attribute: Assessor, object which calculates reward from state
         get_initial_conditions(): returns dict mapping InitialPropertys to initial values
-        _calculate_reward(): determines the step reward
         _is_done(): determines episode termination
-        (optional) _input_initial_controls(): sets simulation values at start of episode
+        (optional) _new_episode(): performs any control input/initialisation on episode reset
+        (optional) _update_custom_properties: updates any custom properties in the sim
     """
     base_state_variables = (prp.altitude_sl_ft, prp.pitch_rad, prp.roll_rad,
                             prp.u_fps, prp.v_fps, prp.w_fps,
@@ -97,14 +102,13 @@ class FlightTask(Task, ABC):
     )
     state_variables: Tuple[BoundedProperty, ...]
     action_variables: Tuple[BoundedProperty, ...]
+    assessor: Assessor
+    State: Type[Tuple]
 
-    def __init__(self, use_shaped_reward: bool=True) -> None:
-        """ Constructor
-
-        :param use_shaped_reward: use potential based reward shaping if True
-        """
-        self.use_shaped_reward = use_shaped_reward
-        self.last_reward = None
+    def __init__(self, assessor: Assessor) -> None:
+        self.last_state = None
+        self.State = namedtuple('State', [prop.name for prop in self.state_variables])
+        self.assessor = assessor
 
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int)\
             -> Tuple[np.ndarray, float, bool, Dict]:
@@ -116,43 +120,37 @@ class FlightTask(Task, ABC):
         for _ in range(sim_steps):
             sim.run()
 
-        obs = [sim[prop] for prop in self.state_variables]
-        reward = self._calculate_reward(sim)
-        if self.use_shaped_reward:
-            shaped_reward = reward - self.last_reward
-            self.last_reward = reward
-            reward = shaped_reward
-        done = self._is_done(sim)
-        info = {'sim_time': sim.get_sim_time()}
+        self._update_custom_properties(sim)
+        state = self.State(sim[prop] for prop in self.state_variables)
+        done = self._is_done(state, sim[prp.sim_time_s])
+        reward = self.assessor(state, self.last_state, done)
+        self.last_state = state
+        info = {'reward': reward}
 
-        return np.array(obs), reward, done, info
+        return np.array(state), reward.reward(), done, info
 
-    @abstractmethod
-    def _calculate_reward(self, sim: Simulation) -> float:
-        """ Calculates the reward from the simulation state.
-
-        :param sim: Simulation, the environment simulation
-        :return: a number, the reward for the timestep
-        """
-        ...
+    def _update_custom_properties(self, sim: Simulation) -> None:
+        """ Calculates any custom properties which change every timestep. """
+        pass
 
     @abstractmethod
-    def _is_done(self, sim: Simulation) -> bool:
+    def _is_done(self, state: Tuple[float, ...], episode_time: float) -> bool:
         """ Determines whether the current episode should terminate.
 
-        :param sim: Simulation, the environment simulation
+        :param state: the last state observation
+        :param episode_time: the episode time in seconds
         :return: True if the episode should terminate else False
         """
         ...
 
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
-        self._input_initial_controls(sim)
-        state = [sim[prop] for prop in self.state_variables]
-        if self.use_shaped_reward:
-            self.last_reward = self._calculate_reward(sim)
-        return np.array(state)
+        self._new_episode(sim)
+        self._update_custom_properties(sim)
+        state = self.State(sim[prop] for prop in self.state_variables)
+        self.last_state = state
+        return np.ndarray(state)
 
-    def _input_initial_controls(self, sim: Simulation) -> None:
+    def _new_episode(self, sim: Simulation) -> None:
         """
         This method is called at the start of every episode. It is used to set
         the value of any controls or environment properties not already defined
@@ -183,19 +181,20 @@ class SteadyLevelFlightTask(FlightTask):
     current heading.
     """
     MAX_TIME_SECS = 15
-    MIN_ALT_FT = 1000
-    TOO_LOW_REWARD = -10
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
     INITIAL_HEADING_DEG = 270
+    target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
+                                         prp.heading_deg.min, prp.heading_deg.max)
+    distance_parallel_to_heading_m = Property('target/dist-parallel-heading-m',
+                                              'distance travelled parallel to target heading [m]')
 
-    extra_state_variables = (prp.heading_deg,)
+    extra_state_variables = (prp.heading_deg, target_heading_deg, distance_parallel_to_heading_m)
+    state_variables = FlightTask.base_state_variables + extra_state_variables
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
-    def __init__(self, ):
-        super().__init__()
-        self.state_variables = super().base_state_variables + self.extra_state_variables
-        self.target_values = self._make_target_values()
+    def __init__(self, assessor: Assessor):
+        super().__init__(assessor)
 
     def _make_target_values(self):
         """
@@ -243,36 +242,42 @@ class SteadyLevelFlightTask(FlightTask):
                             }
         return {**self.base_initial_conditions, **extra_conditions}
 
-    def _calculate_reward(self, sim: Simulation) -> float:
-        reward = 0
-        for prop, target_value, gain in self.target_values:
-            reward -= abs(target_value - sim[prop]) * gain
-        too_low = sim[prp.altitude_sl_ft] < self.MIN_ALT_FT
-        if too_low:
-            reward += self.TOO_LOW_REWARD
-        return reward
+    def _update_custom_properties(self, sim: Simulation) -> None:
+        self._update_parallel_distance_travelled(sim, self.INITIAL_HEADING_DEG)
 
-    def _is_done(self, sim: Simulation) -> bool:
-        time_out = sim.get_sim_time() > self.MAX_TIME_SECS
-        too_low = sim[prp.altitude_sl_ft] < self.MIN_ALT_FT
-        return time_out or too_low
+    def _update_parallel_distance_travelled(self, sim: Simulation, target_heading_deg: float) -> None:
+        """ Calculates how far aircraft has travelled from initial position parallel to target heading
 
-    def _input_initial_controls(self, sim: Simulation) -> None:
-        # start engines and trims for steady, level flight
+         Stores result in Simulation as custom property.
+         """
+        current_position = utils.GeodeticPosition.from_sim(sim)
+        heading_travelled_deg = self.initial_position.heading_deg_to(current_position)
+        heading_error_rad = math.radians(heading_travelled_deg - target_heading_deg)
+
+        distance_travelled_m = sim[prp.dist_travel_m]
+        parallel_distance_travelled_m = math.cos(heading_error_rad) * distance_travelled_m
+        sim[self.distance_parallel_to_heading_m] = parallel_distance_travelled_m
+
+    def _is_done(self, state: Tuple[float, ...], episode_time: float) -> bool:
+        return episode_time > self.MAX_TIME_SECS
+
+    def _new_episode(self, sim: Simulation) -> None:
         sim.start_engines()
         sim[prp.throttle_cmd] = self.THROTTLE_CMD
         sim[prp.mixture_cmd] = self.MIXTURE_CMD
+
+        sim[self.target_heading_deg] = self._get_target_heading()
+        self.initial_position = utils.GeodeticPosition.from_sim(sim)
+
+    def _get_target_heading(self) -> float:
+        # use the same, initial heading every episode
+        return self.INITIAL_HEADING_DEG
 
 
 class HeadingControlTask(SteadyLevelFlightTask):
     """
     A task in which the agent must make a turn and fly level on a desired heading.
     """
-    HEADING_MIN = 0
-    HEADING_MAX = 360
-    target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
-                                         prp.heading_deg.min, prp.heading_deg.max)
-    extra_state_variables = (prp.heading_deg, target_heading_deg)
 
     def _make_target_values(self):
         """ Sets an attribute specifying the desired state of the aircraft.
@@ -287,7 +292,7 @@ class HeadingControlTask(SteadyLevelFlightTask):
         super_target_values = super()._make_target_values()
         heading_target_index = 4
         old_heading_triple = super_target_values[heading_target_index]
-        random_target_heading = random.uniform(self.HEADING_MIN, self.HEADING_MAX)
+        random_target_heading = random.uniform(prp.heading_deg.min, prp.heading_deg.max)
         new_heading_triple = (old_heading_triple[0], random_target_heading, old_heading_triple[2])
 
         target_values = []
@@ -305,7 +310,10 @@ class HeadingControlTask(SteadyLevelFlightTask):
         initial_conditions[prp.initial_heading_deg] = random_heading
         return initial_conditions
 
-    def _input_initial_controls(self, sim: Simulation) -> None:
-        sim[self.target_heading_deg] = random.uniform(self.target_heading_deg.min,
-                                                           self.target_heading_deg.max)
-        return super()._input_initial_controls(sim)
+    def _update_custom_properties(self, sim: Simulation) -> None:
+        self._update_parallel_distance_travelled(sim, sim[self.target_heading_deg])
+
+    def _get_target_heading(self) -> float:
+        # select a random heading each episode
+        return random.uniform(self.target_heading_deg.min,
+                              self.target_heading_deg.max)

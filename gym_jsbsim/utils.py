@@ -1,4 +1,5 @@
 import math
+import gym_jsbsim.properties as prp
 from typing import Tuple
 from gym_jsbsim.simulation import Simulation
 
@@ -18,8 +19,8 @@ class GeodeticPosition(object):
     @staticmethod
     def from_sim(sim: Simulation) -> 'GeodeticPosition':
         """ Return a GeodeticPosition object with lat and lon from simulation """
-        lat_deg = sim['position/lat-geod-deg']
-        lon_deg = sim['position/long-gc-deg']
+        lat_deg = sim[prp.lat_geod_deg]
+        lon_deg = sim[prp.lng_geoc_deg]
         return GeodeticPosition(lat_deg, lon_deg)
 
     def __sub__(self, other) -> Tuple[float, float]:
@@ -27,17 +28,3 @@ class GeodeticPosition(object):
         return self.lat - other.lat, self.lon - other.lon
 
 
-def normalise_unbounded_error(absolute_error, error_scaling):
-    """
-    Given an error in the interval [0, +inf], returns a normalised error in [0, 1]
-
-    The normalised error asymptotically approaches 1 as absolute_error -> +inf.
-
-    The parameter error_scaling is used to scale for magnitude.
-    When absolute_error == error_scaling, the normalised error is equal to 0.75
-    """
-    if absolute_error < 0:
-        raise ValueError(f'Error to be normalised must be non-negative '
-                         f'(use abs()): {absolute_error}')
-    scaled_error = absolute_error / error_scaling
-    return (scaled_error / (scaled_error + 1)) ** 0.5
