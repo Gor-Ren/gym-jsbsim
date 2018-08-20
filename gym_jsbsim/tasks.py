@@ -3,7 +3,7 @@ import numpy as np
 import random
 import types
 import gym_jsbsim.properties as prp
-from gym_jsbsim.properties import Property, InitialProperty
+from gym_jsbsim.properties import BoundedProperty, Property
 from gym_jsbsim.simulation import Simulation
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence, Dict, Tuple
@@ -36,7 +36,7 @@ class Task(ABC):
     @abstractmethod
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
         """
-        Get first state observation from reset sim. Tasks may initialise any book keeping.
+        Initialise any state/controls and get first state observation from reset sim.
 
         :param sim: Simulation, the environment simulation
         :return: array, the first state observation of the episode
@@ -76,14 +76,14 @@ class FlightTask(Task, ABC):
     Abstract superclass for flight tasks.
 
     Concrete subclasses should implement the following:
-        state_variables attribute: the task's state representation
-        action_variables attribute: the task's actions
+        state_variables attribute: tuple of Propertys, the task's state representation
+        action_variables attribute: tuple of Propertys, the task's actions
         get_initial_conditions(): returns dict mapping InitialPropertys to initial values
         _calculate_reward(): determines the step reward
         _is_done(): determines episode termination
-        _input_initial_controls(): (optional) sets simulation values at start of episode
+        (optional) _input_initial_controls(): sets simulation values at start of episode
     """
-    base_state_variables = (prp.altitude_ft, prp.pitch_rad, prp.roll_rad,
+    base_state_variables = (prp.altitude_sl_ft, prp.pitch_rad, prp.roll_rad,
                             prp.u_fps, prp.v_fps, prp.w_fps,
                             prp.p_radps, prp.q_radps, prp.r_radps,
                             prp.aileron_left, prp.aileron_right, prp.elevator,
@@ -95,8 +95,8 @@ class FlightTask(Task, ABC):
          prp.initial_latitude_geod_deg: 51.3781  # corresponds to UoBath
          }
     )
-    state_variables: Tuple[Property, ...]
-    action_variables: Tuple[Property, ...]
+    state_variables: Tuple[BoundedProperty, ...]
+    action_variables: Tuple[BoundedProperty, ...]
 
     def __init__(self, use_shaped_reward: bool=True) -> None:
         """ Constructor
@@ -110,13 +110,13 @@ class FlightTask(Task, ABC):
             -> Tuple[np.ndarray, float, bool, Dict]:
         # input actions
         for prop, command in zip(self.action_variables, action):
-            sim[prop.name] = command
+            sim[prop] = command
 
         # run simulation
         for _ in range(sim_steps):
             sim.run()
 
-        obs = [sim[prop.name] for prop in self.state_variables]
+        obs = [sim[prop] for prop in self.state_variables]
         reward = self._calculate_reward(sim)
         if self.use_shaped_reward:
             shaped_reward = reward - self.last_reward
@@ -147,7 +147,7 @@ class FlightTask(Task, ABC):
 
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
         self._input_initial_controls(sim)
-        state = [sim[prop.name] for prop in self.state_variables]
+        state = [sim[prop] for prop in self.state_variables]
         if self.use_shaped_reward:
             self.last_reward = self._calculate_reward(sim)
         return np.array(state)
@@ -163,7 +163,7 @@ class FlightTask(Task, ABC):
         sim.start_engines()
 
     @abstractmethod
-    def get_initial_conditions(self) -> Dict[InitialProperty, float]:
+    def get_initial_conditions(self) -> Dict[Property, float]:
         ...
 
     def get_observation_space(self) -> gym.Space:
@@ -219,19 +219,19 @@ class SteadyLevelFlightTask(FlightTask):
 
         start_alt_ft = self.get_initial_conditions()[prp.initial_altitude_ft]
         target_values = (
-            ('position/h-sl-ft', start_alt_ft, ALT_GAIN),
-            ('velocities/h-dot-fps', 0, ALT_RATE_GAIN),
-            ('attitude/roll-rad', 0, ROLL_GAIN),
-            ('velocities/phidot-rad_sec', 0, ROLL_RATE_GAIN),
-            ('attitude/psi-deg', self.INITIAL_HEADING_DEG, HEADING_GAIN),
-            ('velocities/psidot-rad_sec', 0, HEADING_RATE_GAIN),
+            (prp.altitude_sl_ft, start_alt_ft, ALT_GAIN),
+            (prp.altitude_rate_fps, 0, ALT_RATE_GAIN),
+            (prp.roll_rad, 0, ROLL_GAIN),
+            (prp.p_radps, 0, ROLL_RATE_GAIN),
+            (prp.heading_deg, self.INITIAL_HEADING_DEG, HEADING_GAIN),
+            (prp.r_radps, 0, HEADING_RATE_GAIN),
             # absolute pitch is implicitly controlled through altitude, so just control rate
-            ('velocities/thetadot-rad_sec', 0, PITCH_RATE_GAIN)
+            (prp.q_radps, 0, PITCH_RATE_GAIN)
         )
 
         return target_values
 
-    def get_initial_conditions(self) -> Dict[InitialProperty, float]:
+    def get_initial_conditions(self) -> Dict[Property, float]:
         extra_conditions = {prp.initial_u_fps: 150,
                             prp.initial_v_fps: 0,
                             prp.initial_w_fps: 0,
@@ -247,21 +247,21 @@ class SteadyLevelFlightTask(FlightTask):
         reward = 0
         for prop, target_value, gain in self.target_values:
             reward -= abs(target_value - sim[prop]) * gain
-        too_low = sim[prp.altitude_ft.name] < self.MIN_ALT_FT
+        too_low = sim[prp.altitude_sl_ft] < self.MIN_ALT_FT
         if too_low:
             reward += self.TOO_LOW_REWARD
         return reward
 
     def _is_done(self, sim: Simulation) -> bool:
         time_out = sim.get_sim_time() > self.MAX_TIME_SECS
-        too_low = sim[prp.altitude_ft.name] < self.MIN_ALT_FT
+        too_low = sim[prp.altitude_sl_ft] < self.MIN_ALT_FT
         return time_out or too_low
 
     def _input_initial_controls(self, sim: Simulation) -> None:
         # start engines and trims for steady, level flight
         sim.start_engines()
-        sim[prp.throttle_cmd.name] = self.THROTTLE_CMD
-        sim[prp.mixture_cmd.name] = self.MIXTURE_CMD
+        sim[prp.throttle_cmd] = self.THROTTLE_CMD
+        sim[prp.mixture_cmd] = self.MIXTURE_CMD
 
 
 class HeadingControlTask(SteadyLevelFlightTask):
@@ -270,8 +270,8 @@ class HeadingControlTask(SteadyLevelFlightTask):
     """
     HEADING_MIN = 0
     HEADING_MAX = 360
-    target_heading_deg = Property('target/heading-deg', 'desired heading [deg]',
-                                  prp.heading_deg.min, prp.heading_deg.max)
+    target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
+                                         prp.heading_deg.min, prp.heading_deg.max)
     extra_state_variables = (prp.heading_deg, target_heading_deg)
 
     def _make_target_values(self):
@@ -299,13 +299,13 @@ class HeadingControlTask(SteadyLevelFlightTask):
         assert len(target_values) == len(super_target_values)
         return target_values
 
-    def get_initial_conditions(self) -> [Dict[InitialProperty, float]]:
+    def get_initial_conditions(self) -> [Dict[Property, float]]:
         initial_conditions = super().get_initial_conditions()
         random_heading = random.uniform(prp.heading_deg.min, prp.heading_deg.max)
         initial_conditions[prp.initial_heading_deg] = random_heading
         return initial_conditions
 
     def _input_initial_controls(self, sim: Simulation) -> None:
-        sim[self.target_heading_deg.name] = random.uniform(self.target_heading_deg.min,
+        sim[self.target_heading_deg] = random.uniform(self.target_heading_deg.min,
                                                            self.target_heading_deg.max)
         return super()._input_initial_controls(sim)

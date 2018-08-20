@@ -2,8 +2,8 @@ import jsbsim
 import os
 import time
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
-from typing import Dict, TYPE_CHECKING
-from gym_jsbsim.properties import InitialProperty
+from typing import Dict, Union
+from gym_jsbsim.properties import BoundedProperty, Property
 
 
 class Simulation(object):
@@ -19,7 +19,7 @@ class Simulation(object):
     def __init__(self,
                  sim_frequency_hz: float=60.0,
                  aircraft_model_name: str='c172p',
-                 init_conditions: Dict['InitialProperty', float]=None,
+                 init_conditions: Dict['Property', float]=None,
                  allow_flightgear_output: bool=True):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
@@ -42,7 +42,7 @@ class Simulation(object):
         self.jsbsim.disable_output()
         self.wall_clock_dt = None
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, prop: Union[BoundedProperty, Property]) -> float:
         """
         Retrieves specified simulation property.
 
@@ -50,13 +50,12 @@ class Simulation(object):
         reference manual, launching JSBSim with '--catalog' command line arg or
         calling FGFDMExec.get_property_catalog().
 
-        :param key: string, the property to be retrieved
-        :return: object?, property value
-        :raises KeyError: if key is not a valid parameter
+        :param prop: BoundedProperty, the property to be retrieved
+        :return: float
         """
-        return self.jsbsim[key]
+        return self.jsbsim[prop.name]
 
-    def __setitem__(self, key: str, value) -> None:
+    def __setitem__(self, prop: Union[BoundedProperty, Property], value) -> None:
         """
         Sets simulation property to specified value.
 
@@ -68,11 +67,10 @@ class Simulation(object):
         If the property you are setting is read-only in JSBSim the operation
         will silently fail.
 
-        :param key: string, the property to be retrieved
+        :param prop: BoundedProperty, the property to be retrieved
         :param value: object?, the value to be set
-        :raises KeyError: if key is not a valid parameter
         """
-        self.jsbsim[key] = value
+        self.jsbsim[prop.name] = value
 
     def load_model(self, model_name: str) -> None:
         """
@@ -108,7 +106,7 @@ class Simulation(object):
         return self.jsbsim['simulation/sim-time-sec']
 
     def initialise(self, dt: float, model_name: str,
-                   init_conditions: Dict['InitialProperty', float]=None) -> None:
+                   init_conditions: Dict['Property', float]=None) -> None:
         """
         Loads an aircraft and initialises simulation conditions.
 
@@ -141,12 +139,12 @@ class Simulation(object):
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')
 
-    def set_custom_initial_conditions(self, init_conditions: Dict['InitialProperty', float]=None) -> None:
+    def set_custom_initial_conditions(self, init_conditions: Dict['Property', float]=None) -> None:
         if init_conditions is not None:
             for prop, value in init_conditions.items():
-                self[prop.name] = value
+                self[prop] = value
 
-    def reinitialise(self, init_conditions: Dict['InitialProperty', float]=None) -> None:
+    def reinitialise(self, init_conditions: Dict['Property', float]=None) -> None:
         """
         Resets JSBSim to initial conditions.
 

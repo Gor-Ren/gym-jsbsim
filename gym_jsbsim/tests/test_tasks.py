@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import itertools
+import gym_jsbsim.properties as prp
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.tasks import SteadyLevelFlightTask, HeadingControlTask
@@ -64,33 +65,33 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         np.testing.assert_array_equal(expected_state, state)
 
         # check throttle and mixture set
-        self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim['fcs/throttle-cmd-norm'])
-        self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim['fcs/mixture-cmd-norm'])
+        self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim[prp.throttle_cmd])
+        self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim[prp.mixture_cmd])
 
-    def make_dummy_sim_with_all_props_set(self, prop_dicts: Iterable[Dict], value):
+    def make_dummy_sim_with_all_props_set(self, props: Iterable[prp.Property], value):
         """ Makes a DummySim, creates keys of 'name' from each property set to value """
-        prop_names = (prop['name'] for prop in prop_dicts)
+        prop_names = (prop.name for prop in props)
         return SimStub(zip(prop_names, itertools.repeat(value)))
 
     def test_get_initial_conditions(self):
         ics = self.task.get_initial_conditions()
 
         self.assertIsInstance(ics, dict)
-        for prop_name, value in self.task.base_initial_conditions.items():
-            self.assertAlmostEqual(value, ics[prop_name])
+        for prop, value in self.task.base_initial_conditions.items():
+            self.assertAlmostEqual(value, ics[prop])
 
-        steady_level_task_ic_properties = ['ic/u-fps',
-                                           'ic/v-fps',
-                                           'ic/w-fps',
-                                           'ic/p-rad_sec',
-                                           'ic/q-rad_sec',
-                                           'ic/r-rad_sec',
-                                           'ic/psi-true-deg'
+        steady_level_task_ic_properties = [prp.initial_u_fps,
+                                           prp.initial_v_fps,
+                                           prp.initial_w_fps,
+                                           prp.initial_p_radps,
+                                           prp.initial_q_radps,
+                                           prp.initial_r_radps,
+                                           prp.initial_heading_deg
                                            ]
-        for prop_name in steady_level_task_ic_properties:
-            self.assertIn(prop_name, ics.keys(),
+        for prop in steady_level_task_ic_properties:
+            self.assertIn(prop, ics.keys(),
                           msg='expected SteadyLevelFlightTask to set value for'
-                              f'property {prop_name} but not found in ICs')
+                              f'property {prop} but not found in ICs')
 
     def test_engines_init_running(self):
         env = JsbSimEnv(task_type=SteadyLevelFlightTask)
@@ -100,14 +101,14 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         check_sim = Simulation(init_conditions={})
         engine_off_value = 0.0
         self.assertAlmostEqual(engine_off_value,
-                               check_sim['propulsion/engine/set-running'])
+                               check_sim[prp.engine_running])
         check_sim.close()
 
         # check engines on once env has been reset
         _ = env.reset()
         engine_running_value = 1.0
         self.assertAlmostEqual(engine_running_value,
-                               env.sim['propulsion/engine/set-running'])
+                               env.sim[prp.engine_running])
 
     def test_shaped_reward(self):
         low_reward_state_sim = SimStub.make_valid_state_stub(self.task)
@@ -118,8 +119,8 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
             low_reward_state_sim[prop] = ideal_value + 5
             high_reward_state_sim[prop] = ideal_value + 0.05
         # make sure altitude hasn't randomly been set below minimum!
-        low_reward_state_sim['position/h-sl-ft'] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
-        high_reward_state_sim['position/h-sl-ft'] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
+        low_reward_state_sim[prp.altitude_sl_ft] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
+        high_reward_state_sim[prp.altitude_sl_ft] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
 
         # suppose we start in the low reward state then transition to the high reward state
         self.task.observe_first_state(low_reward_state_sim)

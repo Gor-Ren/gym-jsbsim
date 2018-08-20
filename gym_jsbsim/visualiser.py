@@ -3,6 +3,7 @@ import math
 import subprocess
 import time
 import matplotlib.pyplot as plt
+import gym_jsbsim.properties as prp
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from gym_jsbsim.simulation import Simulation
 from typing import NamedTuple, Dict
@@ -18,16 +19,16 @@ class AxesTuple(NamedTuple):
 
 class FigureVisualiser(object):
     """ Class for manging a matplotlib Figure displaying agent state and actions """
-    props_to_plot: Dict = dict(x=dict(name='position/lat-gc-deg', label='geocentric latitude [deg]'),
-                               y=dict(name='position/long-gc-deg', label='geocentric longitude [deg]'),
-                               z=dict(name='position/h-sl-ft', label='altitude above MSL [ft]'),
-                               u=dict(name='velocities/v-north-fps', label='velocity true north [ft/s]'),
-                               v=dict(name='velocities/v-east-fps', label='velocity east [ft/s]'),
-                               w=dict(name='velocities/v-down-fps', label='velocity downwards [ft/s]'),
-                               ail=dict(name='fcs/left-aileron-pos-norm', label='left aileron position, [-]'),
-                               ele=dict(name='fcs/elevator-pos-norm', label='elevator position, [-]'),
-                               thr=dict(name='fcs/throttle-pos-norm', label='throttle position, [-]'),
-                               rud=dict(name='fcs/rudder-pos-norm', label='rudder position, [-]'))
+    props_to_plot: Dict[str, prp.BoundedProperty] = dict(x=prp.lat_geod_deg,
+                                                         y=prp.lng_geoc_deg,
+                                                         z=prp.altitude_sl_ft,
+                                                         u=prp.v_north_fps,
+                                                         v=prp.v_east_fps,
+                                                         w=prp.v_down_fps,
+                                                         ail=prp.aileron_left,
+                                                         ele=prp.elevator,
+                                                         thr=prp.throttle,
+                                                         rud=prp.rudder, )
     FT_PER_DEG_LAT: int = 365228
     ft_per_deg_lon: int = None  # calc at reset() - it depends on the longitude value
     PLOT_PAUSE_SECONDS = 0.0001
@@ -51,7 +52,7 @@ class FigureVisualiser(object):
 
         # ft per deg. longitude is distance at equator * cos(lon)
         # attribution: https://www.colorado.edu/geography/gcraft/warmup/aquifer/html/distance.html
-        lon = sim[self.props_to_plot['y']['name']]
+        lon = sim[self.props_to_plot['y']]
         self.ft_per_deg_lon = self.FT_PER_DEG_LAT * math.cos(math.radians(lon))
 
     def plot(self, sim: Simulation) -> None:
@@ -111,9 +112,9 @@ class FigureVisualiser(object):
 
         if self.is_plot_position:
             # config subplot for state
-            axes_state.set_xlabel(self.props_to_plot['x']['label'])
-            axes_state.set_ylabel(self.props_to_plot['y']['label'])
-            axes_state.set_zlabel(self.props_to_plot['z']['label'])
+            axes_state.set_xlabel(self.props_to_plot['x'].description)
+            axes_state.set_ylabel(self.props_to_plot['y'].description)
+            axes_state.set_zlabel(self.props_to_plot['z'].description)
             green_rgba = (0.556, 0.764, 0.235, 0.8)
             axes_state.w_zaxis.set_pane_color(green_rgba)
 
@@ -200,8 +201,8 @@ class FigureVisualiser(object):
 
         :param all_axes: AxesTuple, collection of axes of subplots to plot on
         """
-        x, y, z = [sim[self.props_to_plot[var]['name']] for var in 'xyz']
-        u, v, w = [sim[self.props_to_plot[var]['name']] for var in 'uvw']
+        x, y, z = [sim[self.props_to_plot[var]] for var in 'xyz']
+        u, v, w = [sim[self.props_to_plot[var]] for var in 'uvw']
 
         # get velocity vector coords using scaled velocity
         x2 = x + u / self.FT_PER_DEG_LAT
@@ -221,7 +222,7 @@ class FigureVisualiser(object):
 
     def _plot_control_states(self, sim: Simulation, all_axes: AxesTuple):
         control_surfaces = ['ail', 'ele', 'thr', 'rud']
-        ail, ele, thr, rud = [sim[self.props_to_plot[prop]['name']] for prop in control_surfaces]
+        ail, ele, thr, rud = [sim[self.props_to_plot[control]] for control in control_surfaces]
         # plot aircraft control surface positions
         all_axes.axes_stick.plot([ail], [ele], 'r+', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_throttle.plot([0], [thr], 'r+', mfc='none', markersize=10, clip_on=False)
@@ -234,10 +235,10 @@ class FigureVisualiser(object):
         :param sim: Simulation to plot control commands from
         :param all_axes: AxesTuple, collection of axes of subplots to plot on
         """
-        ail_cmd = sim['fcs/aileron-cmd-norm']
-        ele_cmd = sim['fcs/elevator-cmd-norm']
-        thr_cmd = sim['fcs/throttle-cmd-norm']
-        rud_cmd = sim['fcs/rudder-cmd-norm']
+        ail_cmd = sim[prp.aileron_cmd]
+        ele_cmd = sim[prp.elevator_cmd]
+        thr_cmd = sim[prp.throttle_cmd]
+        rud_cmd = sim[prp.rudder_cmd]
 
         all_axes.axes_stick.plot([ail_cmd], [ele_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_throttle.plot([0], [thr_cmd], 'bo', mfc='none', markersize=10, clip_on=False)

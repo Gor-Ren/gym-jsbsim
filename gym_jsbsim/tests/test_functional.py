@@ -3,6 +3,7 @@ import numpy as np
 from gym_jsbsim.agents import RandomAgent
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.tasks import SteadyLevelFlightTask
+import gym_jsbsim.properties as prp
 
 
 class AgentEnvInteractionTest(unittest.TestCase):
@@ -49,7 +50,6 @@ class AgentEnvInteractionTest(unittest.TestCase):
 
         # we set up for a loop through one episode
         first_state = env.reset()
-        total_reward = 0
 
         # we take a single step
         action = agent.act(first_state)
@@ -64,4 +64,4 @@ class AgentEnvInteractionTest(unittest.TestCase):
         self.assertFalse(done, msg='episode is terminal after only a single step')
 
         # the aircraft engines are running, as per initial conditions
-        self.assertNotAlmostEqual(env.sim['propulsion/engine/thrust-lbs'], 0)
+        self.assertNotAlmostEqual(env.sim[prp.engine_thrust_lbs], 0)

@@ -43,12 +43,12 @@ class TestSimulation(unittest.TestCase):
         self.setUp()
         # we expect certain values specified in the IC config XML file
         expected_values = {
-            'ic/u-fps': 328.0,
-            'ic/v-fps': 0.0,
-            'ic/w-fps': 0.0,
-            'velocities/u-fps': 328.0,
-            'velocities/v-fps': 0.0,
-            'velocities/w-fps': 0.0,
+            prp.initial_u_fps: 328.0,
+            prp.initial_v_fps: 0.0,
+            prp.initial_w_fps: 0.0,
+            prp.u_fps: 328.0,
+            prp.v_fps: 0.0,
+            prp.w_fps: 0.0,
         }
 
         for prop, expected in expected_values.items():
@@ -57,21 +57,18 @@ class TestSimulation(unittest.TestCase):
 
     def test_get_bad_property(self):
         self.setUp()
-        bad_prop = 'bad'
+        bad_prop = prp.BoundedProperty("bad_prop_name", "", 0, 0)
         with self.assertRaises(KeyError):
             _ = self.sim[bad_prop]
 
     def test_set_property(self):
         self.setUp()
         set_values = {
-            'ic/u-fps': 200.0,
-            'ic/v-fps': 5.0,
-            'ic/w-fps': 5,
-            'position/h-sl-meters': 1000,
-            'fcs/aileron-cmd-norm': 0.2,
-            'fcs/elevator-cmd-norm': 0.2,
-            'fcs/rudder-cmd-norm': 0.2,
-            'fcs/throttle-cmd-norm': 0.2,
+            prp.altitude_sl_ft: 1000,
+            prp.aileron_cmd: 0.2,
+            prp.elevator_cmd: 0.2,
+            prp.rudder_cmd: 0.2,
+            prp.throttle_cmd: 0.2,
         }
 
         for prop, value in set_values.items():
@@ -101,12 +98,12 @@ class TestSimulation(unittest.TestCase):
             prp.initial_w_fps: 0.0,
             prp.u_fps: 328.0,
             prp.v_fps: 0.0,
-            prp.initial_w_fps: 0.0,
-            prp.Property('simulation/dt', '', None, None): 1 / sim_frequency
+            prp.w_fps: 0.0,
+            prp.BoundedProperty('simulation/dt', '', None, None): 1 / sim_frequency
         }
 
         for prop, expected in expected_values.items():
-            actual = self.sim[prop.name]
+            actual = self.sim[prop]
             self.assertAlmostEqual(expected, actual)
 
     def test_initialise_conditions_custom_config(self):
@@ -126,7 +123,7 @@ class TestSimulation(unittest.TestCase):
             prp.initial_u_fps: prp.u_fps,
             prp.initial_v_fps: prp.v_fps,
             prp.initial_w_fps: prp.w_fps,
-            prp.initial_altitude_ft: prp.altitude_ft,
+            prp.initial_altitude_ft: prp.altitude_sl_ft,
             prp.initial_heading_deg: prp.heading_deg,
             prp.initial_r_radps: prp.r_radps,
         }
@@ -141,19 +138,20 @@ class TestSimulation(unittest.TestCase):
         for init_prop, expected in init_conditions.items():
             sim_prop = init_to_sim_conditions[init_prop]
 
-            init_actual = self.sim[init_prop.name]
-            sim_actual = self.sim[sim_prop.name]
+            init_actual = self.sim[init_prop]
+            sim_actual = self.sim[sim_prop]
             self.assertAlmostEqual(expected, init_actual,
                                    msg=f'wrong value for property {init_prop}')
             self.assertAlmostEqual(expected, sim_actual,
                                    msg=f'wrong value for property {sim_prop}')
 
-        self.assertAlmostEqual(1.0 / sim_frequency, self.sim['simulation/dt'])
+        self.assertAlmostEqual(1.0 / sim_frequency, self.sim[prp.sim_dt])
 
     def test_multiprocess_simulations(self):
-        """ JSBSim segfaults when multiple instances are run on one process.
+        """
+        JSBSim segfaults when multiple instances are run on one process.
 
-        Lets confirm that we can launch multiple processes each with 1 instance.
+        Let's confirm that we can launch multiple processes each with 1 instance.
         """
         processes = 4
         with multiprocessing.Pool(processes) as pool:
@@ -161,7 +159,8 @@ class TestSimulation(unittest.TestCase):
             future_results = [pool.apply_async(basic_task) for _ in range(processes)]
             results = [f.get() for f in future_results]
 
-        expected = [0] * processes  # each process should return 0
+        good_exit_code = 0
+        expected = [good_exit_code] * processes
         self.assertListEqual(results, expected,
                              msg="multiprocess execution of JSBSim did not work")
 

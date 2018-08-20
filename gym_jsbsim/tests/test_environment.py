@@ -4,9 +4,11 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import gym_jsbsim.tasks as tasks
+import gym_jsbsim.properties as prp
 from gym_jsbsim.environment import JsbSimEnv, NoFGJsbSimEnv
 from gym_jsbsim.tests import TaskStub
 from gym_jsbsim.visualiser import FlightGearVisualiser
+
 
 
 class TestJsbSimEnv(unittest.TestCase):
@@ -24,28 +26,36 @@ class TestJsbSimEnv(unittest.TestCase):
     def tearDown(self):
         self.env.close()
 
-    def validate_observation(self, obs: np.array):
+    def assertValidObservation(self, obs: np.array):
         """ Helper; checks shape and values of an observation. """
         self.assertEqual(self.env.observation_space.shape, obs.shape,
                          msg='observation has wrong size')
-        self.assertTrue(self.env.observation_space.contains(obs),
-                        msg=f'observation size or values out of range: {obs}\n'
-                            f'expected min: {self.env.observation_space.low}\n'
-                            f'expected max: {self.env.observation_space.high}')
+        self.assert_in_box_space(obs, self.env.observation_space)
 
-    def validate_action(self, action: np.array):
+    def assertValidAction(self, action: np.array):
         """ Helper; checks shape and values of an action. """
         self.assertEqual(self.env.action_space.shape, action.shape,
                          msg='action has wrong size')
-        self.assertTrue(self.env.action_space.contains(action),
-                        msg=f'action size or values out of range: {action}\n'
-                            f'expected min: {self.env.action_space.low}\n'
-                            f'expected max: {self.env.action_space.high}')
+        self.assert_in_box_space(action, self.env.action_space)
+
+    def assert_in_box_space(self, sample: np.array, space: gym.spaces.Box) -> None:
+        if space.contains(sample):
+            return
+        else:
+            is_too_low = sample < space.low
+            is_too_high = sample > space.high
+            msg = 'Sample is not in space:'
+            for i in range(len(sample)):
+                if is_too_low[i]:
+                    msg += f'\nelement {i} too low: {sample[i]} < {space.low[i]}'
+                if is_too_high[i]:
+                    msg += f'\nelement {i} too high: {sample[i]} > {space.high[i]}'
+            raise AssertionError(msg)
 
     def validate_action_made(self, action: np.array):
         """ Helper; confirms action was correctly input to simulation. """
-        self.validate_action(action)
-        for prop, command in zip(self.env.task.action_names, action):
+        self.assertValidAction(action)
+        for prop, command in zip(self.env.task.action_variables, action):
             actual = self.env.sim[prop]
             self.assertAlmostEqual(command, actual,
                                    msg='simulation commanded value does not match action')
@@ -65,23 +75,23 @@ class TestJsbSimEnv(unittest.TestCase):
 
         places_tol = 3
 
-        self.assertEqual('attitude/pitch-rad', self.env.task.state_names[1])
+        self.assertEqual('attitude/pitch-rad', self.env.task.state_variables[1].name)
         self.assertAlmostEqual(-0.5 * math.pi, obs_lows[1], places=places_tol,
                                msg='Pitch low range should be -pi/2')
         self.assertAlmostEqual(0.5 * math.pi, obs_highs[1], places=places_tol,
                                msg='Pitch high range should be +pi/2')
-        self.assertEqual('attitude/roll-rad', self.env.task.state_names[2])
+        self.assertEqual('attitude/roll-rad', self.env.task.state_variables[2].name)
         self.assertAlmostEqual(-1 * math.pi, obs_lows[2], places=places_tol,
                                msg='Roll low range should be -pi')
         self.assertAlmostEqual(1 * math.pi, obs_highs[2], places=places_tol,
                                msg='Roll high range should be +pi')
 
-        self.assertEqual('fcs/aileron-cmd-norm', self.env.task.action_names[0])
+        self.assertEqual('fcs/aileron-cmd-norm', self.env.task.action_variables[0].name)
         self.assertAlmostEqual(-1, act_lows[0], places=places_tol,
                                msg='Aileron command low range should be -1.0')
         self.assertAlmostEqual(1, act_highs[0], places=places_tol,
                                msg='Aileron command high range should be +1.0')
-        self.assertEqual('fcs/throttle-cmd-norm', self.env.task.action_names[3])
+        self.assertEqual('fcs/throttle-cmd-norm', self.env.task.action_variables[3].name)
         self.assertAlmostEqual(0, act_lows[3], places=places_tol,
                                msg='Throttle command low range should be 0.0')
         self.assertAlmostEqual(1, act_highs[3], places=places_tol,
@@ -91,7 +101,7 @@ class TestJsbSimEnv(unittest.TestCase):
         self.setUp()
         obs = self.env.reset()
 
-        self.validate_observation(obs)
+        self.assertValidObservation(obs)
 
     def test_do_action(self):
         self.setUp()
@@ -100,19 +110,19 @@ class TestJsbSimEnv(unittest.TestCase):
 
         # do an action and check results
         obs, _, _, _ = self.env.step(action1)
-        self.validate_observation(obs)
+        self.assertValidObservation(obs)
         self.validate_action_made(action1)
 
         # repeat action several times
         for _ in range(10):
             obs, _, _, _ = self.env.step(action1)
-            self.validate_observation(obs)
+            self.assertValidObservation(obs)
             self.validate_action_made(action1)
 
         # repeat new action
         for _ in range(10):
             obs, _, _, _ = self.env.step(action2)
-            self.validate_observation(obs)
+            self.assertValidObservation(obs)
             self.validate_action_made(action2)
 
     def test_figure_created_closed(self):
@@ -142,15 +152,15 @@ class TestJsbSimEnv(unittest.TestCase):
         for _ in range(3):
             action = self.env.action_space.sample()
             _, _, _, _ = self.env.step(action)
-            self.env.render(mode='human', action_names=self.env.task.action_names, action_values=action)
+            self.env.render(mode='human')
 
     def test_asl_agl_elevations_equal(self):
         # we want the height above sea level to equal ground elevation at all times
         self.setUp(agent_interaction_freq=1)
         for i in range(25):
             self.env.step(action=self.env.action_space.sample())
-            alt_sl = self.env.sim['position/h-sl-ft']
-            alt_gl = self.env.sim['position/h-agl-ft']
+            alt_sl = self.env.sim[prp.altitude_sl_ft]
+            alt_gl = self.env.sim[prp.BoundedProperty('position/h-agl-ft', '', 0, 0)]
             self.assertAlmostEqual(alt_sl, alt_gl)
 
     def test_render_flightgear_mode(self):

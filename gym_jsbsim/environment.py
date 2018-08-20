@@ -93,8 +93,7 @@ class JsbSimEnv(gym.Env):
                           aircraft_model_name=aircraft,
                           init_conditions=initial_conditions)
 
-    def render(self, mode='flightgear', action_names=None, action_values=None,
-               flightgear_blocking=True):
+    def render(self, mode='flightgear', flightgear_blocking=True):
         """Renders the environment.
         The set of supported modes varies per environment. (And some
         environments do not support rendering at all.) By convention,
@@ -179,9 +178,8 @@ class NoFGJsbSimEnv(JsbSimEnv):
                           init_conditions=initial_conditions,
                           allow_flightgear_output=False)
 
-    def render(self, mode='human', action_names=None, action_values=None,
-               flightgear_blocking=True):
+    def render(self, mode='human', flightgear_blocking=True):
         if mode == 'flightgear':
             raise ValueError('flightgear rendering is disabled for this class')
         else:
-            super().render(mode, action_names, action_values, flightgear_blocking)
+            super().render(mode, flightgear_blocking)

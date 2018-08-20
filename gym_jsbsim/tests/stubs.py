@@ -1,5 +1,5 @@
 from gym_jsbsim.tasks import FlightTask
-from gym_jsbsim.properties import aileron_cmd, elevator_cmd, rudder_cmd, throttle_cmd
+import gym_jsbsim.properties as prp
 from typing import Optional
 
 
@@ -9,7 +9,7 @@ class TaskStub(FlightTask):
     def __init__(self):
         super().__init__()
         self.state_variables = super().base_state_variables
-        self.action_variables = (aileron_cmd, elevator_cmd, rudder_cmd, throttle_cmd)
+        self.action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd, prp.throttle_cmd)
 
     def _calculate_reward(self, _):
         return 0
@@ -29,13 +29,15 @@ class SimStub(dict):
     def start_engines(self):
         pass
 
-    def trim(self, _):
-        self['fcs/pitch-trim-cmd-norm'] = 0.01
-        self['fcs/elevator-cmd-norm'] = 0.0
-
     def get_sim_time(self) -> float:
         """ Gets the simulation time from JSBSim, a float. """
-        return self['simulation/sim-time-sec']
+        return self[prp.sim_time_s]
+
+    def __setitem__(self, prop, value):
+        return super().__setitem__(prop.name, value)
+
+    def __getitem__(self, prop):
+        return super().__getitem__(prop.name)
 
     @staticmethod
     def make_valid_state_stub(task: FlightTask):
@@ -50,12 +52,12 @@ class SimStub(dict):
         :return: a SimStub configured with valid state for the task
         """
         sim = SimStub()
-        for prop in task.get_state_variables():
-            name = prop['name']
-            low = prop['low']
-            high = prop['high']
+        for prop in task.state_variables:
+            name = prop.name
+            low = prop.min
+            high = prop.max
             sim[name] = (low + high) / 2  # take halfway value
-        sim['simulation/sim-time-sec'] = 1.0
+        sim[prp.sim_time_s] = 1.0
         return sim
 
 class DefaultSimStub(object):
@@ -67,8 +69,11 @@ class DefaultSimStub(object):
         self.default_value = default_value
         self.properties = {}
 
-    def __getitem__(self, item):
-        return self.properties.get(item, self.default_value)
+    def __getitem__(self, prop):
+        return self.properties.get(prop.name, self.default_value)
+
+    def __setitem__(self, prop, value):
+        self.properties[prop.name] = value
 
     def run(self):
         pass
