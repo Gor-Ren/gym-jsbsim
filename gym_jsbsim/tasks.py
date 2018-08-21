@@ -7,7 +7,7 @@ import gym_jsbsim.properties as prp
 from gym_jsbsim import utils
 from collections import namedtuple
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.reward_functions import Assessor, Reward
+from gym_jsbsim.rewards import Assessor, Reward
 from gym_jsbsim.properties import BoundedProperty, Property
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence, Dict, Tuple, Type
@@ -103,7 +103,7 @@ class FlightTask(Task, ABC):
     state_variables: Tuple[BoundedProperty, ...]
     action_variables: Tuple[BoundedProperty, ...]
     assessor: Assessor
-    State: Type[Tuple]
+    State: Type[namedtuple]
 
     def __init__(self, assessor: Assessor) -> None:
         self.last_state = None
@@ -123,7 +123,7 @@ class FlightTask(Task, ABC):
         self._update_custom_properties(sim)
         state = self.State(sim[prop] for prop in self.state_variables)
         done = self._is_done(state, sim[prp.sim_time_s])
-        reward = self.assessor(state, self.last_state, done)
+        reward = self.assessor.assess(state, self.last_state, done)
         self.last_state = state
         info = {'reward': reward}
 
@@ -184,16 +184,16 @@ class SteadyLevelFlightTask(FlightTask):
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
     INITIAL_HEADING_DEG = 270
-    target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
+    target_heading_deg = BoundedProperty('max_target/heading-deg', 'desired heading [deg]',
                                          prp.heading_deg.min, prp.heading_deg.max)
-    distance_parallel_to_heading_m = Property('target/dist-parallel-heading-m',
-                                              'distance travelled parallel to target heading [m]')
-
-    extra_state_variables = (prp.heading_deg, target_heading_deg, distance_parallel_to_heading_m)
-    state_variables = FlightTask.base_state_variables + extra_state_variables
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
-    def __init__(self, assessor: Assessor):
+    def __init__(self, assessor: Assessor, max_distance_m: float):
+        self.distance_parallel_to_heading_m = BoundedProperty('max_target/dist-parallel-heading-m',
+                                                              'distance travelled parallel to max_target heading [m]',
+                                                              0, max_distance_m)
+        self.extra_state_variables = (prp.heading_deg, self.target_heading_deg, self.distance_parallel_to_heading_m)
+        self.state_variables = FlightTask.base_state_variables + self.extra_state_variables
         super().__init__(assessor)
 
     def _make_target_values(self):
@@ -203,7 +203,7 @@ class SteadyLevelFlightTask(FlightTask):
         :return: tuple of triples (property, target_value, gain) where:
             property: str, the name of the property in JSBSim
             target_value: number, the desired value to be controlled to
-            gain: number, by which the error between actual and target value
+            gain: number, by which the error between actual and max_target value
                  is multiplied to calculate reward
         """
         PROPORTIONAL_TO_DERIV_RATIO = 2  # how many times lower are rate terms vs absolute terms
@@ -246,7 +246,8 @@ class SteadyLevelFlightTask(FlightTask):
         self._update_parallel_distance_travelled(sim, self.INITIAL_HEADING_DEG)
 
     def _update_parallel_distance_travelled(self, sim: Simulation, target_heading_deg: float) -> None:
-        """ Calculates how far aircraft has travelled from initial position parallel to target heading
+        """
+        Calculates how far aircraft has travelled from initial position parallel to max_target heading
 
          Stores result in Simulation as custom property.
          """
@@ -286,7 +287,7 @@ class HeadingControlTask(SteadyLevelFlightTask):
             (property, target_value, gain) where:
             property: str, the name of the property in JSBSim
             target_value: number, the desired value to be controlled to
-            gain: number, by which the error between actual and target value
+            gain: number, by which the error between actual and max_target value
                  is multiplied to calculate reward
         """
         super_target_values = super()._make_target_values()

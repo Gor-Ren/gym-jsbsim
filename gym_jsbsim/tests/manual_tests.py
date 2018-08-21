@@ -171,6 +171,6 @@ class HeadingControlTest(unittest.TestCase):
                     print(f'last reward:\t{reward}')
                     print(f'episode reward:\t{ep_reward}')
                     print(f'heading:\t{self.env.jsbsim["attitude/psi-deg"]}')
-                    print(f'target heading:\t{self.env.jsbsim["target/heading-deg"]}')
+                    print(f'max_target heading:\t{self.env.jsbsim["max_target/heading-deg"]}')
                     print('\n')
                 step_number += 1
