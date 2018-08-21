@@ -1,7 +1,8 @@
 import gym_jsbsim.properties as prp
+from collections import namedtuple
 from abc import ABC, abstractmethod
 from gym_jsbsim.tasks import FlightTask
-from typing import Tuple, Union, Iterable
+from typing import Tuple, Union, Iterable, Dict
 
 
 class Reward(object):
@@ -45,13 +46,23 @@ class Assessor(ABC):
         ...
 
 
-class BaseAssessor(Assessor):
+class AssessorImpl(Assessor):
     """
-    Calculates the base (non-shaped) distance travelled and altitude rewards
-    for a heading control task.
+    Determines the Reward from a state transitions.
+
+    Initialised with RewardComponents and ShapingComponents which allow
+    calculation of the base (non-shaping) and shaping rewards respectively.
     """
-    def __init__(self, base_components: Iterable['RewardComponent']):
+
+    def __init__(self, base_components: Iterable['RewardComponent'],
+                 shaping_components: Iterable['ShapingComponent'] = ()):
+        """
+        :param base_components: RewardComponents from which Reward is to be calculated
+        :param shaping_components: ShapingComponents from which the shaping
+            reward is to be calculated, or an empty tuple for no shaping
+        """
         self.base_components = base_components
+        self.shaping_components = shaping_components
 
     def assess(self, state: FlightTask.State, last_state: FlightTask.State,
                is_terminal: bool) -> Reward:
@@ -59,12 +70,70 @@ class BaseAssessor(Assessor):
                       self._shaping_rewards(state, last_state, is_terminal))
 
     def _base_rewards(self, state: FlightTask.State, last_state: FlightTask.State,
-               is_terminal: bool) -> Tuple[float, ...]:
+                      is_terminal: bool) -> Tuple[float, ...]:
         return tuple(cmp.calculate(state, last_state, is_terminal) for cmp in self.base_components)
 
-    def _shaping_rewards(self, _: FlightTask.State, __: FlightTask.State,
-               ___: bool) -> Tuple[float, ...]:
-        return ()
+    def _shaping_rewards(self, state: FlightTask.State, last_state: FlightTask.State,
+                         is_terminal: bool) -> Tuple[float, ...]:
+        return tuple(cmp.calculate(state, last_state, is_terminal) for cmp in self.shaping_components)
+
+
+class SequentialAssessor(AssessorImpl, ABC):
+    """
+    Abstract class that calculates a shaping Reward from state transitions,
+    where the shaping component values depend on previous component's values.
+
+    Concrete subclasses should implement _apply_dependents(), which modifies
+    the 'normal' component potentials to account for dependents
+    """
+
+    def __init__(self, base_components: Iterable['RewardComponent'],
+                 shaping_components: Iterable['ShapingComponent'] = (),
+                 shaping_dependency_map: Dict['ShapingComponent', 'ShapingComponent'] = {}):
+        """
+        :param base_components: RewardComponents from which the non-shaping
+            part of the Reward is to be calculated
+        :param shaping_components: ShapingComponents from which the shaping
+            reward is to be calculated, or an empty tuple for no shaping
+        :param shaping_dependency_map: maps components with sequential
+            dependencies to their dependent components, defaults to
+            no dependencies
+        """
+        super().__init__(base_components, shaping_components)
+        self.shaping_dependency_map = shaping_dependency_map.copy()
+        self.Potential = namedtuple('Potential', [cmp.name for cmp in self.shaping_components])
+
+    def _shaping_rewards(self, state: FlightTask.State, last_state: FlightTask.State,
+                         is_terminal: bool) -> Tuple[float, ...]:
+        potentials = self.Potential(cmp.get_potential(state, is_terminal) for cmp in self.shaping_components)
+        last_potentials = self.Potential(cmp.get_potential(last_state, False) for cmp in self.shaping_components)
+
+        seq_potentials = self._apply_dependents(potentials)
+        seq_last_potentials = self._apply_dependents(last_potentials)
+        return tuple(pot - last_pot for pot, last_pot in zip(seq_potentials, seq_last_potentials))
+
+    @abstractmethod
+    def _apply_dependents(self, potentials: Tuple[float, ...]) -> Tuple[float, ...]:
+        """
+        Modifies potentials to account for dependent components.
+
+        :param potentials: the normal component potential values
+        :return: a collection of component potentials, transformed to account
+            for sequential dependencies
+        """
+        ...
+
+
+class ContinuousSequentialAssessor(SequentialAssessor):
+
+    def _apply_dependents(self, potentials: Tuple[float, ...]):
+        ...
+
+
+class DiscontinuousSequentialAssessor(SequentialAssessor):
+
+    def _apply_dependents(self, potentials: Tuple[float, ...]):
+        ...
 
 
 class RewardComponent(ABC):
@@ -81,12 +150,12 @@ class RewardComponent(ABC):
 
 class TerminalComponent(RewardComponent):
     """ A sparse reward component which gives a reward on terminal condition. """
+
     def __init__(self, name: str, prop: prp.BoundedProperty, max_target: float):
         """
         Constructor.
 
-        :param name: the name of this component used for __repr__, e.g.
-            'altitude_keeping'
+        :param name: the uniquely identifying name of this component
         :param prop: the BoundedProperty for which a value will be retrieved
             from the State
         :param max_target: the maximum value the property can take, against
@@ -109,8 +178,7 @@ class TerminalComponent(RewardComponent):
 
 class ComplementComponent(RewardComponent, ABC):
     """
-    An abstract reward component type with methods for calculating the
-    normalised error complement to some target value.
+    Calculates rewards based on a normalised error complement.
 
     Normalising an error takes some absolute difference |value - target| and
     transforms it to the interval [0,1], where 0 is no error and 1 is +inf error.
@@ -120,22 +188,24 @@ class ComplementComponent(RewardComponent, ABC):
     """
 
     def error_complement(self, state: FlightTask.State, compare_property: prp.Property,
-                          target: Union[prp.Property, float], error_scaling: float) -> float:
+                         target: Union[prp.Property, float, int], error_scaling: float) -> float:
         """
         Calculates the 'goodness' of a State given we want the compare_property
-        to be some target_value. The target value may be a constant (float) or
+        to be some target_value. The target value may be a constant or
         retrieved from another property in the state.
 
         The 'goodness' of the state is given by 1 - normalised_error, i.e. the
         error's complement.
         """
-        if isinstance(target, float):
+        if isinstance(target, float) or isinstance(target, int):
             return self._error_complement_constant(state, compare_property, target, error_scaling)
         elif isinstance(target, prp.Property) or isinstance(target, prp.BoundedProperty):
             return self._error_complement_property(state, compare_property, target, error_scaling)
+        else:
+            raise ValueError(f'target must be a float, int or Property: {target}')
 
     def _error_complement_constant(self, state: FlightTask.State, compare_property: prp.Property,
-                          target_value: float, error_scaling: float) -> float:
+                                   target_value: float, error_scaling: float) -> float:
         value = state.__getattribute__(compare_property.name)
         error = abs(value - target_value)
         normalised_error = self._normalise_error(error, error_scaling)
@@ -203,7 +273,7 @@ class StepFractionComponent(ComplementComponent):
 
 
 class ShapingComponent(ComplementComponent):
-    """ A potential-based shaping reward component """
+    """ A potential-based shaping reward component using error complements """
 
     def __init__(self, name: str, prop: prp.Property, target: Union[float, prp.Property],
                  scaling_factor: float):
@@ -216,8 +286,7 @@ class ShapingComponent(ComplementComponent):
             from the State
         :param target: the target value from the property
         :param scaling_factor: the property value is scaled down by this amount.
-            The RewardComponent outputs 0.5 when the value equals this factor
-        :param episode_timesteps: the number of timesteps in each episode
+            The RewardComponent outputs 0.75 when the error equals this factor
         """
         self.name = name
         self.prop = prop
