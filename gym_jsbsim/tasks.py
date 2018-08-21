@@ -19,8 +19,9 @@ class Task(ABC):
 
     A task defines its own state space, action space, termination conditions and reward function.
     """
+
     @abstractmethod
-    def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int)\
+    def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) \
             -> Tuple[np.ndarray, float, bool, Dict]:
         """
         Calculates step reward and termination from an agent observation.
@@ -35,6 +36,7 @@ class Task(ABC):
             done: bool, True if the episode is over else False
             info: dict, optional, containing diagnostic info for debugging etc.
         """
+
     ...
 
     @abstractmethod
@@ -110,7 +112,7 @@ class FlightTask(Task, ABC):
         self.State = namedtuple('State', [prop.name for prop in self.state_variables])
         self.assessor = assessor
 
-    def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int)\
+    def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) \
             -> Tuple[np.ndarray, float, bool, Dict]:
         # input actions
         for prop, command in zip(self.action_variables, action):
