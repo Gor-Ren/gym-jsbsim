@@ -7,10 +7,10 @@ import gym_jsbsim.properties as prp
 from gym_jsbsim import utils
 from collections import namedtuple
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.rewards import Assessor, Reward
+from gym_jsbsim import rewards
 from gym_jsbsim.properties import BoundedProperty, Property
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence, Dict, Tuple, Type
+from typing import Optional, Sequence, Dict, Tuple, NamedTuple, Type
 
 
 class Task(ABC):
@@ -84,7 +84,6 @@ class FlightTask(Task, ABC):
     Concrete subclasses should implement the following:
         state_variables attribute: tuple of Propertys, the task's state representation
         action_variables attribute: tuple of Propertys, the task's actions
-        assessor attribute: Assessor, object which calculates reward from state
         get_initial_conditions(): returns dict mapping InitialPropertys to initial values
         _is_done(): determines episode termination
         (optional) _new_episode(): performs any control input/initialisation on episode reset
@@ -104,13 +103,21 @@ class FlightTask(Task, ABC):
     )
     state_variables: Tuple[BoundedProperty, ...]
     action_variables: Tuple[BoundedProperty, ...]
-    assessor: Assessor
-    State: Type[namedtuple]
+    assessor: 'rewards.Assessor'
+    State: Type[NamedTuple]
 
-    def __init__(self, assessor: Assessor) -> None:
+    def __init__(self, assessor: 'rewards.Assessor') -> None:
         self.last_state = None
-        self.State = namedtuple('State', [prop.name for prop in self.state_variables])
         self.assessor = assessor
+        self._make_state_class()
+
+    def _make_state_class(self) -> None:
+        """ Creates a namedtuple for readable State data """
+        illegal_chars, translate_to = '\-/', '___'
+        legal_translate = str.maketrans(illegal_chars, translate_to)
+        # get list of state property names, containing legal chars only
+        legal_attribute_names = [prop.name.translate(legal_translate) for prop in self.state_variables]
+        self.State = namedtuple('State', legal_attribute_names)
 
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) \
             -> Tuple[np.ndarray, float, bool, Dict]:
@@ -190,7 +197,7 @@ class SteadyLevelFlightTask(FlightTask):
                                          prp.heading_deg.min, prp.heading_deg.max)
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
-    def __init__(self, assessor: Assessor, max_distance_m: float):
+    def __init__(self, assessor: 'rewards.Assessor', max_distance_m: float):
         self.distance_parallel_to_heading_m = BoundedProperty('max_target/dist-parallel-heading-m',
                                                               'distance travelled parallel to max_target heading [m]',
                                                               0, max_distance_m)
