@@ -2,7 +2,7 @@ import time
 import unittest
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
-from gym_jsbsim.tests.stubs import TaskStub, DefaultSimStub
+from gym_jsbsim.tests.stubs import FlightTaskStub, DefaultSimStub
 import matplotlib.pyplot as plt
 import gym_jsbsim.visualiser
 

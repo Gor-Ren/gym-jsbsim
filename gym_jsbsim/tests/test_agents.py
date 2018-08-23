@@ -1,12 +1,12 @@
 import unittest
 import numpy as np
 from gym_jsbsim.agents import RandomAgent, ConstantAgent
-from gym_jsbsim.tests.stubs import TaskStub
+from gym_jsbsim.tests.stubs import FlightTaskStub
 
 
 class TestRandomAgent(unittest.TestCase):
     def setUp(self):
-        self.action_space = TaskStub().get_action_space()
+        self.action_space = FlightTaskStub().get_action_space()
         self.agent = RandomAgent(action_space=self.action_space)
 
     def test_act_generates_valid_actions(self):
@@ -18,7 +18,7 @@ class TestRandomAgent(unittest.TestCase):
 
 class TestConstantAgent(unittest.TestCase):
     def setUp(self):
-        self.task = TaskStub()
+        self.task = FlightTaskStub()
         self.action_space = self.task.get_action_space()
         self.agent = ConstantAgent(action_space=self.action_space)
 

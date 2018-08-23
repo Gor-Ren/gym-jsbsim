@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import gym_jsbsim.tasks as tasks
 import gym_jsbsim.properties as prp
 from gym_jsbsim.environment import JsbSimEnv, NoFGJsbSimEnv
-from gym_jsbsim.tests import TaskStub
+from gym_jsbsim.tests.stubs import FlightTaskStub
 from gym_jsbsim.visualiser import FlightGearVisualiser
 
 
@@ -20,7 +20,7 @@ class TestJsbSimEnv(unittest.TestCase):
         self.env.reset()
 
     def init_env(self, agent_interaction_freq):
-        self.env = JsbSimEnv(task_type=TaskStub,
+        self.env = JsbSimEnv(task_type=FlightTaskStub,
                              agent_interaction_freq=agent_interaction_freq)
 
     def tearDown(self):
@@ -173,7 +173,7 @@ class TestJsbSimEnv(unittest.TestCase):
 class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
 
     def init_env(self, agent_interaction_freq):
-        self.env = NoFGJsbSimEnv(task_type=TaskStub,
+        self.env = NoFGJsbSimEnv(task_type=FlightTaskStub,
                                  agent_interaction_freq=agent_interaction_freq)
 
     def test_render_flightgear_mode(self):

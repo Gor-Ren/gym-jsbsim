@@ -5,7 +5,7 @@ import gym_jsbsim.properties as prp
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.tasks import SteadyLevelFlightTask, HeadingControlTask
-from gym_jsbsim.tests import SimStub
+from gym_jsbsim.tests.stubs import FlightTaskStub
 from typing import Iterable, Dict
 
 
@@ -19,7 +19,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         return SteadyLevelFlightTask
 
     def test_reward_calc(self):
-        dummy_sim = SimStub({
+        dummy_sim = FlightTaskStub({
             'velocities/h-dot-fps': 1,
             'attitude/roll-rad': -2,
         })
@@ -35,17 +35,17 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
 
     def test_is_done_false(self):
-        dummy_sim = SimStub({'simulation/sim-time-sec': 1,
+        dummy_sim = FlightTaskStub({'simulation/sim-time-sec': 1,
                              'position/h-sl-ft': 5000})
         self.assertFalse(self.task._is_done(dummy_sim))
 
     def test_is_done_true_too_low(self):
-        dummy_sim = SimStub({'simulation/sim-time-sec': 0,
+        dummy_sim = FlightTaskStub({'simulation/sim-time-sec': 0,
                              'position/h-sl-ft': 0})
         self.assertTrue(self.task._is_done(dummy_sim))
 
     def test_is_done_true_time_out(self):
-        dummy_sim = SimStub({'simulation/sim-time-sec': 9999,
+        dummy_sim = FlightTaskStub({'simulation/sim-time-sec': 9999,
                              'position/h-sl-ft': 5000})
         self.assertTrue(self.task._is_done(dummy_sim))
 
@@ -71,7 +71,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
     def make_dummy_sim_with_all_props_set(self, props: Iterable[prp.Property], value):
         """ Makes a DummySim, creates keys of 'name' from each property set to value """
         prop_names = (prop.name for prop in props)
-        return SimStub(zip(prop_names, itertools.repeat(value)))
+        return FlightTaskStub(zip(prop_names, itertools.repeat(value)))
 
     def test_get_initial_conditions(self):
         ics = self.task.get_initial_conditions()
@@ -111,8 +111,8 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
                                env.sim[prp.engine_running])
 
     def test_shaped_reward(self):
-        low_reward_state_sim = SimStub.make_valid_state_stub(self.task)
-        high_reward_state_sim = SimStub.make_valid_state_stub(self.task)
+        low_reward_state_sim = FlightTaskStub.make_valid_state_stub(self.task)
+        high_reward_state_sim = FlightTaskStub.make_valid_state_stub(self.task)
 
         # make one sim near the target values, and one relatively far away
         for prop, ideal_value, _ in self.task.target_values:
@@ -138,22 +138,6 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         # and if we remain in the same low-reward state we should receive 0 shaped reward
         _, third_reward, _, _ = self.task.task_step(low_reward_state_sim, dummy_action, 1)
         self.assertAlmostEqual(0, third_reward)
-
-    def test_transfer_pitch_trim_to_cmd(self):
-        sim = SimStub()
-        PITCH_CMD = 'fcs/elevator-cmd-norm'
-        PITCH_TRIM = 'fcs/pitch-trim-cmd-norm'
-        PITCH_CMD_SETTING = 0.5
-        PITCH_TRIM_SETTING = 0.6
-        sim[PITCH_CMD] = PITCH_CMD_SETTING
-        sim[PITCH_TRIM] = PITCH_TRIM_SETTING
-
-        SteadyLevelFlightTask_v0._transfer_pitch_trim_to_cmd(sim)
-        expect_trim = 0.0
-        expect_cmd = PITCH_CMD_SETTING + PITCH_TRIM_SETTING
-
-        self.assertAlmostEqual(expect_trim, sim[PITCH_TRIM])
-        self.assertAlmostEqual(expect_cmd, sim[PITCH_CMD])
 
 
 class TestHeadingControlTask(TestSteadyLevelFlightTask):
