@@ -69,7 +69,7 @@ class TestFlightGearVisualiser(unittest.TestCase):
             self.env.close()
         if self.sim:
             self.sim.close()
-        self.env = JsbSimEnv(task_type=TaskStub)
+        self.env = JsbSimEnv(task_type=FlightTaskStub)
         self.env.reset()
         self.sim = self.env.sim
         self.flightgear = None

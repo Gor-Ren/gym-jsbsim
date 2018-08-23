@@ -1,5 +1,5 @@
 import gym_jsbsim.properties as prp
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractstaticmethod
 from typing import Tuple, Union
 
 State = 'tasks.FlightTask.State'  # alias for type hint
@@ -111,11 +111,9 @@ class ComplementComponent(AbstractComponent, ABC):
 
     def __init__(self, name: str, prop: prp.BoundedProperty,
                  state_variables: Tuple[prp.BoundedProperty],
-                 target: Union[int, float, prp.Property, prp.BoundedProperty],
-                 scaling_factor: Union[float, int]):
+                 target: Union[int, float, prp.Property, prp.BoundedProperty]):
         super().__init__(name, prop, state_variables)
         self._set_target(target, state_variables)
-        self.scaling_factor = scaling_factor
 
     def _set_target(self, target: Union[int, float, prp.Property, prp.BoundedProperty],
                     state_variables: Tuple[prp.BoundedProperty]) -> None:
@@ -151,11 +149,11 @@ class ComplementComponent(AbstractComponent, ABC):
             target = state[self.target_index]
         value = state[self.index]
         error = abs(value - target)
-        normalised_error = self._normalise_error(error, self.scaling_factor)
+        normalised_error = self._normalise_error(error)
         return 1 - normalised_error
 
-    @staticmethod
-    def _normalise_error(absolute_error: float, error_scaling: float):
+    @abstractmethod
+    def _normalise_error(self, absolute_error: float) -> float:
         """
         Given an error in the interval [0, +inf], returns a normalised error in [0, 1]
 
@@ -164,11 +162,7 @@ class ComplementComponent(AbstractComponent, ABC):
         The parameter error_scaling is used to scale for magnitude.
         When absolute_error == error_scaling, the normalised error is equal to 0.5
         """
-        if absolute_error < 0:
-            raise ValueError(f'Error to be normalised must be non-negative '
-                             f': {absolute_error}')
-        scaled_error = absolute_error / error_scaling
-        return scaled_error / (scaled_error + 1)
+        ...
 
 
 class StepFractionComponent(ComplementComponent):
@@ -197,16 +191,40 @@ class StepFractionComponent(ComplementComponent):
             The RewardComponent outputs 0.5 when the value equals this factor
         :param episode_timesteps: the number of timesteps in each episode
         """
-        super().__init__(name, prop, state_variables, target, scaling_factor)
+        super().__init__(name, prop, state_variables, target)
+        self.scaling_factor = scaling_factor
         self.episode_timesteps = episode_timesteps
 
     def calculate(self, state: State, _: State, is_terminal: bool):
         error_complement = self.error_complement(state)
         return error_complement / self.episode_timesteps
 
+    def _normalise_error(self, absolute_error: float) -> float:
+        return normalise_error_asymptotic(absolute_error, self.scaling_factor)
 
-class ShapingComponent(ComplementComponent):
-    """ A potential-based shaping reward component using error complements """
+
+class ShapingComponent(ComplementComponent, ABC):
+
+    def get_potential(self, state: State, is_terminal) -> float:
+        if is_terminal:
+            return 0
+        else:
+            return self.error_complement(state)
+
+    def calculate(self, state: State, last_state: State, is_terminal: bool):
+        potential = self.get_potential(state, is_terminal)
+        last_potential = self.get_potential(last_state, False)
+        return potential - last_potential
+
+
+class AsymptoticShapingComponent(ShapingComponent):
+    """
+    A potential-based shaping reward component.
+
+    Potential is based asymptotically on the  size of the error between a
+    property of interest and its target. The error can be unbounded in
+    magnitude.
+    """
 
     def __init__(self, name: str, prop: prp.BoundedProperty,
                  state_variables: Tuple[prp.BoundedProperty],
@@ -222,17 +240,115 @@ class ShapingComponent(ComplementComponent):
         :param target: the target value for the property, or the Property from
             which the target value will be retrieved
         :param scaling_factor: the property value is scaled down by this amount.
-            The RewardComponent outputs 0.5 when the error equals this factor
+            Shaping potential is at 0.5 when the error equals this factor.
         """
-        super().__init__(name, prop, state_variables, target, scaling_factor)
+        super().__init__(name, prop, state_variables, target)
+        self.scaling_factor = scaling_factor
 
-    def get_potential(self, state: State, is_terminal):
-        if is_terminal:
-            return 0
-        else:
-            return self.error_complement(state)
+    def _normalise_error(self, absolute_error: float):
+        return normalise_error_asymptotic(absolute_error, self.scaling_factor)
 
-    def calculate(self, state: State, last_state: State, is_terminal: bool):
-        potential = self.get_potential(state, is_terminal)
-        last_potential = self.get_potential(last_state, False)
-        return potential - last_potential
+
+class AngularAsymptoticShapingComponent(AsymptoticShapingComponent):
+    """
+    A potential-based shaping reward component.
+
+    Potential is based asymptotically on the  size of the error between a
+    property of interest and its target. The error can be unbounded in
+    magnitude.
+
+    Values must be in units of degrees. Errors are reduced to the interval
+    [-179, 180] before processing.
+    """
+
+    def __init__(self, name: str, prop: prp.BoundedProperty,
+                 state_variables: Tuple[prp.BoundedProperty],
+                 target: Union[int, float, prp.Property, prp.BoundedProperty],
+                 scaling_factor: Union[float, int]):
+        """
+        Constructor.
+
+        :param name: the name of this component used for __repr__, e.g.
+            'altitude_keeping'
+        :param prop: the Property for which a value will be retrieved
+            from the State
+        :param target: the target value for the property, or the Property from
+            which the target value will be retrieved
+        :param scaling_factor: the property value is scaled down by this amount.
+            Shaping potential is at 0.5 when the error equals this factor.
+        """
+        super().__init__(name, prop, state_variables, target)
+        self.scaling_factor = scaling_factor
+
+    def _normalise_error(self, absolute_error: float):
+        reduced_error = reduce_reflex_angle_deg(absolute_error)
+        return super()._normalise_error(reduced_error)
+
+
+class LinearShapingComponent(ShapingComponent):
+    """
+    A potential-based shaping reward component.
+
+    Potential is based linearly on the size of the error between a property of
+    interest and its target. The error must be in the interval [0, max_error].
+    """
+
+    def __init__(self, name: str, prop: prp.BoundedProperty,
+                 state_variables: Tuple[prp.BoundedProperty],
+                 target: Union[int, float, prp.Property, prp.BoundedProperty],
+                 max_error: Union[float, int]):
+        """
+        Constructor.
+
+        :param name: the name of this component used for __repr__, e.g.
+            'altitude_keeping'
+        :param prop: the Property for which a value will be retrieved
+            from the State
+        :param target: the target value for the property, or the Property from
+            which the target value will be retrieved
+        :param max_error: the max size of the difference between prop and
+            target. Minimum potential (0.0) occurs when property is equal to
+            max_error_size or greater.
+        """
+        super().__init__(name, prop, state_variables, target)
+        self.max_error = max_error
+
+    def _normalise_error(self, absolute_error: float):
+        return normalise_error_linear(absolute_error, self.max_error)
+
+
+def normalise_error_asymptotic(absolute_error: float, scaling_factor: float) -> float:
+    """
+    Given an error in the interval [0, +inf], returns a normalised error in [0, 1]
+
+    The normalised error asymptotically approaches 1 as absolute_error -> +inf.
+
+    The parameter scaling_factor is used to scale for magnitude.
+    When absolute_error == scaling_factor, the normalised error is equal to 0.5
+    """
+    if absolute_error < 0:
+        raise ValueError(f'Error to be normalised must be non-negative '
+                         f': {absolute_error}')
+    scaled_error = absolute_error / scaling_factor
+    return scaled_error / (scaled_error + 1)
+
+
+def normalise_error_linear(absolute_error: float, max_error: float) -> float:
+    """ Given an absolute error in [0, max_error], linearly normalises error in [0, 1] """
+    if absolute_error < 0:
+        raise ValueError(f'Error to be normalised must be non-negative '
+                         f': {absolute_error}')
+    elif absolute_error > max_error:
+        return 1.0
+    else:
+        return absolute_error / max_error
+
+
+def reduce_reflex_angle_deg(angle: float) -> float:
+    """ Given an angle in degrees, normalises in [-179, 180] """
+    # ATTRIBUTION: solution from James Polk on SO,
+    # https://stackoverflow.com/questions/2320986/easy-way-to-keeping-angles-between-179-and-180-degrees#
+    new_angle = angle % 360
+    if (new_angle > 180):
+        new_angle -= 360
+    return new_angle

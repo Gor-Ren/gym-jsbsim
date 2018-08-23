@@ -1,7 +1,6 @@
 import unittest
-from collections import __init__
+import collections
 from typing import Type, NamedTuple
-
 from gym_jsbsim.assessors import AssessorImpl
 from gym_jsbsim.tests import stubs as stubs
 

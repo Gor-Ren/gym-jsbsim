@@ -41,7 +41,7 @@ class JsbSimEnv(gym.Env):
         self.aircraft = aircraft_name
         self.task = task_type()
         # set Space objects
-        self.observation_space: gym.spaces.Box = self.task.get_observation_space()
+        self.observation_space: gym.spaces.Box = self.task.get_state_space()
         self.action_space: gym.spaces.Box = self.task.get_action_space()
         # set visualisation objects
         self.figure_visualiser: FigureVisualiser = None

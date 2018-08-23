@@ -3,11 +3,13 @@ import numpy as np
 import random
 import types
 import math
+import enum
 import gym_jsbsim.properties as prp
 from gym_jsbsim import utils
 from collections import namedtuple
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim import rewards
+from gym_jsbsim import assessors
 from gym_jsbsim.properties import BoundedProperty, Property
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence, Dict, Tuple, NamedTuple, Type
@@ -67,8 +69,8 @@ class Task(ABC):
         ...
 
     @abstractmethod
-    def get_observation_space(self) -> gym.Space:
-        """ Get the task's observation Space object """
+    def get_state_space(self) -> gym.Space:
+        """ Get the task's state Space object """
         ...
 
     @abstractmethod
@@ -85,7 +87,7 @@ class FlightTask(Task, ABC):
         state_variables attribute: tuple of Propertys, the task's state representation
         action_variables attribute: tuple of Propertys, the task's actions
         get_initial_conditions(): returns dict mapping InitialPropertys to initial values
-        _is_done(): determines episode termination
+        _is_terminal(): determines episode termination
         (optional) _new_episode(): performs any control input/initialisation on episode reset
         (optional) _update_custom_properties: updates any custom properties in the sim
     """
@@ -103,10 +105,10 @@ class FlightTask(Task, ABC):
     )
     state_variables: Tuple[BoundedProperty, ...]
     action_variables: Tuple[BoundedProperty, ...]
-    assessor: 'rewards.Assessor'
+    assessor: assessors.Assessor
     State: Type[NamedTuple]
 
-    def __init__(self, assessor: 'rewards.Assessor') -> None:
+    def __init__(self, assessor: assessors.Assessor) -> None:
         self.last_state = None
         self.assessor = assessor
         self._make_state_class()
@@ -116,7 +118,8 @@ class FlightTask(Task, ABC):
         illegal_chars, translate_to = '\-/', '___'
         legal_translate = str.maketrans(illegal_chars, translate_to)
         # get list of state property names, containing legal chars only
-        legal_attribute_names = [prop.name.translate(legal_translate) for prop in self.state_variables]
+        legal_attribute_names = [prop.name.translate(legal_translate) for prop in
+                                 self.state_variables]
         self.State = namedtuple('State', legal_attribute_names)
 
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) \
@@ -131,7 +134,7 @@ class FlightTask(Task, ABC):
 
         self._update_custom_properties(sim)
         state = self.State(sim[prop] for prop in self.state_variables)
-        done = self._is_done(state, sim[prp.sim_time_s])
+        done = self._is_terminal(state, sim[prp.sim_time_s])
         reward = self.assessor.assess(state, self.last_state, done)
         self.last_state = state
         info = {'reward': reward}
@@ -143,7 +146,7 @@ class FlightTask(Task, ABC):
         pass
 
     @abstractmethod
-    def _is_done(self, state: Tuple[float, ...], episode_time: float) -> bool:
+    def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
         """ Determines whether the current episode should terminate.
 
         :param state: the last state observation
@@ -173,7 +176,7 @@ class FlightTask(Task, ABC):
     def get_initial_conditions(self) -> Dict[Property, float]:
         ...
 
-    def get_observation_space(self) -> gym.Space:
+    def get_state_space(self) -> gym.Space:
         state_lows = np.array([state_var.min for state_var in self.state_variables])
         state_highs = np.array([state_var.max for state_var in self.state_variables])
         return gym.spaces.Box(low=state_lows, high=state_highs, dtype='float')
@@ -189,55 +192,86 @@ class HeadingControlTask(FlightTask):
     A task in which the agent must perform steady, level flight maintaining its
     current heading.
     """
-    MAX_TIME_SECS = 15
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
     INITIAL_HEADING_DEG = 270
-    target_heading_deg = BoundedProperty('max_target/heading-deg', 'desired heading [deg]',
+    Shaping = enum.Enum.__call__('Shaping', ['OFF', 'BASIC', 'ADDITIVE', 'SEQUENTIAL_CONT',
+                                             'SEQUENTIAL_DISCONT'])
+    target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
                                          prp.heading_deg.min, prp.heading_deg.max)
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
-    def __init__(self, assessor: 'rewards.Assessor', max_distance_m: float):
-        self.distance_parallel_to_heading_m = BoundedProperty('max_target/dist-parallel-heading-m',
-                                                              'distance travelled parallel to max_target heading [m]',
-                                                              0, max_distance_m)
-        self.extra_state_variables = (prp.heading_deg, self.target_heading_deg, self.distance_parallel_to_heading_m)
+    def __init__(self, shaping_type: Shaping, episode_time_s: float,
+                 step_frequency_hz: float, max_distance_m: float):
+        """
+        Constructor.
+
+        :param episode_time_s: the length of simulation time to run before terminating
+        :param step_frequency_hz: the number of agent interaction steps per second
+        :param max_distance_m: the maximum distance that the aircraft is expected
+            to fly in metres
+        """
+        self.max_time_s = episode_time_s
+        self.episode_steps = math.ceil(episode_time_s * step_frequency_hz)
+
+        self.distance_parallel_m = BoundedProperty('target/dist-parallel-heading-m',
+                                                   'distance travelled parallel to target heading [m]',
+                                                   0, max_distance_m)
+        self.extra_state_variables = (
+            prp.heading_deg, self.target_heading_deg, self.distance_parallel_m)
         self.state_variables = FlightTask.base_state_variables + self.extra_state_variables
-        super().__init__(assessor)
+        super().__init__(self.make_assessor(shaping_type))
 
-    def _make_target_values(self):
-        """
-        Makes a tuple representing the desired state of the aircraft.
+    def make_assessor(self, shaping: Shaping) -> assessors.Assessor:
+        base_components = self._make_base_reward_components()
+        shaping_components = self._make_shaping_components(shaping)
+        return self._select_assessor(base_components, shaping_components, shaping)
 
-        :return: tuple of triples (property, target_value, gain) where:
-            property: str, the name of the property in JSBSim
-            target_value: number, the desired value to be controlled to
-            gain: number, by which the error between actual and max_target value
-                 is multiplied to calculate reward
-        """
-        PROPORTIONAL_TO_DERIV_RATIO = 2  # how many times lower are rate terms vs absolute terms
-        RAD_TO_DEG = 57
-        ALT_GAIN = 0.1
-        ALT_RATE_GAIN = ALT_GAIN / PROPORTIONAL_TO_DERIV_RATIO
-        ROLL_GAIN = 1 * RAD_TO_DEG
-        ROLL_RATE_GAIN = ROLL_GAIN / PROPORTIONAL_TO_DERIV_RATIO
-        HEADING_GAIN = 1
-        HEADING_RATE_GAIN = HEADING_GAIN * RAD_TO_DEG / PROPORTIONAL_TO_DERIV_RATIO
-        PITCH_RATE_GAIN = 1 * RAD_TO_DEG / PROPORTIONAL_TO_DERIV_RATIO
-
-        start_alt_ft = self.get_initial_conditions()[prp.initial_altitude_ft]
-        target_values = (
-            (prp.altitude_sl_ft, start_alt_ft, ALT_GAIN),
-            (prp.altitude_rate_fps, 0, ALT_RATE_GAIN),
-            (prp.roll_rad, 0, ROLL_GAIN),
-            (prp.p_radps, 0, ROLL_RATE_GAIN),
-            (prp.heading_deg, self.INITIAL_HEADING_DEG, HEADING_GAIN),
-            (prp.r_radps, 0, HEADING_RATE_GAIN),
-            # absolute pitch is implicitly controlled through altitude, so just control rate
-            (prp.q_radps, 0, PITCH_RATE_GAIN)
+    def _make_base_reward_components(self):
+        target_altitude = self.base_initial_conditions[prp.initial_altitude_ft]
+        base_components = (
+            rewards.TerminalComponent('distance_travel', self.distance_parallel_m,
+                                      self.state_variables, self.distance_parallel_m.max),
+            rewards.StepFractionComponent('altitude_keeping', prp.altitude_sl_ft,
+                                          self.state_variables,
+                                          target_altitude, 100, self.episode_steps)
         )
+        return base_components
 
-        return target_values
+    def _make_shaping_components(self, shaping: Shaping):
+        distance_shaping = rewards.LinearShapingComponent('dist_travel_shaping',
+                                                          self.distance_parallel_m,
+                                                          self.state_variables,
+                                                          self.distance_parallel_m.max,
+                                                          self.distance_parallel_m.max),
+        if shaping == self.Shaping.OFF:
+            shaping_components = ()
+        elif shaping == self.Shaping.BASIC:
+            shaping_components = (distance_shaping,)
+        else:
+            shaping_components = (
+                distance_shaping,
+                rewards.AngularAsymptoticShapingComponent('heading_error',
+                                                          prp.heading_deg,
+                                                          self.state_variables,
+                                                          self._get_target_heading(),
+                                                          30),
+                rewards.AsymptoticShapingComponent('wings_level', prp.roll_rad,
+                                                   self.state_variables,
+                                                   0, 0.5),  # 0.5 radians corresponds ~30 deg
+            )
+
+        return shaping_components
+
+    def _select_assessor(self, base_components: Tuple[rewards.RewardComponent, ...],
+                         shaping_components: Tuple[rewards.ShapingComponent, ...],
+                         shaping: Shaping) -> assessors.Assessor:
+        if shaping == self.Shaping.OFF or self.Shaping.BASIC or self.Shaping.ADDITIVE:
+            return assessors.AssessorImpl(base_components, shaping_components)
+        elif shaping == self.Shaping.SEQUENTIAL_CONT:
+            raise NotImplementedError
+        elif shaping == self.Shaping.SEQUENTIAL_DISCONT:
+            raise NotImplementedError
 
     def get_initial_conditions(self) -> Dict[Property, float]:
         extra_conditions = {prp.initial_u_fps: 150,
@@ -254,7 +288,8 @@ class HeadingControlTask(FlightTask):
     def _update_custom_properties(self, sim: Simulation) -> None:
         self._update_parallel_distance_travelled(sim, self.INITIAL_HEADING_DEG)
 
-    def _update_parallel_distance_travelled(self, sim: Simulation, target_heading_deg: float) -> None:
+    def _update_parallel_distance_travelled(self, sim: Simulation,
+                                            target_heading_deg: float) -> None:
         """
         Calculates how far aircraft has travelled from initial position parallel to max_target heading
 
@@ -266,10 +301,10 @@ class HeadingControlTask(FlightTask):
 
         distance_travelled_m = sim[prp.dist_travel_m]
         parallel_distance_travelled_m = math.cos(heading_error_rad) * distance_travelled_m
-        sim[self.distance_parallel_to_heading_m] = parallel_distance_travelled_m
+        sim[self.distance_parallel_m] = parallel_distance_travelled_m
 
-    def _is_done(self, state: Tuple[float, ...], episode_time: float) -> bool:
-        return episode_time > self.MAX_TIME_SECS
+    def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
+        return episode_time > self.max_time_s
 
     def _new_episode(self, sim: Simulation) -> None:
         sim.start_engines()

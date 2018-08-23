@@ -16,15 +16,15 @@ class AssessorStub(Assessor):
 
 class FlightTaskStub(FlightTask):
     """ A minimal task module for testing. """
-    test_property1 = prp.Property('test_property1', 'dummy property for testing')
-    test_property2 = prp.Property('test_property2', 'dummy property for testing')
+    test_property1 = prp.BoundedProperty('test_property1', 'dummy property for testing', -1, 1)
+    test_property2 = prp.BoundedProperty('test_property2', 'dummy property for testing', -1, 1)
 
     def __init__(self):
         self.state_variables = (self.test_property1, self.test_property2)
         self.action_variables = (prp.aileron_cmd, prp.elevator_cmd)
         super().__init__(AssessorStub())
 
-    def _is_done(self, state: Tuple[float, ...], episode_time: float) -> bool:
+    def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
         return False
 
     def get_initial_conditions(self):
@@ -34,8 +34,12 @@ class FlightTaskStub(FlightTask):
         """ Returns a State of this class' test properties populated with input values """
         return self.State(value1, value2)
 
-    def get_dummy_state_and_properties(self, values: Iterable[float]) -> Tuple[NamedTuple, Tuple[prp.Property]]:
-        """ given a collection of floats, creates dummy Properties for each value and inits a State"""
+    def get_dummy_state_and_properties(self, values: Iterable[float]) -> Tuple[
+        NamedTuple, Tuple[prp.Property, ...]]:
+        """
+        given a collection of floats, creates dummy Properties for each value
+        and inits a State
+        """
         dummy_properties = tuple(prp.Property('test_prop' + str(i), '') for i in range(len(values)))
         DummyState = collections.namedtuple('DummyState', [prop.name for prop in dummy_properties])
         return DummyState(*values), dummy_properties

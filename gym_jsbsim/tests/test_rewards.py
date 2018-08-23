@@ -1,7 +1,7 @@
 import unittest
 import sys
 from abc import ABC, abstractmethod
-from gym_jsbsim.rewards import Reward, TerminalComponent, StepFractionComponent, ShapingComponent, ComplementComponent
+from gym_jsbsim.rewards import Reward, TerminalComponent, StepFractionComponent, AsymptoticShapingComponent, ComplementComponent
 import gym_jsbsim.tests.stubs as stubs
 from typing import Type
 
@@ -266,7 +266,7 @@ class TestStepFractionComponent(AbstractTestComplementComponent):
 class TestShapingComponent(AbstractTestComplementComponent):
 
     def get_class_under_test(self):
-        return ShapingComponent
+        return AsymptoticShapingComponent
 
     def test_calculate_get_potential_perfect_state_non_terminal(self):
         target_value = 0
@@ -274,7 +274,7 @@ class TestShapingComponent(AbstractTestComplementComponent):
         state = self.dummy_task.get_state(actual_value, target_value)
         terminal = False
 
-        component: ShapingComponent = self.get_component_target_constant(target_value=target_value)
+        component: AsymptoticShapingComponent = self.get_component_target_constant(target_value=target_value)
 
         expected_potential = 1.0
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
@@ -285,7 +285,7 @@ class TestShapingComponent(AbstractTestComplementComponent):
         state = self.dummy_task.get_state(actual_value, target_value)
         terminal = True
 
-        component: ShapingComponent = self.get_component_target_constant(target_value=target_value)
+        component: AsymptoticShapingComponent = self.get_component_target_constant(target_value=target_value)
 
         expected_potential = 0.0
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
@@ -296,7 +296,7 @@ class TestShapingComponent(AbstractTestComplementComponent):
         state = self.dummy_task.get_state(actual_value, target_value)
         terminal = False
 
-        component: ShapingComponent = self.get_component_target_constant(target_value=target_value)
+        component: AsymptoticShapingComponent = self.get_component_target_constant(target_value=target_value)
 
         expected_potential = 0.0
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
@@ -307,7 +307,7 @@ class TestShapingComponent(AbstractTestComplementComponent):
         state = self.dummy_task.get_state(actual_value, target_value)
         terminal = False
 
-        component: ShapingComponent = self.get_component_target_constant(target_value=target_value)
+        component: AsymptoticShapingComponent = self.get_component_target_constant(target_value=target_value)
 
         expected_potential = 0.5
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
