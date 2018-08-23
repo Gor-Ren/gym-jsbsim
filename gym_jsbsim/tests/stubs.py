@@ -1,6 +1,7 @@
 import collections
 from gym_jsbsim.tasks import FlightTask
-from gym_jsbsim.rewards import Assessor, State, Reward
+from gym_jsbsim.rewards import State, Reward, RewardComponent
+from gym_jsbsim.assessors import Assessor
 import gym_jsbsim.properties as prp
 from typing import Tuple, NamedTuple, Iterable
 
@@ -101,3 +102,20 @@ class DefaultSimStub(object):
 
     def start_engines(self):
         pass
+
+
+class ConstantRewardComponentStub(RewardComponent):
+    """ A RewardComponent which always returns a constant value s"""
+    default_return = 1.0
+
+    def __init__(self, return_value: float = default_return):
+        self.return_value = return_value
+
+    def calculate(self, _: State, __: State, ___: bool):
+        return self.return_value
+
+    def get_return_value(self):
+        return self.return_value
+
+    def get_name(self):
+        return str(self)

@@ -184,7 +184,7 @@ class FlightTask(Task, ABC):
         return gym.spaces.Box(low=action_lows, high=action_highs, dtype='float')
 
 
-class SteadyLevelFlightTask(FlightTask):
+class HeadingControlTask(FlightTask):
     """
     A task in which the agent must perform steady, level flight maintaining its
     current heading.
@@ -284,7 +284,7 @@ class SteadyLevelFlightTask(FlightTask):
         return self.INITIAL_HEADING_DEG
 
 
-class HeadingControlTask(SteadyLevelFlightTask):
+class TurnHeadingControlTask(HeadingControlTask):
     """
     A task in which the agent must make a turn and fly level on a desired heading.
     """

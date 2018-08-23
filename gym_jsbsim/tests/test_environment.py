@@ -184,10 +184,10 @@ class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
 class TestGymEnvs(unittest.TestCase):
     """ Test that JSBSim environments are correctly registered with OpenAI Gym """
     id_class_pairs = (
-        ('SteadyLevelFlightCessna-v2', tasks.SteadyLevelFlightTask),
-        ('SteadyLevelFlightCessna-NoFG-v2', tasks.SteadyLevelFlightTask),
-        ('HeadingControlCessna-v0', tasks.HeadingControlTask),
-        ('HeadingControlCessna-NoFG-v0', tasks.HeadingControlTask)
+        ('SteadyLevelFlightCessna-v2', tasks.HeadingControlTask),
+        ('SteadyLevelFlightCessna-NoFG-v2', tasks.HeadingControlTask),
+        ('HeadingControlCessna-v0', tasks.TurnHeadingControlTask),
+        ('HeadingControlCessna-NoFG-v0', tasks.TurnHeadingControlTask)
     )
 
     def test_gym_inits_correct_task(self):

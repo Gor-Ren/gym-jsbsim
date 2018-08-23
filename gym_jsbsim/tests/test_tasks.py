@@ -4,7 +4,7 @@ import itertools
 import gym_jsbsim.properties as prp
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim.tasks import SteadyLevelFlightTask, HeadingControlTask
+from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
 from gym_jsbsim.tests.stubs import FlightTaskStub
 from typing import Iterable, Dict
 
@@ -16,7 +16,7 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
         self.task = self.class_under_test()
 
     def get_class_under_test(self):
-        return SteadyLevelFlightTask
+        return HeadingControlTask
 
     def test_reward_calc(self):
         dummy_sim = FlightTaskStub({
@@ -90,11 +90,11 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
                                            ]
         for prop in steady_level_task_ic_properties:
             self.assertIn(prop, ics.keys(),
-                          msg='expected SteadyLevelFlightTask to set value for'
+                          msg='expected HeadingControlTask to set value for'
                               f'property {prop} but not found in ICs')
 
     def test_engines_init_running(self):
-        env = JsbSimEnv(task_type=SteadyLevelFlightTask)
+        env = JsbSimEnv(task_type=HeadingControlTask)
 
         # test assumption that property 'propulsion/engine/set-running'
         #   is zero prior to engine start!
@@ -119,8 +119,8 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
             low_reward_state_sim[prop] = ideal_value + 5
             high_reward_state_sim[prop] = ideal_value + 0.05
         # make sure altitude hasn't randomly been set below minimum!
-        low_reward_state_sim[prp.altitude_sl_ft] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
-        high_reward_state_sim[prp.altitude_sl_ft] = SteadyLevelFlightTask.MIN_ALT_FT + 1000
+        low_reward_state_sim[prp.altitude_sl_ft] = HeadingControlTask.MIN_ALT_FT + 1000
+        high_reward_state_sim[prp.altitude_sl_ft] = HeadingControlTask.MIN_ALT_FT + 1000
 
         # suppose we start in the low reward state then transition to the high reward state
         self.task.observe_first_state(low_reward_state_sim)
@@ -153,7 +153,7 @@ class TestHeadingControlTask(TestSteadyLevelFlightTask):
     )
 
     def get_class_under_test(self):
-        return HeadingControlTask
+        return TurnHeadingControlTask
 
     def test_task_first_observation(self):
         props_value = 5

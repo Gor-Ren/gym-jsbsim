@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from gym_jsbsim.agents import RandomAgent
 from gym_jsbsim.environment import JsbSimEnv
-from gym_jsbsim.tasks import SteadyLevelFlightTask
+from gym_jsbsim.tasks import HeadingControlTask
 import gym_jsbsim.properties as prp
 
 
@@ -12,9 +12,9 @@ class AgentEnvInteractionTest(unittest.TestCase):
     def test_random_agent_steady_level_task_setup(self):
         # we create an environment with the steady level flight task
         agent_interaction_hz = 5
-        env = JsbSimEnv(task_type=SteadyLevelFlightTask,
+        env = JsbSimEnv(task_type=HeadingControlTask,
                         agent_interaction_freq=agent_interaction_hz)
-        self.assertIsInstance(env.task, SteadyLevelFlightTask)
+        self.assertIsInstance(env.task, HeadingControlTask)
 
         # we interact at 5 Hz, so we expect the sim to run 12 timesteps per
         #   interaction since it runs at 120 Hz
@@ -44,7 +44,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
     def test_random_agent_steady_level_task_run(self):
         # we create an environment and agent for the steady level flight task
         agent_interaction_hz = int(JsbSimEnv.DT_HZ / 10)
-        env = JsbSimEnv(task_type=SteadyLevelFlightTask,
+        env = JsbSimEnv(task_type=HeadingControlTask,
                         agent_interaction_freq=agent_interaction_hz)
         agent = RandomAgent(action_space=env.action_space)
 

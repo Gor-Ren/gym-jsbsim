@@ -2,7 +2,7 @@ import unittest
 import sys
 from abc import ABC, abstractmethod
 from gym_jsbsim.rewards import Reward, TerminalComponent, StepFractionComponent, ShapingComponent, ComplementComponent
-from gym_jsbsim.tests.stubs import FlightTaskStub
+import gym_jsbsim.tests.stubs as stubs
 from typing import Type
 
 
@@ -69,7 +69,7 @@ class TestReward(unittest.TestCase):
 
 
 class TestTerminalComponent(unittest.TestCase):
-    dummy_task = FlightTaskStub()
+    dummy_task = stubs.FlightTaskStub()
     default_state_vars = dummy_task.state_variables
     default_property_index = 0
     default_State = dummy_task.State
@@ -129,7 +129,7 @@ class TestTerminalComponent(unittest.TestCase):
 
 
 class AbstractTestComplementComponent(unittest.TestCase, ABC):
-    dummy_task = FlightTaskStub()
+    dummy_task = stubs.FlightTaskStub()
     default_state_vars = dummy_task.state_variables
     default_property_index = 0
     default_target_index = 1

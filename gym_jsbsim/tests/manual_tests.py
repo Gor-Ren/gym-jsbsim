@@ -40,7 +40,7 @@ class TestJsbSimInstance(unittest.TestCase):
 
     def test_render_steady_level_flight_random(self):
         """ Runs steady level flight task with a random agent. """
-        self.setUp(task_type=tasks.SteadyLevelFlightTask)
+        self.setUp(task_type=tasks.HeadingControlTask)
         agent = RandomAgent(self.env.action_space)
         render_every = 5
         ep_reward = 0
@@ -56,7 +56,7 @@ class TestJsbSimInstance(unittest.TestCase):
             step_number += 1
 
     def test_run_episode_steady_level_flight_no_render(self):
-        self.setUp(task_type=tasks.SteadyLevelFlightTask)
+        self.setUp(task_type=tasks.HeadingControlTask)
         agent = RandomAgent(self.env.action_space)
         report_every = 20
         EPISODES = 10
@@ -77,7 +77,7 @@ class TestJsbSimInstance(unittest.TestCase):
                 step_number += 1
 
     def test_steady_level_flight_constant_with_flightgear_render(self):
-        self.setUp(task_type=tasks.SteadyLevelFlightTask)
+        self.setUp(task_type=tasks.HeadingControlTask)
         agent = RepeatAgent(self.env.action_space,
                             self.env.task.action_names,
                             self.env.task.state_names)
@@ -112,7 +112,7 @@ class FlightGearRenderTest(unittest.TestCase):
         self.env.close()
 
     def test_render_steady_level_flight(self):
-        self.setUp(aircraft_name='c172x', task_type=tasks.SteadyLevelFlightTask)
+        self.setUp(aircraft_name='c172x', task_type=tasks.HeadingControlTask)
         agent = ConstantAgent(self.env.action_space)
         render_every = 5
         report_every = 20
@@ -139,7 +139,7 @@ class FlightGearRenderTest(unittest.TestCase):
                 step_number += 1
 
 class HeadingControlTest(unittest.TestCase):
-    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.FlightTask]=tasks.HeadingControlTask):
+    def setUp(self, aircraft_name: str='c172p', task_type: Type[tasks.FlightTask]=tasks.TurnHeadingControlTask):
         self.env = None
         self.env = JsbSimEnv(aircraft_name=aircraft_name, task_type=task_type)
         self.env.reset()
@@ -148,7 +148,7 @@ class HeadingControlTest(unittest.TestCase):
         self.env.close()
 
     def test_render_heading_control(self):
-        self.setUp(aircraft_name='c172x', task_type=tasks.HeadingControlTask)
+        self.setUp(aircraft_name='c172x', task_type=tasks.TurnHeadingControlTask)
         agent = RandomAgent(self.env.action_space)
         render_every = 5
         report_every = 20
