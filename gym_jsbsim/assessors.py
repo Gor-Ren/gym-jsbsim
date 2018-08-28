@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.__init__ import namedtuple
 from typing import Iterable, Tuple, Dict
-
-from gym_jsbsim.rewards import State, Reward
+from gym_jsbsim.rewards import State, Reward, RewardComponent, ShapingComponent
 
 
 class Assessor(ABC):

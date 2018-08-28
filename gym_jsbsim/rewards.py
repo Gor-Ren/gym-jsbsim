@@ -258,7 +258,7 @@ class AngularAsymptoticShapingComponent(AsymptoticShapingComponent):
     magnitude.
 
     Values must be in units of degrees. Errors are reduced to the interval
-    [-179, 180] before processing.
+    (-180, 180] before processing.
     """
 
     def __init__(self, name: str, prop: prp.BoundedProperty,
@@ -277,12 +277,20 @@ class AngularAsymptoticShapingComponent(AsymptoticShapingComponent):
         :param scaling_factor: the property value is scaled down by this amount.
             Shaping potential is at 0.5 when the error equals this factor.
         """
-        super().__init__(name, prop, state_variables, target)
-        self.scaling_factor = scaling_factor
+        super().__init__(name, prop, state_variables, target, scaling_factor)
 
-    def _normalise_error(self, absolute_error: float):
-        reduced_error = reduce_reflex_angle_deg(absolute_error)
-        return super()._normalise_error(reduced_error)
+    def _normalise_error(self, angular_error: float):
+        """
+        Given an angle off of a target direction in degrees, calculates a
+        normalised error in [0,1]. The angular error is firstly transformed
+        to interval [-180,180] to account for the fact the agent can turn
+        left or right to face the target.
+
+        :param angular_error: float, angle off target in degrees
+        :return: float, normalised error in [0,1]
+        """
+        reduced_angle_error = abs(reduce_reflex_angle_deg(angular_error))
+        return super()._normalise_error(reduced_angle_error)
 
 
 class LinearShapingComponent(ShapingComponent):
@@ -290,13 +298,13 @@ class LinearShapingComponent(ShapingComponent):
     A potential-based shaping reward component.
 
     Potential is based linearly on the size of the error between a property of
-    interest and its target. The error must be in the interval [0, max_error].
+    interest and its target. The error must be in the interval [0, scaling_factor].
     """
 
     def __init__(self, name: str, prop: prp.BoundedProperty,
                  state_variables: Tuple[prp.BoundedProperty],
                  target: Union[int, float, prp.Property, prp.BoundedProperty],
-                 max_error: Union[float, int]):
+                 scaling_factor: Union[float, int]):
         """
         Constructor.
 
@@ -306,15 +314,15 @@ class LinearShapingComponent(ShapingComponent):
             from the State
         :param target: the target value for the property, or the Property from
             which the target value will be retrieved
-        :param max_error: the max size of the difference between prop and
-            target. Minimum potential (0.0) occurs when property is equal to
+        :param scaling_factor: the max size of the difference between prop and
+            target. Minimum potential (0.0) occurs when error is
             max_error_size or greater.
         """
         super().__init__(name, prop, state_variables, target)
-        self.max_error = max_error
+        self.scaling_factor = scaling_factor
 
     def _normalise_error(self, absolute_error: float):
-        return normalise_error_linear(absolute_error, self.max_error)
+        return normalise_error_linear(absolute_error, self.scaling_factor)
 
 
 def normalise_error_asymptotic(absolute_error: float, scaling_factor: float) -> float:
@@ -334,7 +342,11 @@ def normalise_error_asymptotic(absolute_error: float, scaling_factor: float) -> 
 
 
 def normalise_error_linear(absolute_error: float, max_error: float) -> float:
-    """ Given an absolute error in [0, max_error], linearly normalises error in [0, 1] """
+    """
+    Given an absolute error in [0, max_error], linearly normalises error in [0, 1]
+
+    If absolute_error exceeds max_error, it is capped back to max_error
+    """
     if absolute_error < 0:
         raise ValueError(f'Error to be normalised must be non-negative '
                          f': {absolute_error}')
@@ -349,6 +361,6 @@ def reduce_reflex_angle_deg(angle: float) -> float:
     # ATTRIBUTION: solution from James Polk on SO,
     # https://stackoverflow.com/questions/2320986/easy-way-to-keeping-angles-between-179-and-180-degrees#
     new_angle = angle % 360
-    if (new_angle > 180):
+    if new_angle > 180:
         new_angle -= 360
     return new_angle
