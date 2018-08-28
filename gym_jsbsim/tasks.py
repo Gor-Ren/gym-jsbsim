@@ -26,14 +26,14 @@ class Task(ABC):
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) \
             -> Tuple[np.ndarray, float, bool, Dict]:
         """
-        Calculates step reward and termination from an agent observation.
+        Calculates new state, reward and termination.
 
         :param sim: a Simulation, the simulation from which to extract state
         :param action: sequence of floats, the agent's last action
         :param sim_steps: number of JSBSim integration steps to perform following action
             prior to making observation
         :return: tuple of (observation, reward, done, info) where,
-            observation: np.ndarray, agent's observation of the environment state
+            observation: array, agent's observation of the environment state
             reward: float, the reward for that step
             done: bool, True if the episode is over else False
             info: dict, optional, containing diagnostic info for debugging etc.
@@ -133,13 +133,13 @@ class FlightTask(Task, ABC):
             sim.run()
 
         self._update_custom_properties(sim)
-        state = self.State(sim[prop] for prop in self.state_variables)
+        state = self.State(*(sim[prop] for prop in self.state_variables))
         done = self._is_terminal(state, sim[prp.sim_time_s])
         reward = self.assessor.assess(state, self.last_state, done)
         self.last_state = state
         info = {'reward': reward}
 
-        return np.array(state), reward.reward(), done, info
+        return np.asarray(state, dtype=float), reward.reward(), done, info
 
     def _update_custom_properties(self, sim: Simulation) -> None:
         """ Calculates any custom properties which change every timestep. """
@@ -158,9 +158,9 @@ class FlightTask(Task, ABC):
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
         self._new_episode(sim)
         self._update_custom_properties(sim)
-        state = self.State(sim[prop] for prop in self.state_variables)
+        state = self.State(*(sim[prop] for prop in self.state_variables))
         self.last_state = state
-        return np.ndarray(state)
+        return np.asarray(state, dtype=float)
 
     def _new_episode(self, sim: Simulation) -> None:
         """
@@ -190,7 +190,7 @@ class FlightTask(Task, ABC):
 class HeadingControlTask(FlightTask):
     """
     A task in which the agent must perform steady, level flight maintaining its
-    current heading.
+    initial heading.
     """
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
@@ -220,9 +220,10 @@ class HeadingControlTask(FlightTask):
         self.extra_state_variables = (
             prp.heading_deg, self.target_heading_deg, self.distance_parallel_m)
         self.state_variables = FlightTask.base_state_variables + self.extra_state_variables
-        super().__init__(self.make_assessor(shaping_type))
+        assessor = self.make_assessor(shaping_type)
+        super().__init__(assessor)
 
-    def make_assessor(self, shaping: Shaping) -> assessors.Assessor:
+    def make_assessor(self, shaping: Shaping) -> assessors.AssessorImpl:
         base_components = self._make_base_reward_components()
         shaping_components = self._make_shaping_components(shaping)
         return self._select_assessor(base_components, shaping_components, shaping)
@@ -265,7 +266,7 @@ class HeadingControlTask(FlightTask):
 
     def _select_assessor(self, base_components: Tuple[rewards.RewardComponent, ...],
                          shaping_components: Tuple[rewards.ShapingComponent, ...],
-                         shaping: Shaping) -> assessors.Assessor:
+                         shaping: Shaping) -> assessors.AssessorImpl:
         if shaping == self.Shaping.OFF or self.Shaping.BASIC or self.Shaping.ADDITIVE:
             return assessors.AssessorImpl(base_components, shaping_components)
         elif shaping == self.Shaping.SEQUENTIAL_CONT:
@@ -293,8 +294,8 @@ class HeadingControlTask(FlightTask):
         """
         Calculates how far aircraft has travelled from initial position parallel to max_target heading
 
-         Stores result in Simulation as custom property.
-         """
+        Stores result in Simulation as custom property.
+        """
         current_position = utils.GeodeticPosition.from_sim(sim)
         heading_travelled_deg = self.initial_position.heading_deg_to(current_position)
         heading_error_rad = math.radians(heading_travelled_deg - target_heading_deg)
@@ -304,7 +305,8 @@ class HeadingControlTask(FlightTask):
         sim[self.distance_parallel_m] = parallel_distance_travelled_m
 
     def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
-        return episode_time > self.max_time_s
+        # terminate when time >= max, but use math.isclose() for float equality test
+        return math.isclose(episode_time, self.max_time_s) or episode_time > self.max_time_s
 
     def _new_episode(self, sim: Simulation) -> None:
         sim.start_engines()
@@ -321,33 +323,8 @@ class HeadingControlTask(FlightTask):
 
 class TurnHeadingControlTask(HeadingControlTask):
     """
-    A task in which the agent must make a turn and fly level on a desired heading.
+    A task in which the agent must make a turn and fly level to a random target heading.
     """
-
-    def _make_target_values(self):
-        """ Sets an attribute specifying the desired state of the aircraft.
-
-        target_values is a tuple of triples of format
-            (property, target_value, gain) where:
-            property: str, the name of the property in JSBSim
-            target_value: number, the desired value to be controlled to
-            gain: number, by which the error between actual and max_target value
-                 is multiplied to calculate reward
-        """
-        super_target_values = super()._make_target_values()
-        heading_target_index = 4
-        old_heading_triple = super_target_values[heading_target_index]
-        random_target_heading = random.uniform(prp.heading_deg.min, prp.heading_deg.max)
-        new_heading_triple = (old_heading_triple[0], random_target_heading, old_heading_triple[2])
-
-        target_values = []
-        for i, target_triple in enumerate(super_target_values):
-            if i != heading_target_index:
-                target_values.append(target_triple)
-            else:
-                target_values.append(new_heading_triple)
-        assert len(target_values) == len(super_target_values)
-        return target_values
 
     def get_initial_conditions(self) -> [Dict[Property, float]]:
         initial_conditions = super().get_initial_conditions()

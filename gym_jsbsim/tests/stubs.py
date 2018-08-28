@@ -1,4 +1,5 @@
 import collections
+import itertools
 from gym_jsbsim.tasks import FlightTask
 from gym_jsbsim.rewards import State, Reward, RewardComponent
 from gym_jsbsim.assessors import Assessor
@@ -57,10 +58,10 @@ class SimStub(dict):
         """ Gets the simulation time from JSBSim, a float. """
         return self[prp.sim_time_s]
 
-    def __setitem__(self, prop, value):
+    def __setitem__(self, prop: prp.Property, value: float):
         return super().__setitem__(prop.name, value)
 
-    def __getitem__(self, prop):
+    def __getitem__(self, prop: prp.Property):
         return super().__getitem__(prop.name)
 
     @staticmethod
@@ -76,12 +77,16 @@ class SimStub(dict):
         :return: a SimStub configured with valid state for the task
         """
         sim = SimStub()
+        for initial_prop, value in task.get_initial_conditions().items():
+            sim[initial_prop] = value
         for prop in task.state_variables:
-            name = prop.name
             low = prop.min
             high = prop.max
-            sim[name] = (low + high) / 2  # take halfway value
+            sim[prop] = (low + high) / 2  # take halfway value
         sim[prp.sim_time_s] = 1.0
+        sim[prp.lat_geod_deg] = 33.3
+        sim[prp.lng_geoc_deg] = 44.4
+        sim[prp.dist_travel_m] = 2.0
         return sim
 
 

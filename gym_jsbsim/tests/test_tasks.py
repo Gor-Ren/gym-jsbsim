@@ -1,79 +1,66 @@
 import unittest
 import numpy as np
-import itertools
 import gym_jsbsim.properties as prp
-from gym_jsbsim.environment import JsbSimEnv
-from gym_jsbsim.simulation import Simulation
+from gym_jsbsim.assessors import Assessor
+from gym_jsbsim import rewards
 from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
-from gym_jsbsim.tests.stubs import FlightTaskStub
-from typing import Iterable, Dict
+from gym_jsbsim.tests.stubs import SimStub
+from typing import Dict
 
 
-class TestSteadyLevelFlightTask(unittest.TestCase):
+class TestHeadingControlTask(unittest.TestCase):
+    default_shaping = HeadingControlTask.Shaping.OFF
+    default_episode_time_s = 15.0
+    default_step_frequency_hz = 5
+    default_max_distance_m = 72.0 * default_episode_time_s  # Cessna high speed = 140 kn = 72 m/s
 
     def setUp(self):
-        self.class_under_test = self.get_class_under_test()
-        self.task = self.class_under_test()
+        self.task = self.make_task()
+        sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(sim)  # causes task to init new-episode attributes
 
-    def get_class_under_test(self):
-        return HeadingControlTask
+        self.dummy_action = np.asarray([0 for _ in range(len(self.task.action_variables))])
 
-    def test_reward_calc(self):
-        dummy_sim = FlightTaskStub({
-            'velocities/h-dot-fps': 1,
-            'attitude/roll-rad': -2,
-        })
-        expected_reward = 0
-        for prop, _, gain in self.class_under_test.target_values:
-            expected_reward -= abs(dummy_sim[prop]) * gain
-        dummy_sim['position/h-sl-ft'] = 3000  # above minimum
-        self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
+    def make_task(self,
+                  shaping_type: HeadingControlTask.Shaping = default_shaping,
+                  episode_time_s: float = default_episode_time_s,
+                  step_frequency_hz: float = default_step_frequency_hz,
+                  max_distance_m: float = default_max_distance_m) -> HeadingControlTask:
+        return HeadingControlTask(shaping_type=shaping_type,
+                                  episode_time_s=episode_time_s,
+                                  step_frequency_hz=step_frequency_hz,
+                                  max_distance_m=max_distance_m)
 
-        # test again with low altitude
-        dummy_sim['position/h-sl-ft'] = 0
-        expected_reward += self.task.TOO_LOW_REWARD
-        self.assertAlmostEqual(expected_reward, self.task._calculate_reward(dummy_sim))
+    def test_init_shaping_off(self):
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
 
-    def test_is_done_false(self):
-        dummy_sim = FlightTaskStub({'simulation/sim-time-sec': 1,
-                             'position/h-sl-ft': 5000})
-        self.assertFalse(self.task._is_done(dummy_sim))
+        self.assertIsInstance(task.assessor, Assessor)
+        self.assertEqual(2, len(task.assessor.base_components))
+        self.assertFalse(task.assessor.shaping_components)  # assert empty
 
-    def test_is_done_true_too_low(self):
-        dummy_sim = FlightTaskStub({'simulation/sim-time-sec': 0,
-                             'position/h-sl-ft': 0})
-        self.assertTrue(self.task._is_done(dummy_sim))
+    def test_init_shaping_basic(self):
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.BASIC)
 
-    def test_is_done_true_time_out(self):
-        dummy_sim = FlightTaskStub({'simulation/sim-time-sec': 9999,
-                             'position/h-sl-ft': 5000})
-        self.assertTrue(self.task._is_done(dummy_sim))
+        self.assertIsInstance(task.assessor, Assessor)
+        self.assertEqual(2, len(task.assessor.base_components))
+        self.assertEqual(1, len(task.assessor.shaping_components))
 
-    def test_task_first_observation(self, custom_properties=None):
-        props_value = 5
-        if custom_properties is None:
-            props = self.task.state_variables
-        else:
-            props = custom_properties
-        dummy_sim = self.make_dummy_sim_with_all_props_set(props, props_value)
-        state = self.task.observe_first_state(dummy_sim)
+    def test_init_shaping_additive(self):
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.ADDITIVE)
 
-        number_of_state_vars = len(self.task.state_variables)
-        expected_state = np.full(shape=(number_of_state_vars,), fill_value=5, dtype=int)
+        self.assertIsInstance(task.assessor, Assessor)
+        self.assertEqual(2, len(task.assessor.base_components))
+        self.assertEqual(3, len(task.assessor.shaping_components))
 
-        self.assertIsInstance(state, np.ndarray)
-        np.testing.assert_array_equal(expected_state, state)
+    def test_get_intial_conditions_correct_target_heading(self):
+        self.setUp()
 
-        # check throttle and mixture set
-        self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim[prp.throttle_cmd])
-        self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim[prp.mixture_cmd])
+        ics = self.task.get_initial_conditions()
+        initial_heading = ics[prp.initial_heading_deg]
 
-    def make_dummy_sim_with_all_props_set(self, props: Iterable[prp.Property], value):
-        """ Makes a DummySim, creates keys of 'name' from each property set to value """
-        prop_names = (prop.name for prop in props)
-        return FlightTaskStub(zip(prop_names, itertools.repeat(value)))
+        self.assertAlmostEqual(HeadingControlTask.INITIAL_HEADING_DEG, initial_heading)
 
-    def test_get_initial_conditions(self):
+    def test_get_initial_conditions_contains_all_props(self):
         ics = self.task.get_initial_conditions()
 
         self.assertIsInstance(ics, dict)
@@ -93,54 +80,69 @@ class TestSteadyLevelFlightTask(unittest.TestCase):
                           msg='expected HeadingControlTask to set value for'
                               f'property {prop} but not found in ICs')
 
-    def test_engines_init_running(self):
-        env = JsbSimEnv(task_type=HeadingControlTask)
+    def test_observe_first_state(self):
+        sim = SimStub.make_valid_state_stub(self.task)
 
-        # test assumption that property 'propulsion/engine/set-running'
-        #   is zero prior to engine start!
-        check_sim = Simulation(init_conditions={})
-        engine_off_value = 0.0
-        self.assertAlmostEqual(engine_off_value,
-                               check_sim[prp.engine_running])
-        check_sim.close()
+        first_state = self.task.observe_first_state(sim)
 
-        # check engines on once env has been reset
-        _ = env.reset()
-        engine_running_value = 1.0
-        self.assertAlmostEqual(engine_running_value,
-                               env.sim[prp.engine_running])
+        self.assertEqual(len(first_state), len(self.task.state_variables))
+        self.assertIsInstance(first_state, np.ndarray)
 
-    def test_shaped_reward(self):
-        low_reward_state_sim = FlightTaskStub.make_valid_state_stub(self.task)
-        high_reward_state_sim = FlightTaskStub.make_valid_state_stub(self.task)
+    def test_task_step_correct_return_types(self):
+        sim = SimStub.make_valid_state_stub(self.task)
+        steps = 1
 
-        # make one sim near the target values, and one relatively far away
-        for prop, ideal_value, _ in self.task.target_values:
-            low_reward_state_sim[prop] = ideal_value + 5
-            high_reward_state_sim[prop] = ideal_value + 0.05
-        # make sure altitude hasn't randomly been set below minimum!
-        low_reward_state_sim[prp.altitude_sl_ft] = HeadingControlTask.MIN_ALT_FT + 1000
-        high_reward_state_sim[prp.altitude_sl_ft] = HeadingControlTask.MIN_ALT_FT + 1000
+        state, reward, done, info = self.task.task_step(sim, self.dummy_action, steps)
 
-        # suppose we start in the low reward state then transition to the high reward state
-        self.task.observe_first_state(low_reward_state_sim)
-        dummy_action = self.task.get_action_space().sample()
-        _, first_reward, _, _ = self.task.task_step(high_reward_state_sim, dummy_action, 1)
-        # shaped reward should be positive
-        self.assertGreater(first_reward, 0)
+        self.assertIsInstance(state, np.ndarray)
+        self.assertEqual(len(state), len(self.task.state_variables))
 
-        # now suppose we transition in the next step back to the low reward state
-        _, second_reward, _, _ = self.task.task_step(low_reward_state_sim, dummy_action, 1)
-        # shaped reward should be negative, and equal to the negative first_reward
-        self.assertLess(second_reward, 0)
-        self.assertAlmostEqual(-1 * first_reward, second_reward)
+        self.assertIsInstance(reward, float)
+        self.assertIsInstance(done, bool)
+        self.assertIsInstance(info, dict)
 
-        # and if we remain in the same low-reward state we should receive 0 shaped reward
-        _, third_reward, _, _ = self.task.task_step(low_reward_state_sim, dummy_action, 1)
-        self.assertAlmostEqual(0, third_reward)
+    def test_task_step_returns_reward_in_info(self):
+        sim = SimStub.make_valid_state_stub(self.task)
+        steps = 1
+
+        _, reward_scalar, _, info = self.task.task_step(sim, self.dummy_action, steps)
+        reward_object = info['reward']
+
+        self.assertIsInstance(reward_object, rewards.Reward)
+        self.assertAlmostEqual(reward_object.reward(), reward_scalar)
+
+    def test_task_step_non_terminal_time(self):
+        sim = SimStub.make_valid_state_stub(self.task)
+        non_terminal_time = self.default_episode_time_s - 1
+        sim[prp.sim_time_s] = non_terminal_time
+        steps = 1
+
+        _, _, done, _ = self.task.task_step(sim, self.dummy_action, steps)
+
+        self.assertFalse(done)
+
+    def test_task_step_terminal_exactly_max_time(self):
+        sim = SimStub.make_valid_state_stub(self.task)
+        terminal_time = self.default_episode_time_s
+        sim[prp.sim_time_s] = terminal_time
+        steps = 1
+
+        _, _, done, _ = self.task.task_step(sim, self.dummy_action, steps)
+
+        self.assertTrue(done)
+
+    def test_task_step_terminal_over_time(self):
+        sim = SimStub.make_valid_state_stub(self.task)
+        terminal_time = self.default_episode_time_s + 1
+        sim[prp.sim_time_s] = terminal_time
+        steps = 1
+
+        _, _, done, _ = self.task.task_step(sim, self.dummy_action, steps)
+
+        self.assertTrue(done)
 
 
-class TestHeadingControlTask(TestSteadyLevelFlightTask):
+class TestTurnHeadingControlTask(TestHeadingControlTask):
     task_prop_names = (
         'position/h-sl-ft',
         'velocities/h-dot-fps',
@@ -157,14 +159,16 @@ class TestHeadingControlTask(TestSteadyLevelFlightTask):
 
     def test_task_first_observation(self):
         props_value = 5
-        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(), props_value)
+        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(),
+                                                           props_value)
         state = self.task.observe_first_state(dummy_sim)
 
         number_of_state_vars = len(self.task.state_variables)
         expected_state = np.full(shape=(number_of_state_vars,), fill_value=5, dtype=int)
 
         self.assertIsInstance(state, np.ndarray)
-        np.testing.assert_array_equal(expected_state[:-1], state[:-1])  # last element holds random value
+        np.testing.assert_array_equal(expected_state[:-1],
+                                      state[:-1])  # last element holds random value
 
         # check throttle and mixture set
         self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim['fcs/throttle-cmd-norm'])
