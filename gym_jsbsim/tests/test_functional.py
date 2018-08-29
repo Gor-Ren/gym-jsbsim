@@ -43,7 +43,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
 
     def test_random_agent_steady_level_task_run(self):
         # we create an environment and agent for the steady level flight task
-        agent_interaction_hz = int(JsbSimEnv.DT_HZ / 10)
+        agent_interaction_hz = int(JsbSimEnv.JSBSIM_DT_HZ / 10)
         env = JsbSimEnv(task_type=HeadingControlTask,
                         agent_interaction_freq=agent_interaction_hz)
         agent = RandomAgent(action_space=env.action_space)

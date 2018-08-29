@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+from enum import Enum
 from gym_jsbsim.tasks import HeadingControlTask
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
@@ -20,32 +21,30 @@ class JsbSimEnv(gym.Env):
     ATTRIBUTION: this class implements the OpenAI Gym Env API. Method
     docstrings have been adapted or copied from the OpenAI Gym source code.
     """
-    DT_HZ: int = 60  # JSBSim integration frequency [Hz]
+    JSBSIM_DT_HZ: int = 60  # JSBSim integration frequency
     metadata = {'render.modes': ['human', 'flightgear']}
 
     def __init__(self, task_type: Type[HeadingControlTask], aircraft: Aircraft = Cessna172P,
-                 agent_interaction_freq: int = 5, episode_time_s: float = 20.,
-                 shaping=HeadingControlTask.Shaping.OFF):
+                 agent_interaction_freq: int = 5, shaping: Enum = HeadingControlTask.Shaping.OFF):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.
 
         :param task_type: the Task subclass for the task agent is to perform
-        :param aircraft_name: the JSBSim aircraft to be used
+        :param aircraft: the JSBSim aircraft to be used
         :param agent_interaction_freq: int, how many times per second the agent
             should interact with environment.
-        :param episode_time_s: episode duration before
         :param shaping: a HeadingControlTask.Shaping enum, what type of reward
             shaping to use (see HeadingControlTask for options)
         """
-        if agent_interaction_freq > self.DT_HZ:
+        if agent_interaction_freq > self.JSBSIM_DT_HZ:
             raise ValueError('agent interaction frequency must be less than '
                              'or equal to JSBSim integration frequency of '
-                             f'{self.DT_HZ} Hz.')
+                             f'{self.JSBSIM_DT_HZ} Hz.')
         self.sim: Simulation = None
-        self.sim_steps: int = self.DT_HZ // agent_interaction_freq
+        self.sim_steps: int = self.JSBSIM_DT_HZ // agent_interaction_freq
         self.aircraft = aircraft
-        self.task = task_type(shaping, episode_time_s, agent_interaction_freq, aircraft)
+        self.task = task_type(shaping, agent_interaction_freq, aircraft)
         # set Space objects
         self.observation_space: gym.spaces.Box = self.task.get_state_space()
         self.action_space: gym.spaces.Box = self.task.get_action_space()
@@ -61,20 +60,18 @@ class JsbSimEnv(gym.Env):
         to reset this environment's state.
         Accepts an action and returns a tuple (observation, reward, done, info).
 
-        Args:
-            action: collection of floats, the agent's action. Must have same length
-                as number of action variables.
-        Returns:
-            observation (object): agent's observation of the current environment
-            reward (float) : amount of reward returned after previous action
-            done (boolean): whether the episode has ended, in which case further step() calls are undefined
-            info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
+        :param action: the agent's action, with same length as action variables.
+        :return:
+            state: agent's observation of the current environment
+            reward: amount of reward returned after previous action
+            done: whether the episode has ended, in which case further step() calls are undefined
+            info: auxiliary information, e.g. full reward shaping data
         """
         if not (action.shape == self.action_space.shape):
             raise ValueError('mismatch between action and action space size')
 
         state, reward, done, info = self.task.task_step(self.sim, action, self.sim_steps)
-        return np.ndarray(state), reward, done, info
+        return state, reward, done, info
 
     def reset(self):
         """
@@ -86,7 +83,7 @@ class JsbSimEnv(gym.Env):
         if self.sim:
             self.sim.reinitialise(init_conditions)
         else:
-            self.sim = self._init_new_sim(self.DT_HZ, self.aircraft, init_conditions)
+            self.sim = self._init_new_sim(self.JSBSIM_DT_HZ, self.aircraft, init_conditions)
 
         state = self.task.observe_first_state(self.sim)
 
@@ -97,7 +94,7 @@ class JsbSimEnv(gym.Env):
 
     def _init_new_sim(self, dt, aircraft, initial_conditions):
         return Simulation(sim_frequency_hz=dt,
-                          aircraft_model_name=aircraft,
+                          aircraft=aircraft,
                           init_conditions=initial_conditions)
 
     def render(self, mode='flightgear', flightgear_blocking=True):
@@ -175,9 +172,9 @@ class NoFGJsbSimEnv(JsbSimEnv):
     """
     metadata = {'render.modes': ['human']}
 
-    def _init_new_sim(self, dt, aircraft, initial_conditions):
+    def _init_new_sim(self, dt: float, aircraft: Aircraft, initial_conditions: Dict):
         return Simulation(sim_frequency_hz=dt,
-                          aircraft_model_name=aircraft,
+                          aircraft=aircraft,
                           init_conditions=initial_conditions,
                           allow_flightgear_output=False)
 

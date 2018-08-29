@@ -6,9 +6,8 @@ import matplotlib.pyplot as plt
 import gym_jsbsim.tasks as tasks
 import gym_jsbsim.properties as prp
 from gym_jsbsim.environment import JsbSimEnv, NoFGJsbSimEnv
-from gym_jsbsim.tests.stubs import FlightTaskStub
+from gym_jsbsim.tests.stubs import BasicFlightTask
 from gym_jsbsim.visualiser import FlightGearVisualiser
-
 
 
 class TestJsbSimEnv(unittest.TestCase):
@@ -20,7 +19,7 @@ class TestJsbSimEnv(unittest.TestCase):
         self.env.reset()
 
     def init_env(self, agent_interaction_freq):
-        self.env = JsbSimEnv(task_type=FlightTaskStub,
+        self.env = JsbSimEnv(task_type=BasicFlightTask,
                              agent_interaction_freq=agent_interaction_freq)
 
     def tearDown(self):
@@ -75,27 +74,11 @@ class TestJsbSimEnv(unittest.TestCase):
 
         places_tol = 3
 
-        self.assertEqual('attitude/pitch-rad', self.env.task.state_variables[1].name)
-        self.assertAlmostEqual(-0.5 * math.pi, obs_lows[1], places=places_tol,
-                               msg='Pitch low range should be -pi/2')
-        self.assertAlmostEqual(0.5 * math.pi, obs_highs[1], places=places_tol,
-                               msg='Pitch high range should be +pi/2')
-        self.assertEqual('attitude/roll-rad', self.env.task.state_variables[2].name)
-        self.assertAlmostEqual(-1 * math.pi, obs_lows[2], places=places_tol,
-                               msg='Roll low range should be -pi')
-        self.assertAlmostEqual(1 * math.pi, obs_highs[2], places=places_tol,
-                               msg='Roll high range should be +pi')
-
-        self.assertEqual('fcs/aileron-cmd-norm', self.env.task.action_variables[0].name)
-        self.assertAlmostEqual(-1, act_lows[0], places=places_tol,
-                               msg='Aileron command low range should be -1.0')
-        self.assertAlmostEqual(1, act_highs[0], places=places_tol,
-                               msg='Aileron command high range should be +1.0')
-        self.assertEqual('fcs/throttle-cmd-norm', self.env.task.action_variables[3].name)
-        self.assertAlmostEqual(0, act_lows[3], places=places_tol,
-                               msg='Throttle command low range should be 0.0')
-        self.assertAlmostEqual(1, act_highs[3], places=places_tol,
-                               msg='Throttle command high range should be +1.0')
+        for prop, lo, hi in zip(self.env.task.state_variables, obs_lows, obs_highs):
+            self.assertAlmostEqual(lo, prop.min, msg=f'{prop} min of {prop.min} does not'
+                                                     f'match space low of {lo}')
+            self.assertAlmostEqual(hi, prop.max, msg=f'{prop} max of {prop.max} does not'
+                                                     f'match space high of {hi}')
 
     def test_reset_env(self):
         self.setUp()
@@ -105,8 +88,8 @@ class TestJsbSimEnv(unittest.TestCase):
 
     def test_do_action(self):
         self.setUp()
-        action1 = np.array([0.0, 0.0, 0.0, 0.0])
-        action2 = np.array([-0.5, 0.9, -0.05, 0.75])
+        action1 = np.array([0.0] * len(self.env.task.action_variables))
+        action2 = np.linspace(-0.5, .5, num=len(self.env.task.action_variables))
 
         # do an action and check results
         obs, _, _, _ = self.env.step(action1)
@@ -137,7 +120,7 @@ class TestJsbSimEnv(unittest.TestCase):
         self.setUp()
         self.env.render(mode='human')
 
-        action = np.array([-0.5, 0.9, -0.05, 0.75])
+        action = np.array([0.0] * len(self.env.task.action_variables))
         # repeat action several times
         for _ in range(3):
             obs, _, _, _ = self.env.step(action)
@@ -173,7 +156,7 @@ class TestJsbSimEnv(unittest.TestCase):
 class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
 
     def init_env(self, agent_interaction_freq):
-        self.env = NoFGJsbSimEnv(task_type=FlightTaskStub,
+        self.env = NoFGJsbSimEnv(task_type=BasicFlightTask,
                                  agent_interaction_freq=agent_interaction_freq)
 
     def test_render_flightgear_mode(self):

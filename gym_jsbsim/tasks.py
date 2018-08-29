@@ -196,24 +196,23 @@ class HeadingControlTask(FlightTask):
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
     INITIAL_HEADING_DEG = 270
+    DEFAULT_EPISODE_TIME_S = 20.
     Shaping = enum.Enum.__call__('Shaping', ['OFF', 'BASIC', 'ADDITIVE', 'SEQUENTIAL_CONT',
                                              'SEQUENTIAL_DISCONT'])
     target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
                                          prp.heading_deg.min, prp.heading_deg.max)
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
-    def __init__(self, shaping_type: Shaping, episode_time_s: float,
-                 step_frequency_hz: float, aircraft: Aircraft):
+    def __init__(self, shaping_type: Shaping, step_frequency_hz: float, aircraft: Aircraft,
+                 episode_time_s: float = DEFAULT_EPISODE_TIME_S):
         """
         Constructor.
 
-        :param episode_time_s: the length of simulation time to run before terminating
         :param step_frequency_hz: the number of agent interaction steps per second
-        :param max_distance_m: the maximum distance that the aircraft is expected
-            to fly in metres
+        :param aircraft: the aircraft used in the simulation
         """
         self.max_time_s = episode_time_s
-        self.episode_steps = math.ceil(episode_time_s * step_frequency_hz)
+        self.episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
 
         self.distance_parallel_m = BoundedProperty('position/dist-parallel-heading-m',
                                                    'distance travelled parallel to target heading [m]',

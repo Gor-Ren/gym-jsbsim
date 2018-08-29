@@ -1,5 +1,4 @@
 import collections
-import itertools
 from gym_jsbsim.tasks import FlightTask
 from gym_jsbsim.rewards import State, Reward, RewardComponent
 from gym_jsbsim.assessors import Assessor
@@ -16,16 +15,16 @@ class AssessorStub(Assessor):
 
 
 class FlightTaskStub(FlightTask):
-    """ A minimal task module for testing. """
+    """ A minimal Task for testing. """
     test_property1 = prp.BoundedProperty('test_property1', 'dummy property for testing', -1, 1)
     test_property2 = prp.BoundedProperty('test_property2', 'dummy property for testing', -1, 1)
 
-    def __init__(self):
+    def __init__(self, *_):
         self.state_variables = (self.test_property1, self.test_property2)
         self.action_variables = (prp.aileron_cmd, prp.elevator_cmd)
         super().__init__(AssessorStub())
 
-    def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
+    def _is_terminal(self, _: Tuple[float, ...], __: float) -> bool:
         return False
 
     def get_initial_conditions(self):
@@ -44,6 +43,20 @@ class FlightTaskStub(FlightTask):
         dummy_properties = tuple(prp.Property('test_prop' + str(i), '') for i in range(len(values)))
         DummyState = collections.namedtuple('DummyState', [prop.name for prop in dummy_properties])
         return DummyState(*values), dummy_properties
+
+
+class BasicFlightTask(FlightTask):
+    """ A Task with basic but realistic state and action space. """
+    def __init__(self, *_):
+        self.state_variables = super().base_state_variables
+        self.action_variables = (prp.aileron_cmd, prp.rudder_cmd, prp.elevator_cmd)
+        super().__init__(AssessorStub())
+
+    def _is_terminal(self, _: Tuple[float, ...], __: float) -> bool:
+        return False
+
+    def get_initial_conditions(self):
+        return self.base_initial_conditions
 
 
 class SimStub(dict):
@@ -140,7 +153,7 @@ class DefaultSimStub(object):
 
 
 class ConstantRewardComponentStub(RewardComponent):
-    """ A RewardComponent which always returns a constant value s"""
+    """ A RewardComponent which always returns a constant value """
     default_return = 1.0
 
     def __init__(self, return_value: float = default_return):
