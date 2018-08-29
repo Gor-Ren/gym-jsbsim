@@ -88,7 +88,7 @@ class FlightTask(Task, ABC):
         action_variables attribute: tuple of Propertys, the task's actions
         get_initial_conditions(): returns dict mapping InitialPropertys to initial values
         _is_terminal(): determines episode termination
-        (optional) _new_episode(): performs any control input/initialisation on episode reset
+        (optional) _new_episode_init(): performs any control input/initialisation on episode reset
         (optional) _update_custom_properties: updates any custom properties in the sim
     """
     base_state_variables = (prp.altitude_sl_ft, prp.pitch_rad, prp.roll_rad,
@@ -156,13 +156,13 @@ class FlightTask(Task, ABC):
         ...
 
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
-        self._new_episode(sim)
+        self._new_episode_init(sim)
         self._update_custom_properties(sim)
         state = self.State(*(sim[prop] for prop in self.state_variables))
         self.last_state = state
         return np.asarray(state, dtype=float)
 
-    def _new_episode(self, sim: Simulation) -> None:
+    def _new_episode_init(self, sim: Simulation) -> None:
         """
         This method is called at the start of every episode. It is used to set
         the value of any controls or environment properties not already defined
@@ -214,7 +214,7 @@ class HeadingControlTask(FlightTask):
         self.max_time_s = episode_time_s
         self.episode_steps = math.ceil(episode_time_s * step_frequency_hz)
 
-        self.distance_parallel_m = BoundedProperty('target/dist-parallel-heading-m',
+        self.distance_parallel_m = BoundedProperty('position/dist-parallel-heading-m',
                                                    'distance travelled parallel to target heading [m]',
                                                    0, max_distance_m)
         self.extra_state_variables = (
@@ -228,7 +228,7 @@ class HeadingControlTask(FlightTask):
         shaping_components = self._make_shaping_components(shaping)
         return self._select_assessor(base_components, shaping_components, shaping)
 
-    def _make_base_reward_components(self):
+    def _make_base_reward_components(self) -> Tuple[rewards.RewardComponent, ...]:
         target_altitude = self.base_initial_conditions[prp.initial_altitude_ft]
         base_components = (
             rewards.TerminalComponent('distance_travel', self.distance_parallel_m,
@@ -239,12 +239,12 @@ class HeadingControlTask(FlightTask):
         )
         return base_components
 
-    def _make_shaping_components(self, shaping: Shaping):
+    def _make_shaping_components(self, shaping: Shaping) -> Tuple[rewards.ShapingComponent, ...]:
         distance_shaping = rewards.LinearShapingComponent('dist_travel_shaping',
                                                           self.distance_parallel_m,
                                                           self.state_variables,
                                                           self.distance_parallel_m.max,
-                                                          self.distance_parallel_m.max),
+                                                          self.distance_parallel_m.max)
         if shaping == self.Shaping.OFF:
             shaping_components = ()
         elif shaping == self.Shaping.BASIC:
@@ -308,7 +308,7 @@ class HeadingControlTask(FlightTask):
         # terminate when time >= max, but use math.isclose() for float equality test
         return math.isclose(episode_time, self.max_time_s) or episode_time > self.max_time_s
 
-    def _new_episode(self, sim: Simulation) -> None:
+    def _new_episode_init(self, sim: Simulation) -> None:
         sim.start_engines()
         sim[prp.throttle_cmd] = self.THROTTLE_CMD
         sim[prp.mixture_cmd] = self.MIXTURE_CMD

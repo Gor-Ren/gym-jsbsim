@@ -61,7 +61,7 @@ class SimStub(dict):
     def __setitem__(self, prop: prp.Property, value: float):
         return super().__setitem__(prop.name, value)
 
-    def __getitem__(self, prop: prp.Property):
+    def __getitem__(self, prop: prp.Property) -> float:
         return super().__getitem__(prop.name)
 
     @staticmethod
@@ -80,14 +80,40 @@ class SimStub(dict):
         for initial_prop, value in task.get_initial_conditions().items():
             sim[initial_prop] = value
         for prop in task.state_variables:
-            low = prop.min
-            high = prop.max
-            sim[prop] = (low + high) / 2  # take halfway value
+            typical_value = (prop.min + prop.max) / 2
+            sim[prop] = typical_value
         sim[prp.sim_time_s] = 1.0
         sim[prp.lat_geod_deg] = 33.3
         sim[prp.lng_geoc_deg] = 44.4
         sim[prp.dist_travel_m] = 2.0
         return sim
+
+
+class TransitioningSimStub(object):
+    """
+    A dummy Simulation object which holds two SimStub states, which it
+    transitions between when run() or reset().
+    """
+
+    def __init__(self, initial_sim: SimStub, next_sim: SimStub):
+        self.initial_sim = initial_sim
+        self.next_sim = next_sim
+        self.current_sim = self.initial_sim
+
+    def reset(self):
+        self.current_sim = self.initial_sim
+
+    def run(self):
+        self.current_sim = self.next_sim
+
+    def __setitem__(self, prop: prp.Property, value: float):
+        self.current_sim[prop] = value
+
+    def __getitem__(self, prop: prp.Property) -> float:
+        return self.current_sim[prop]
+
+    def start_engines():
+        pass
 
 
 class DefaultSimStub(object):

@@ -1,10 +1,11 @@
 import unittest
+import math
 import numpy as np
 import gym_jsbsim.properties as prp
 from gym_jsbsim.assessors import Assessor
 from gym_jsbsim import rewards
 from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
-from gym_jsbsim.tests.stubs import SimStub
+from gym_jsbsim.tests.stubs import SimStub, TransitioningSimStub
 from typing import Dict
 
 
@@ -30,6 +31,40 @@ class TestHeadingControlTask(unittest.TestCase):
                                   episode_time_s=episode_time_s,
                                   step_frequency_hz=step_frequency_hz,
                                   max_distance_m=max_distance_m)
+
+    def get_initial_state_sim(self, task=None) -> SimStub:
+        if task is None:
+            task = self.task
+        sim = SimStub.make_valid_state_stub(task)
+
+        # set properties to reasonable initial episode values
+        sim[prp.sim_time_s] = 0.0
+        sim[prp.dist_travel_m] = 0.0
+        sim[prp.heading_deg] = task.INITIAL_HEADING_DEG
+        sim[prp.altitude_sl_ft] = task.get_initial_conditions()[prp.initial_altitude_ft]
+        sim[prp.roll_rad] = 0
+        return sim
+
+    def get_perfect_state_sim(self, task=None, terminal=True) -> SimStub:
+        if task is None:
+            task = self.task
+        sim = SimStub.make_valid_state_stub(task)
+
+        # set properties to reasonable initial episode values
+        if terminal:
+            time = task.max_time_s + 1
+        else:
+            time = task.max_time_s - 1
+        sim[prp.sim_time_s] = time
+        sim[prp.dist_travel_m] = task.distance_parallel_m.max
+        sim[prp.heading_deg] = task.INITIAL_HEADING_DEG
+        sim[prp.altitude_sl_ft] = task.get_initial_conditions()[prp.initial_altitude_ft]
+        sim[prp.roll_rad] = 0
+
+        # move position along target heading
+        sim[prp.lng_geoc_deg] += math.sin(math.radians(task.INITIAL_HEADING_DEG))
+        sim[prp.lat_geod_deg] += math.cos(math.radians(task.INITIAL_HEADING_DEG))
+        return sim
 
     def test_init_shaping_off(self):
         task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
@@ -92,13 +127,13 @@ class TestHeadingControlTask(unittest.TestCase):
         sim = SimStub.make_valid_state_stub(self.task)
         steps = 1
 
-        state, reward, done, info = self.task.task_step(sim, self.dummy_action, steps)
+        state, reward, is_terminal, info = self.task.task_step(sim, self.dummy_action, steps)
 
         self.assertIsInstance(state, np.ndarray)
         self.assertEqual(len(state), len(self.task.state_variables))
 
         self.assertIsInstance(reward, float)
-        self.assertIsInstance(done, bool)
+        self.assertIsInstance(is_terminal, bool)
         self.assertIsInstance(info, dict)
 
     def test_task_step_returns_reward_in_info(self):
@@ -111,36 +146,86 @@ class TestHeadingControlTask(unittest.TestCase):
         self.assertIsInstance(reward_object, rewards.Reward)
         self.assertAlmostEqual(reward_object.reward(), reward_scalar)
 
-    def test_task_step_non_terminal_time(self):
+    def test_task_step_returns_non_terminal_time_less_than_max(self):
         sim = SimStub.make_valid_state_stub(self.task)
         non_terminal_time = self.default_episode_time_s - 1
         sim[prp.sim_time_s] = non_terminal_time
         steps = 1
 
-        _, _, done, _ = self.task.task_step(sim, self.dummy_action, steps)
+        _, _, is_terminal, _ = self.task.task_step(sim, self.dummy_action, steps)
 
-        self.assertFalse(done)
+        self.assertFalse(is_terminal)
 
-    def test_task_step_terminal_exactly_max_time(self):
-        sim = SimStub.make_valid_state_stub(self.task)
-        terminal_time = self.default_episode_time_s
-        sim[prp.sim_time_s] = terminal_time
-        steps = 1
-
-        _, _, done, _ = self.task.task_step(sim, self.dummy_action, steps)
-
-        self.assertTrue(done)
-
-    def test_task_step_terminal_over_time(self):
+    def test_task_step_returns_terminal_time_exceeds_max(self):
         sim = SimStub.make_valid_state_stub(self.task)
         terminal_time = self.default_episode_time_s + 1
         sim[prp.sim_time_s] = terminal_time
         steps = 1
 
-        _, _, done, _ = self.task.task_step(sim, self.dummy_action, steps)
+        _, _, is_terminal, _ = self.task.task_step(sim, self.dummy_action, steps)
 
-        self.assertTrue(done)
+        self.assertTrue(is_terminal)
 
+    def test_task_step_returns_terminal_time_equals_max(self):
+        sim = SimStub.make_valid_state_stub(self.task)
+        terminal_time = self.default_episode_time_s
+        sim[prp.sim_time_s] = terminal_time
+        steps = 1
+
+        _, _, is_terminal, _ = self.task.task_step(sim, self.dummy_action, steps)
+
+        self.assertTrue(is_terminal)
+
+    def test_task_step_correct_terminal_reward_optimal_behaviour_no_shaping(self):
+        self.setUp()
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF,
+                              episode_time_s=1.,
+                              step_frequency_hz=1.)
+        initial_state_sim = self.get_initial_state_sim(task)
+        _ = task.observe_first_state(initial_state_sim)
+        final_state_sim = self.get_perfect_state_sim(task, terminal=True)
+        sim = TransitioningSimStub(initial_state_sim, final_state_sim)
+
+        state, reward, done, info = task.task_step(sim, self.dummy_action, 1)
+
+        # aircraft moved maximum distance on correct heading and maintained
+        # altitude, so we expect reward of 1.0
+        self.assertAlmostEqual(1., reward)
+
+    def test_task_step_correct_non_terminal_reward_optimal_behaviour_no_shaping(self):
+        self.setUp()
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF,
+                              episode_time_s=1.,
+                              step_frequency_hz=1.)
+        initial_state_sim = self.get_initial_state_sim(task)
+        _ = task.observe_first_state(initial_state_sim)
+        final_state_sim = self.get_perfect_state_sim(task, terminal=False)
+        sim = TransitioningSimStub(initial_state_sim, final_state_sim)
+
+        state, reward, done, info = task.task_step(sim, self.dummy_action, 1)
+
+        # aircraft maintained correct altitude (1.0) but sim is non-terminal
+        # so we expect no distance traveled reward (0.0) average to 0.5
+        self.assertAlmostEqual(0.5, reward)
+
+    def test_task_step_correct_terminal_reward_optimal_behaviour_shaping(self):
+        self.setUp()
+        Shaping = HeadingControlTask.Shaping
+        for shaping in (Shaping.OFF, Shaping.BASIC, Shaping.ADDITIVE):
+            task = self.make_task(shaping_type=shaping,
+                                  episode_time_s=1.,
+                                  step_frequency_hz=1.)
+            initial_state_sim = self.get_initial_state_sim(task)
+            _ = task.observe_first_state(initial_state_sim)
+            final_state_sim = self.get_perfect_state_sim(task, terminal=True)
+            sim = TransitioningSimStub(initial_state_sim, final_state_sim)
+
+            _, _, _, info = task.task_step(sim, self.dummy_action, 1)
+            reward_obj: rewards.Reward = info['reward']
+
+            # aircraft moved maximum distance on correct heading and maintained
+            # altitude, so we expect non-shaping reward of 1.0
+            self.assertAlmostEqual(1., reward_obj.non_shaping_reward())
 
 class TestTurnHeadingControlTask(TestHeadingControlTask):
     task_prop_names = (
