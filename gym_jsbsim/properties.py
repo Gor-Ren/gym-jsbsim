@@ -3,11 +3,21 @@ import collections
 
 
 class BoundedProperty(collections.namedtuple('BoundedProperty', ['name', 'description', 'min', 'max'])):
-    pass
+    ILLEGAL_CHARS = '\-/'
+    TRANSLATE_TO = '_' * len(ILLEGAL_CHARS)
+    legal_translate = str.maketrans(ILLEGAL_CHARS, TRANSLATE_TO)
+
+    def get_legal_name(self):
+        return self.name.translate(self.legal_translate)
 
 
 class Property(collections.namedtuple('Property', ['name', 'description'])):
-    pass
+    ILLEGAL_CHARS = '\-/'
+    TRANSLATE_TO = '_' * len(ILLEGAL_CHARS)
+    legal_translate = str.maketrans(ILLEGAL_CHARS, TRANSLATE_TO)
+
+    def get_legal_name(self):
+        return self.name.translate(self.legal_translate)
 
 
 # position and attitude

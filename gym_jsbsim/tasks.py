@@ -116,10 +116,8 @@ class FlightTask(Task, ABC):
 
     def _make_state_class(self) -> None:
         """ Creates a namedtuple for readable State data """
-        illegal_chars, translate_to = '\-/', '___'
-        legal_translate = str.maketrans(illegal_chars, translate_to)
         # get list of state property names, containing legal chars only
-        legal_attribute_names = [prop.name.translate(legal_translate) for prop in
+        legal_attribute_names = [prop.get_legal_name() for prop in
                                  self.state_variables]
         self.State = namedtuple('State', legal_attribute_names)
 
