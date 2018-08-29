@@ -155,6 +155,8 @@ class TestSimulation(unittest.TestCase):
 
         Let's confirm that we can launch multiple processes each with 1 instance.
         """
+        self.assertEqual(0, basic_task(), msg='same-process execution of JSBSim failed')
+
         processes = 4
         with multiprocessing.Pool(processes) as pool:
             # N.B. basic_task is a top level function that inits JSBSim
@@ -164,7 +166,7 @@ class TestSimulation(unittest.TestCase):
         good_exit_code = 0
         expected = [good_exit_code] * processes
         self.assertListEqual(results, expected,
-                             msg="multiprocess execution of JSBSim did not work")
+                             msg="multiprocess execution of JSBSim failed")
 
 
 def basic_task():
