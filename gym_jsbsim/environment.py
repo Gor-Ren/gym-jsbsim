@@ -1,8 +1,9 @@
 import gym
 import numpy as np
-from gym_jsbsim.tasks import Task
+from gym_jsbsim.tasks import HeadingControlTask
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
+from gym_jsbsim.aircraft import Aircraft, Cessna172P
 from typing import Type, Tuple, Dict
 
 
@@ -22,15 +23,20 @@ class JsbSimEnv(gym.Env):
     DT_HZ: int = 60  # JSBSim integration frequency [Hz]
     metadata = {'render.modes': ['human', 'flightgear']}
 
-    def __init__(self, task_type: Type[Task], aircraft_name: str= 'c172p',
-                 agent_interaction_freq: int=5):
+    def __init__(self, task_type: Type[HeadingControlTask], aircraft: Aircraft = Cessna172P,
+                 agent_interaction_freq: int = 5, episode_time_s: float = 20.,
+                 shaping=HeadingControlTask.Shaping.OFF):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.
 
         :param task_type: the Task subclass for the task agent is to perform
+        :param aircraft_name: the JSBSim aircraft to be used
         :param agent_interaction_freq: int, how many times per second the agent
             should interact with environment.
+        :param episode_time_s: episode duration before
+        :param shaping: a HeadingControlTask.Shaping enum, what type of reward
+            shaping to use (see HeadingControlTask for options)
         """
         if agent_interaction_freq > self.DT_HZ:
             raise ValueError('agent interaction frequency must be less than '
@@ -38,8 +44,8 @@ class JsbSimEnv(gym.Env):
                              f'{self.DT_HZ} Hz.')
         self.sim: Simulation = None
         self.sim_steps: int = self.DT_HZ // agent_interaction_freq
-        self.aircraft = aircraft_name
-        self.task = task_type()
+        self.aircraft = aircraft
+        self.task = task_type(shaping, episode_time_s, agent_interaction_freq, aircraft)
         # set Space objects
         self.observation_space: gym.spaces.Box = self.task.get_state_space()
         self.action_space: gym.spaces.Box = self.task.get_action_space()
@@ -113,10 +119,6 @@ class JsbSimEnv(gym.Env):
               in implementations to use the functionality of this method.
 
         :param mode: str, the mode to render with
-        :param action_names: list of str, the JSBSim properties modified
-            by agent action
-        :param action_values: list of numbers, the value of the action at
-            the same index in action_names
         :param flightgear_blocking: waits for FlightGear to load before
             returning if True, else returns immediately
         """

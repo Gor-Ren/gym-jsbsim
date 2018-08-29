@@ -11,6 +11,7 @@ from gym_jsbsim.simulation import Simulation
 from gym_jsbsim import rewards
 from gym_jsbsim import assessors
 from gym_jsbsim.properties import BoundedProperty, Property
+from gym_jsbsim.aircraft import Aircraft
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence, Dict, Tuple, NamedTuple, Type
 
@@ -202,7 +203,7 @@ class HeadingControlTask(FlightTask):
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
     def __init__(self, shaping_type: Shaping, episode_time_s: float,
-                 step_frequency_hz: float, max_distance_m: float):
+                 step_frequency_hz: float, aircraft: Aircraft):
         """
         Constructor.
 
@@ -216,7 +217,7 @@ class HeadingControlTask(FlightTask):
 
         self.distance_parallel_m = BoundedProperty('position/dist-parallel-heading-m',
                                                    'distance travelled parallel to target heading [m]',
-                                                   0, max_distance_m)
+                                                   0, aircraft.get_max_distance_m(self.max_time_s))
         self.extra_state_variables = (
             prp.heading_deg, self.target_heading_deg, self.distance_parallel_m)
         self.state_variables = FlightTask.base_state_variables + self.extra_state_variables

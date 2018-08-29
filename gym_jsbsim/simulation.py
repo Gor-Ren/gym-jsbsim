@@ -4,6 +4,7 @@ import time
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from typing import Dict, Union
 from gym_jsbsim.properties import BoundedProperty, Property
+from gym_jsbsim.aircraft import Aircraft, Cessna172P
 
 
 class Simulation(object):
@@ -17,15 +18,15 @@ class Simulation(object):
     FULL = 'full'
 
     def __init__(self,
-                 sim_frequency_hz: float=60.0,
-                 aircraft_model_name: str='c172p',
-                 init_conditions: Dict['Property', float]=None,
-                 allow_flightgear_output: bool=True):
+                 sim_frequency_hz: float = 60.0,
+                 aircraft: Aircraft = Cessna172P,
+                 init_conditions: Dict['Property', float] = None,
+                 allow_flightgear_output: bool = True):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
 
-        :param sim_frequency_hz: float, the JSBSim integration frequency in Hz.
-        :param aircraft_model_name: string, name of aircraft to be loaded.
+        :param sim_frequency_hz: the JSBSim integration frequency in Hz.
+        :param aircraft_model_name: name of aircraft to be loaded.
             JSBSim looks for file \model_name\model_name.xml from root dir.
         :param init_conditions: dict mapping properties to their initial values.
             Defaults to None, causing a default set of initial props to be used.
@@ -35,10 +36,11 @@ class Simulation(object):
         self.jsbsim = jsbsim.FGFDMExec(root_dir=self.ROOT_DIR)
         self.jsbsim.set_debug_level(0)
         if allow_flightgear_output:
-            flightgear_output_config = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.OUTPUT_FILE)
+            flightgear_output_config = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                    self.OUTPUT_FILE)
             self.jsbsim.set_output_directive(flightgear_output_config)
         self.sim_dt = 1.0 / sim_frequency_hz
-        self.initialise(self.sim_dt, aircraft_model_name, init_conditions)
+        self.initialise(self.sim_dt, aircraft.id, init_conditions)
         self.jsbsim.disable_output()
         self.wall_clock_dt = None
 
@@ -106,7 +108,7 @@ class Simulation(object):
         return self.jsbsim['simulation/sim-time-sec']
 
     def initialise(self, dt: float, model_name: str,
-                   init_conditions: Dict['Property', float]=None) -> None:
+                   init_conditions: Dict['Property', float] = None) -> None:
         """
         Loads an aircraft and initialises simulation conditions.
 
@@ -139,12 +141,13 @@ class Simulation(object):
         if not success:
             raise RuntimeError('JSBSim failed to init simulation conditions.')
 
-    def set_custom_initial_conditions(self, init_conditions: Dict['Property', float]=None) -> None:
+    def set_custom_initial_conditions(self,
+                                      init_conditions: Dict['Property', float] = None) -> None:
         if init_conditions is not None:
             for prop, value in init_conditions.items():
                 self[prop] = value
 
-    def reinitialise(self, init_conditions: Dict['Property', float]=None) -> None:
+    def reinitialise(self, init_conditions: Dict['Property', float] = None) -> None:
         """
         Resets JSBSim to initial conditions.
 

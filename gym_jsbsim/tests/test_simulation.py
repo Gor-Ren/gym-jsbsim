@@ -3,6 +3,7 @@ import jsbsim
 import multiprocessing
 import time
 from gym_jsbsim.simulation import Simulation
+from gym_jsbsim import aircraft
 import gym_jsbsim.properties as prp
 
 
@@ -24,20 +25,21 @@ class TestSimulation(unittest.TestCase):
 
     def test_load_model(self):
         # make fresh sim instance with "X15" plane
-        model_name = 'X15'
+        plane = aircraft.A320
         self.sim = None
-        self.sim = Simulation(aircraft_model_name=model_name)
+        self.sim = Simulation(aircraft=plane)
         actual_name = self.sim.get_model_name()
 
-        self.assertEqual(model_name, actual_name,
+        self.assertEqual(plane.id, actual_name,
                          msg=f'Unexpected aircraft model name after loading.')
 
-    def test_load_bad_aircraft_name(self):
+    def test_load_bad_aircraft_id(self):
         bad_name = 'qwertyuiop'
+        bad_aircraft = aircraft.Aircraft(bad_name, 100.)
 
         with self.assertRaises(RuntimeError):
             self.sim = None
-            self.sim = Simulation(aircraft_model_name=bad_name)
+            self.sim = Simulation(aircraft=bad_aircraft)
 
     def test_get_property(self):
         self.setUp()
@@ -79,15 +81,15 @@ class TestSimulation(unittest.TestCase):
             self.assertAlmostEqual(expected, actual)
 
     def test_initialise_conditions_basic_config(self):
-        aircraft = '737'
+        plane = aircraft.F15
 
         # manually reset JSBSim instance with new initial conditions
         if self.sim:
             self.sim.close()
         sim_frequency = 2
-        self.sim = Simulation(sim_frequency_hz=sim_frequency, aircraft_model_name=aircraft, init_conditions=None)
+        self.sim = Simulation(sim_frequency_hz=sim_frequency, aircraft=plane, init_conditions=None)
 
-        self.assertEqual(self.sim.get_model_name(), aircraft,
+        self.assertEqual(self.sim.get_model_name(), plane.id,
                          msg='JSBSim did not load expected aircraft model: ' +
                          self.sim.get_model_name())
 
@@ -109,7 +111,7 @@ class TestSimulation(unittest.TestCase):
     def test_initialise_conditions_custom_config(self):
         """ Test JSBSimInstance initialisation with custom initial conditions. """
 
-        aircraft = 'f15'
+        plane = aircraft.F15
         init_conditions = {
             prp.initial_u_fps: 1000.0,
             prp.initial_v_fps: 0.0,
@@ -132,7 +134,7 @@ class TestSimulation(unittest.TestCase):
         # manually reset JSBSim instance
         if self.sim:
             self.sim.close()
-        self.sim = Simulation(sim_frequency, aircraft, init_conditions)
+        self.sim = Simulation(sim_frequency, plane, init_conditions)
 
         # check JSBSim initial condition and simulation properties
         for init_prop, expected in init_conditions.items():
@@ -167,8 +169,9 @@ class TestSimulation(unittest.TestCase):
 
 def basic_task():
     """ A simple task involving initing a JSBSimInstance to test multiprocessing. """
+    model = aircraft.Cessna172P
     time.sleep(0.05)
-    fdm = Simulation(aircraft_model_name='c172x')
+    fdm = Simulation(aircraft=model)
     fdm.run()
     time.sleep(0.05)
 

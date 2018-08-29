@@ -4,6 +4,7 @@ import numpy as np
 import gym_jsbsim.properties as prp
 from gym_jsbsim.assessors import Assessor
 from gym_jsbsim import rewards
+from gym_jsbsim.aircraft import Aircraft, Cessna172P
 from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
 from gym_jsbsim.tests.stubs import SimStub, TransitioningSimStub
 from typing import Dict
@@ -13,7 +14,7 @@ class TestHeadingControlTask(unittest.TestCase):
     default_shaping = HeadingControlTask.Shaping.OFF
     default_episode_time_s = 15.0
     default_step_frequency_hz = 5
-    default_max_distance_m = 72.0 * default_episode_time_s  # Cessna high speed = 140 kn = 72 m/s
+    default_aircraft = Cessna172P
 
     def setUp(self):
         self.task = self.make_task()
@@ -22,15 +23,15 @@ class TestHeadingControlTask(unittest.TestCase):
 
         self.dummy_action = np.asarray([0 for _ in range(len(self.task.action_variables))])
 
-    def make_task(self,
-                  shaping_type: HeadingControlTask.Shaping = default_shaping,
+    @staticmethod
+    def make_task(shaping_type: HeadingControlTask.Shaping = default_shaping,
                   episode_time_s: float = default_episode_time_s,
                   step_frequency_hz: float = default_step_frequency_hz,
-                  max_distance_m: float = default_max_distance_m) -> HeadingControlTask:
+                  aircraft: Aircraft = default_aircraft) -> HeadingControlTask:
         return HeadingControlTask(shaping_type=shaping_type,
                                   episode_time_s=episode_time_s,
                                   step_frequency_hz=step_frequency_hz,
-                                  max_distance_m=max_distance_m)
+                                  aircraft=aircraft)
 
     def get_initial_state_sim(self, task=None) -> SimStub:
         if task is None:
