@@ -71,7 +71,7 @@ class JsbSimEnv(gym.Env):
             raise ValueError('mismatch between action and action space size')
 
         state, reward, done, info = self.task.task_step(self.sim, action, self.sim_steps)
-        return state, reward, done, info
+        return np.array(state), reward, done, info
 
     def reset(self):
         """

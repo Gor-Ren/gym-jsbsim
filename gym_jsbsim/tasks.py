@@ -140,7 +140,7 @@ class FlightTask(Task, ABC):
         self.last_state = state
         info = {'reward': reward}
 
-        return np.asarray(state, dtype=float), reward.reward(), done, info
+        return state, reward.reward(), done, info
 
     def _update_custom_properties(self, sim: Simulation) -> None:
         """ Calculates any custom properties which change every timestep. """
@@ -161,7 +161,7 @@ class FlightTask(Task, ABC):
         self._update_custom_properties(sim)
         state = self.State(*(sim[prop] for prop in self.state_variables))
         self.last_state = state
-        return np.asarray(state, dtype=float)
+        return state
 
     def _new_episode_init(self, sim: Simulation) -> None:
         """
