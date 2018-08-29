@@ -2,7 +2,7 @@ import time
 import unittest
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
-from gym_jsbsim.tests.stubs import FlightTaskStub, DefaultSimStub
+from gym_jsbsim.tests.stubs import BasicFlightTask, DefaultSimStub
 import matplotlib.pyplot as plt
 import gym_jsbsim.visualiser
 
@@ -69,7 +69,7 @@ class TestFlightGearVisualiser(unittest.TestCase):
             self.env.close()
         if self.sim:
             self.sim.close()
-        self.env = JsbSimEnv(task_type=FlightTaskStub)
+        self.env = JsbSimEnv(task_type=BasicFlightTask)
         self.env.reset()
         self.sim = self.env.sim
         self.flightgear = None
