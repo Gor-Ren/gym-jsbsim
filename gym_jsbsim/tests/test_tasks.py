@@ -23,15 +23,19 @@ class TestHeadingControlTask(unittest.TestCase):
 
         self.dummy_action = np.asarray([0 for _ in range(len(self.task.action_variables))])
 
-    @staticmethod
-    def make_task(shaping_type: HeadingControlTask.Shaping = default_shaping,
+    def get_class_under_test(self):
+        return HeadingControlTask
+
+    def make_task(self,
+                  shaping_type: HeadingControlTask.Shaping = default_shaping,
                   episode_time_s: float = default_episode_time_s,
                   step_frequency_hz: float = default_step_frequency_hz,
                   aircraft: Aircraft = default_aircraft) -> HeadingControlTask:
-        return HeadingControlTask(shaping_type=shaping_type,
-                                  episode_time_s=episode_time_s,
-                                  step_frequency_hz=step_frequency_hz,
-                                  aircraft=aircraft)
+        task_class = self.get_class_under_test()
+        return task_class(shaping_type=shaping_type,
+                          episode_time_s=episode_time_s,
+                          step_frequency_hz=step_frequency_hz,
+                          aircraft=aircraft)
 
     def get_initial_state_sim(self, task=None) -> SimStub:
         if task is None:
@@ -50,6 +54,8 @@ class TestHeadingControlTask(unittest.TestCase):
         if task is None:
             task = self.task
         sim = SimStub.make_valid_state_stub(task)
+        task.observe_first_state(sim)
+        target_heading = self.get_target_heading(sim)
 
         # set properties to reasonable initial episode values
         if terminal:
@@ -58,14 +64,17 @@ class TestHeadingControlTask(unittest.TestCase):
             time = task.max_time_s - 1
         sim[prp.sim_time_s] = time
         sim[prp.dist_travel_m] = task.distance_parallel_m.max
-        sim[prp.heading_deg] = task.INITIAL_HEADING_DEG
+        sim[prp.heading_deg] = target_heading
         sim[prp.altitude_sl_ft] = task.get_initial_conditions()[prp.initial_altitude_ft]
         sim[prp.roll_rad] = 0
 
         # move position along target heading
-        sim[prp.lng_geoc_deg] += math.sin(math.radians(task.INITIAL_HEADING_DEG))
-        sim[prp.lat_geod_deg] += math.cos(math.radians(task.INITIAL_HEADING_DEG))
+        sim[prp.lng_geoc_deg] += math.sin(math.radians(target_heading))
+        sim[prp.lat_geod_deg] += math.cos(math.radians(target_heading))
         return sim
+
+    def get_target_heading(self, sim: SimStub):
+        return self.task.INITIAL_HEADING_DEG
 
     def test_init_shaping_off(self):
         task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
@@ -88,13 +97,14 @@ class TestHeadingControlTask(unittest.TestCase):
         self.assertEqual(2, len(task.assessor.base_components))
         self.assertEqual(3, len(task.assessor.shaping_components))
 
-    def test_get_intial_conditions_correct_target_heading(self):
+    def test_get_intial_conditions_valid_target_heading(self):
         self.setUp()
 
         ics = self.task.get_initial_conditions()
         initial_heading = ics[prp.initial_heading_deg]
 
-        self.assertAlmostEqual(HeadingControlTask.INITIAL_HEADING_DEG, initial_heading)
+        self.assertLessEqual(prp.heading_deg.min, initial_heading)
+        self.assertGreaterEqual(prp.heading_deg.max, initial_heading)
 
     def test_get_initial_conditions_contains_all_props(self):
         ics = self.task.get_initial_conditions()
@@ -116,13 +126,22 @@ class TestHeadingControlTask(unittest.TestCase):
                           msg='expected HeadingControlTask to set value for'
                               f'property {prop} but not found in ICs')
 
-    def test_observe_first_state(self):
+    def test_observe_first_state_returns_valid_state(self):
         sim = SimStub.make_valid_state_stub(self.task)
 
         first_state = self.task.observe_first_state(sim)
 
         self.assertEqual(len(first_state), len(self.task.state_variables))
-        self.assertIsInstance(first_state, np.ndarray)
+        self.assertIsInstance(first_state, tuple)
+
+    def test_task_first_observation_inputs_controls(self):
+        dummy_sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(dummy_sim)
+
+        # check engine as expected
+        self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim[prp.throttle_cmd])
+        self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim[prp.mixture_cmd])
+        self.assertAlmostEqual(1.0, dummy_sim[prp.engine_running])
 
     def test_task_step_correct_return_types(self):
         sim = SimStub.make_valid_state_stub(self.task)
@@ -130,7 +149,7 @@ class TestHeadingControlTask(unittest.TestCase):
 
         state, reward, is_terminal, info = self.task.task_step(sim, self.dummy_action, steps)
 
-        self.assertIsInstance(state, np.ndarray)
+        self.assertIsInstance(state, tuple)
         self.assertEqual(len(state), len(self.task.state_variables))
 
         self.assertIsInstance(reward, float)
@@ -228,57 +247,35 @@ class TestHeadingControlTask(unittest.TestCase):
             # altitude, so we expect non-shaping reward of 1.0
             self.assertAlmostEqual(1., reward_obj.non_shaping_reward())
 
+
 class TestTurnHeadingControlTask(TestHeadingControlTask):
-    task_prop_names = (
-        'position/h-sl-ft',
-        'velocities/h-dot-fps',
-        'attitude/roll-rad',
-        'velocities/phidot-rad_sec',
-        'attitude/psi-deg',
-        'velocities/psidot-rad_sec',
-        'velocities/thetadot-rad_sec',
-        'target/heading-deg',
-    )
+
+    def setUp(self):
+        super().setUp()
+        assert isinstance(self.task, TurnHeadingControlTask)
 
     def get_class_under_test(self):
         return TurnHeadingControlTask
 
-    def test_task_first_observation(self):
-        props_value = 5
-        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(),
-                                                           props_value)
-        state = self.task.observe_first_state(dummy_sim)
-
-        number_of_state_vars = len(self.task.state_variables)
-        expected_state = np.full(shape=(number_of_state_vars,), fill_value=5, dtype=int)
-
-        self.assertIsInstance(state, np.ndarray)
-        np.testing.assert_array_equal(expected_state[:-1],
-                                      state[:-1])  # last element holds random value
-
-        # check throttle and mixture set
-        self.assertAlmostEqual(self.task.THROTTLE_CMD, dummy_sim['fcs/throttle-cmd-norm'])
-        self.assertAlmostEqual(self.task.MIXTURE_CMD, dummy_sim['fcs/mixture-cmd-norm'])
+    def get_target_heading(self, sim: SimStub):
+        return sim[TurnHeadingControlTask.target_heading_deg]
 
     def test_observe_first_state_creates_desired_heading_in_expected_range(self):
-        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(), 0)
-
+        dummy_sim = SimStub.make_valid_state_stub(self.task)
         state = self.task.observe_first_state(dummy_sim)
 
-        desired_heading = state[-1]
+        target_heading_index = self.task.state_variables.index(HeadingControlTask.target_heading_deg)
+        desired_heading = state[target_heading_index]
         self.assertGreaterEqual(desired_heading, 0)
         self.assertLessEqual(desired_heading, 360)
 
     def test_observe_first_state_changes_desired_heading(self):
-        dummy_sim = self.make_dummy_sim_with_all_props_set(self.task_state_property_dicts(), 0)
+        dummy_sim = SimStub.make_valid_state_stub(self.task)
         state = self.task.observe_first_state(dummy_sim)
-        desired_heading = state[-1]
+        target_heading_attr = HeadingControlTask.target_heading_deg.get_legal_name()
+        desired_heading = state.__getattribute__(target_heading_attr)
 
         new_episode_state = self.task.observe_first_state(dummy_sim)
-        new_desired_heading = new_episode_state[-1]
+        new_desired_heading = new_episode_state.__getattribute__(target_heading_attr)
 
         self.assertNotEqual(desired_heading, new_desired_heading)
-
-    def task_state_property_dicts(self) -> Dict:
-        extra_task_props = tuple({'name': prop_name} for prop_name in self.task_prop_names)
-        return self.task.state_variables + extra_task_props

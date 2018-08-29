@@ -65,7 +65,7 @@ class SimStub(dict):
         pass
 
     def start_engines(self):
-        pass
+        self[prp.engine_running] = 1.0
 
     def get_sim_time(self) -> float:
         """ Gets the simulation time from JSBSim, a float. """
@@ -126,7 +126,7 @@ class TransitioningSimStub(object):
         return self.current_sim[prop]
 
     def start_engines():
-        pass
+        self[prp.engine_running] = 1.0
 
 
 class DefaultSimStub(object):
