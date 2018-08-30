@@ -1,5 +1,7 @@
 import unittest
 import numpy as np
+import gym
+import gym_jsbsim
 from gym_jsbsim.agents import RandomAgent
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.tasks import HeadingControlTask
@@ -9,11 +11,7 @@ import gym_jsbsim.properties as prp
 class AgentEnvInteractionTest(unittest.TestCase):
     """ Tests for agents interacting with env. """
 
-    def test_random_agent_steady_level_task_setup(self):
-        # we create an environment with the steady level flight task
-        agent_interaction_hz = 5
-        env = JsbSimEnv(task_type=HeadingControlTask,
-                        agent_interaction_freq=agent_interaction_hz)
+    def init_and_reset_env(self, env: JsbSimEnv):
         self.assertIsInstance(env.task, HeadingControlTask)
 
         # we interact at 5 Hz, so we expect the sim to run 12 timesteps per
@@ -41,11 +39,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
         env.close()
         self.assertIsNone(env.sim.jsbsim)
 
-    def test_random_agent_steady_level_task_run(self):
-        # we create an environment and agent for the steady level flight task
-        agent_interaction_hz = int(JsbSimEnv.JSBSIM_DT_HZ / 10)
-        env = JsbSimEnv(task_type=HeadingControlTask,
-                        agent_interaction_freq=agent_interaction_hz)
+    def take_step_with_random_agent(self, env: JsbSimEnv):
         agent = RandomAgent(action_space=env.action_space)
 
         # we set up for a loop through one episode
@@ -59,9 +53,21 @@ class AgentEnvInteractionTest(unittest.TestCase):
         self.assertEqual(first_state.shape, state.shape)
         self.assertTrue(np.any(np.not_equal(first_state, state)),
                         msg='state should have changed after simulation step')
-        time_step = 1.0 / agent_interaction_hz
-        self.assertAlmostEqual(time_step, env.sim.get_sim_time())
+        expected_time_step_size = env.sim_steps / env.JSBSIM_DT_HZ
+        self.assertAlmostEqual(expected_time_step_size, env.sim.get_sim_time())
         self.assertFalse(done, msg='episode is terminal after only a single step')
 
         # the aircraft engines are running, as per initial conditions
         self.assertNotAlmostEqual(env.sim[prp.engine_thrust_lbs], 0)
+
+        env.close()
+
+    def test_init_and_reset_all_envs(self):
+        for env_id in gym_jsbsim.get_env_id_kwargs_map():
+            env = gym.make(env_id)
+            self.init_and_reset_env(env)
+
+    def test_take_step_with_random_agent_all_envs(self):
+        for env_id in gym_jsbsim.get_env_id_kwargs_map():
+            env = gym.make(env_id)
+            self.take_step_with_random_agent(env)

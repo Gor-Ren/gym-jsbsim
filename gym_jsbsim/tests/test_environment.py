@@ -1,10 +1,10 @@
 import unittest
 import gym
 import numpy as np
-import math
 import matplotlib.pyplot as plt
-import gym_jsbsim.tasks as tasks
 import gym_jsbsim.properties as prp
+import gym_jsbsim
+from gym_jsbsim import aircraft, tasks
 from gym_jsbsim.environment import JsbSimEnv, NoFGJsbSimEnv
 from gym_jsbsim.tests.stubs import BasicFlightTask
 from gym_jsbsim.visualiser import FlightGearVisualiser
@@ -12,7 +12,7 @@ from gym_jsbsim.visualiser import FlightGearVisualiser
 
 class TestJsbSimEnv(unittest.TestCase):
 
-    def setUp(self, agent_interaction_freq: int=10):
+    def setUp(self, agent_interaction_freq: int = 10):
         gym.logger.set_level(gym.logger.DEBUG)
         self.env = None
         self.init_env(agent_interaction_freq)
@@ -162,3 +162,37 @@ class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
     def test_render_flightgear_mode(self):
         with self.assertRaises(ValueError):
             self.env.render(mode='flightgear')
+
+
+class TestGymRegistration(unittest.TestCase):
+    def test_expected_number_of_envs(self):
+        num_tasks = 2
+        num_flightgear_setttings = 2
+        num_shaping_settings = 3
+        num_aircraft = 1
+
+        expected_envs = num_tasks * num_flightgear_setttings * num_shaping_settings * num_aircraft
+        num_envs = len(gym_jsbsim.get_env_id_kwargs_map())
+
+        self.assertGreaterEqual(num_envs, expected_envs)
+
+    def test_gym_environments_created_by_make(self):
+        for jsb_env_id, _ in gym_jsbsim.get_env_id_kwargs_map().items():
+            env = gym.make(jsb_env_id)
+            self.assertIsInstance(env, JsbSimEnv)
+
+    def test_gym_environments_configured_correctly(self):
+        Shaping = tasks.HeadingControlTask.Shaping
+        for task in (tasks.HeadingControlTask, tasks.TurnHeadingControlTask):
+            for plane in (aircraft.cessna172P,):
+                for shaping in (Shaping.OFF, Shaping.BASIC, Shaping.ADDITIVE):
+                    for enable_flightgear in (True, False):
+                        id = gym_jsbsim.get_env_id(task, plane, shaping, enable_flightgear)
+                        env = gym.make(id)
+
+                        if enable_flightgear:
+                            self.assertIsInstance(env, JsbSimEnv)
+                        else:
+                            self.assertIsInstance(env, NoFGJsbSimEnv)
+                        self.assertIsInstance(env.task, task)
+                        self.assertEqual(env.aircraft, plane)
