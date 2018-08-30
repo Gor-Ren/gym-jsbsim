@@ -162,26 +162,3 @@ class TestNoFlightGearJsbSimEnv(TestJsbSimEnv):
     def test_render_flightgear_mode(self):
         with self.assertRaises(ValueError):
             self.env.render(mode='flightgear')
-
-
-class TestGymEnvs(unittest.TestCase):
-    """ Test that JSBSim environments are correctly registered with OpenAI Gym """
-    id_class_pairs = (
-        ('SteadyLevelFlightCessna-v2', tasks.HeadingControlTask),
-        ('SteadyLevelFlightCessna-NoFG-v2', tasks.HeadingControlTask),
-        ('HeadingControlCessna-v0', tasks.TurnHeadingControlTask),
-        ('HeadingControlCessna-NoFG-v0', tasks.TurnHeadingControlTask)
-    )
-
-    def test_gym_inits_correct_task(self):
-        for gym_id, task_module in self.id_class_pairs:
-            env = gym.make(gym_id)
-            self.assertIsInstance(env.task, task_module)
-
-    def test_no_fg_uses_no_fg_class(self):
-        for gym_id, task_module in self.id_class_pairs:
-            env = gym.make(gym_id)
-            if 'NoFG' in gym_id:
-                self.assertIsInstance(env, NoFGJsbSimEnv)
-            else:
-                self.assertIsInstance(env, JsbSimEnv)

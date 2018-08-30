@@ -4,7 +4,7 @@ from enum import Enum
 from gym_jsbsim.tasks import HeadingControlTask
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
-from gym_jsbsim.aircraft import Aircraft, Cessna172P
+from gym_jsbsim.aircraft import Aircraft, cessna172P
 from typing import Type, Tuple, Dict
 
 
@@ -24,7 +24,7 @@ class JsbSimEnv(gym.Env):
     JSBSIM_DT_HZ: int = 60  # JSBSim integration frequency
     metadata = {'render.modes': ['human', 'flightgear']}
 
-    def __init__(self, task_type: Type[HeadingControlTask], aircraft: Aircraft = Cessna172P,
+    def __init__(self, task_type: Type[HeadingControlTask], aircraft: Aircraft = cessna172P,
                  agent_interaction_freq: int = 5, shaping: Enum = HeadingControlTask.Shaping.OFF):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be

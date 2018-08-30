@@ -25,7 +25,7 @@ class TestSimulation(unittest.TestCase):
 
     def test_load_model(self):
         # make fresh sim instance with "X15" plane
-        plane = aircraft.A320
+        plane = aircraft.a320
         self.sim = None
         self.sim = Simulation(aircraft=plane)
         actual_name = self.sim.get_model_name()
@@ -35,7 +35,7 @@ class TestSimulation(unittest.TestCase):
 
     def test_load_bad_aircraft_id(self):
         bad_name = 'qwertyuiop'
-        bad_aircraft = aircraft.Aircraft(bad_name, 100.)
+        bad_aircraft = aircraft.Aircraft(bad_name, '', 100.)
 
         with self.assertRaises(RuntimeError):
             self.sim = None
@@ -81,7 +81,7 @@ class TestSimulation(unittest.TestCase):
             self.assertAlmostEqual(expected, actual)
 
     def test_initialise_conditions_basic_config(self):
-        plane = aircraft.F15
+        plane = aircraft.f15
 
         # manually reset JSBSim instance with new initial conditions
         if self.sim:
@@ -111,7 +111,7 @@ class TestSimulation(unittest.TestCase):
     def test_initialise_conditions_custom_config(self):
         """ Test JSBSimInstance initialisation with custom initial conditions. """
 
-        plane = aircraft.F15
+        plane = aircraft.f15
         init_conditions = {
             prp.initial_u_fps: 1000.0,
             prp.initial_v_fps: 0.0,
@@ -155,8 +155,6 @@ class TestSimulation(unittest.TestCase):
 
         Let's confirm that we can launch multiple processes each with 1 instance.
         """
-        self.assertEqual(0, basic_task(), msg='same-process execution of JSBSim failed')
-
         processes = 4
         with multiprocessing.Pool(processes) as pool:
             # N.B. basic_task is a top level function that inits JSBSim
@@ -171,7 +169,7 @@ class TestSimulation(unittest.TestCase):
 
 def basic_task():
     """ A simple task involving initing a JSBSimInstance to test multiprocessing. """
-    model = aircraft.Cessna172P
+    model = aircraft.cessna172P
     time.sleep(0.05)
     fdm = Simulation(aircraft=model)
     fdm.run()

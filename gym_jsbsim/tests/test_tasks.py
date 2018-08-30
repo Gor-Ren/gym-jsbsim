@@ -4,7 +4,7 @@ import numpy as np
 import gym_jsbsim.properties as prp
 from gym_jsbsim.assessors import Assessor
 from gym_jsbsim import rewards
-from gym_jsbsim.aircraft import Aircraft, Cessna172P
+from gym_jsbsim.aircraft import Aircraft, cessna172P
 from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
 from gym_jsbsim.tests.stubs import SimStub, TransitioningSimStub
 from typing import Dict
@@ -14,7 +14,7 @@ class TestHeadingControlTask(unittest.TestCase):
     default_shaping = HeadingControlTask.Shaping.OFF
     default_episode_time_s = 15.0
     default_step_frequency_hz = 5
-    default_aircraft = Cessna172P
+    default_aircraft = cessna172P
 
     def setUp(self):
         self.task = self.make_task()
