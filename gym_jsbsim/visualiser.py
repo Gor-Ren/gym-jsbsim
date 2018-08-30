@@ -175,8 +175,9 @@ class FigureVisualiser(object):
                              axes_rudder=axes_rudder)
 
         # create figure-wide legend
-        cmd_entry = (plt.Line2D([], [], color='b', marker='o', ms=10, linestyle='', fillstyle='none'),
-                     'Commanded Position, normalised')
+        cmd_entry = (
+            plt.Line2D([], [], color='b', marker='o', ms=10, linestyle='', fillstyle='none'),
+            'Commanded Position, normalised')
         pos_entry = (plt.Line2D([], [], color='r', marker='+', ms=10, linestyle=''),
                      'Current Position, normalised')
         figure.legend((cmd_entry[0], pos_entry[0]),
@@ -207,7 +208,7 @@ class FigureVisualiser(object):
         # get velocity vector coords using scaled velocity
         x2 = x + u / self.FT_PER_DEG_LAT
         y2 = y + v / self.ft_per_deg_lon
-        z2 = z - w    # negative because w is positive in 'down' direction
+        z2 = z - w  # negative because w is positive in 'down' direction
 
         # plot aircraft position and velocity
         all_axes.axes_state.scatter([x], [y], zs=[z], c='k', s=10)
@@ -240,13 +241,15 @@ class FigureVisualiser(object):
         thr_cmd = sim[prp.throttle_cmd]
         rud_cmd = sim[prp.rudder_cmd]
 
-        all_axes.axes_stick.plot([ail_cmd], [ele_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
+        all_axes.axes_stick.plot([ail_cmd], [ele_cmd], 'bo', mfc='none', markersize=10,
+                                 clip_on=False)
         all_axes.axes_throttle.plot([0], [thr_cmd], 'bo', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_rudder.plot([rud_cmd], [0], 'bo', mfc='none', markersize=10, clip_on=False)
 
 
 class FlightGearVisualiser(object):
-    """ Class for visualising aircraft using the FlightGear simulator.
+    """
+    Class for visualising aircraft using the FlightGear simulator.
 
      This visualiser launches FlightGear and (by default) waits for it to
      launch. A Figure is also displayed (by creating its own FigureVisualiser)
@@ -262,10 +265,8 @@ class FlightGearVisualiser(object):
     FLIGHTGEAR_TIME_FACTOR = 5
 
     def __init__(self, sim: Simulation, block_until_loaded=True):
-        """ Constructor
-
-        Launches FlightGear in a subprocess and starts a figure for plotting
-        actions.
+        """
+        Launches FlightGear in subprocess and starts figure for plotting actions.
 
         :param sim: Simulation that will be visualised
         :param block_until_loaded: visualiser will block until it detects that
@@ -330,5 +331,5 @@ class FlightGearVisualiser(object):
     def close(self):
         if self.flightgear_process:
             self.flightgear_process.kill()
-            timeout_secs = 3
+            timeout_secs = 1
             self.flightgear_process.wait(timeout=timeout_secs)
