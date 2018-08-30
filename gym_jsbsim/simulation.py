@@ -132,7 +132,7 @@ class Simulation(object):
         self.load_model(model_name)
         self.jsbsim.set_dt(dt)
         # extract set of legal property names for this aircraft
-        # TODO: can remove the .split(" ")[0] once JSBSim bug has been fixed (in progress)
+        # TODO: can translate the .split(" ")[0] once JSBSim bug has been fixed (in progress)
 
         # now that IC object is created in JSBSim, specify own conditions
         self.set_custom_initial_conditions(init_conditions)

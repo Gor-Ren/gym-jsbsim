@@ -1,47 +1,33 @@
 import gym.envs.registration
+import enum
 from gym_jsbsim.tasks import Task, HeadingControlTask, TurnHeadingControlTask
 from gym_jsbsim.aircraft import Aircraft, cessna172P
+from gym_jsbsim import utils
 from typing import Type, Tuple, Dict
 
-
+""""""
 # This script registers all combinations of task, aircraft, shaping settings
 # etc. with OpenAI Gym so that they can be instantiated with a gym.make(id)
 # command.
 #
-# To get the ID of an environment with the desired configuration, use the
-# get_env_id(...) function.
+# The gym_jsbsim.Envs enum stores all registered environments as members with
+# their gym id string as value. This allows convenient autocompletion and value
+# safety. To use do,
+#       env = gym.make(gym_jsbsim.Envs.desired_environment.value)
 
-def get_env_id(task_type: Type[Task], plane: Aircraft, shaping: HeadingControlTask.Shaping,
-               enable_flightgear: bool) -> str:
+
+for env_id, (task, plane, shaping, enable_flightgear) in utils.get_env_id_kwargs_map().items():
     if enable_flightgear:
-        fg_setting = 'FG'
+        entry_point = 'gym_jsbsim.environment:JsbSimEnv'
     else:
-        fg_setting = 'NoFG'
-    return f'JSBSim-{task_type.__name__}-{plane.name}-{shaping}-{fg_setting}-v0'
-
-
-def get_env_id_kwargs_map() -> Dict[str, Tuple[Task, Aircraft, HeadingControlTask.Shaping, bool]]:
-    """ Returns all environment IDs mapped to tuple of (task, aircraft, shaping, flightgear) """
-    map = {}
-    for task_type in (HeadingControlTask, TurnHeadingControlTask):
-        for plane in (cessna172P,):
-            for shaping in (HeadingControlTask.Shaping.OFF, HeadingControlTask.Shaping.BASIC,
-                    HeadingControlTask.Shaping.ADDITIVE):
-                for enable_flightgear in (True, False):
-                    id = get_env_id(task_type, plane, shaping, enable_flightgear)
-                    assert id not in map
-                    map[id] = (task_type, plane, shaping, enable_flightgear)
-    return map
-
-
-entry_points = {True: 'gym_jsbsim.environment:JsbSimEnv',
-                False: 'gym_jsbsim.environment:NoFGJsbSimEnv'}
-
-for env_id, (task, plane, shaping, enable_flightgear) in get_env_id_kwargs_map().items():
-    entry_point = entry_points[enable_flightgear]
+        entry_point = 'gym_jsbsim.environment:NoFGJsbSimEnv'
     kwargs = dict(task_type=task,
                   aircraft=plane,
                   shaping=shaping)
     gym.envs.registration.register(id=env_id,
                                    entry_point=entry_point,
                                    kwargs=kwargs)
+
+# make an Enum storing every Gym-JSBSim environment ID for convenience and value safety
+Envs = enum.Enum.__call__('Envs', [(utils.AttributeFormatter.translate(env_id), env_id)
+                                   for env_id in utils.get_env_id_kwargs_map().keys()])

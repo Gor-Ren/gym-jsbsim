@@ -1,23 +1,18 @@
 import math
 import collections
+from typing import Tuple
+
+from gym_jsbsim import utils
 
 
 class BoundedProperty(collections.namedtuple('BoundedProperty', ['name', 'description', 'min', 'max'])):
-    ILLEGAL_CHARS = '\-/'
-    TRANSLATE_TO = '_' * len(ILLEGAL_CHARS)
-    legal_translate = str.maketrans(ILLEGAL_CHARS, TRANSLATE_TO)
-
     def get_legal_name(self):
-        return self.name.translate(self.legal_translate)
+        return utils.AttributeFormatter.translate(self.name)
 
 
 class Property(collections.namedtuple('Property', ['name', 'description'])):
-    ILLEGAL_CHARS = '\-/'
-    TRANSLATE_TO = '_' * len(ILLEGAL_CHARS)
-    legal_translate = str.maketrans(ILLEGAL_CHARS, TRANSLATE_TO)
-
     def get_legal_name(self):
-        return self.name.translate(self.legal_translate)
+        return utils.AttributeFormatter.translate(self.name)
 
 
 # position and attitude
@@ -76,3 +71,27 @@ initial_q_radps = Property('ic/q-rad_sec', 'pitch rate [rad/s]')
 initial_r_radps = Property('ic/r-rad_sec', 'yaw rate [rad/s]')
 initial_roc_fpm = Property('ic/roc-fpm', 'initial rate of climb [ft/min]')
 initial_heading_deg = Property('ic/psi-true-deg', 'initial (true) heading [deg]')
+
+
+class GeodeticPosition(object):
+    def __init__(self, latitude_deg: float, longitude_deg: float):
+        self.lat = latitude_deg
+        self.lon = longitude_deg
+
+    def heading_deg_to(self, destination: 'GeodeticPosition') -> float:
+        """ Determines heading in degrees of course between self and destination """
+        delta_lat, delta_lon = destination - self
+        heading_rad = math.atan2(delta_lon, delta_lat)
+        heading_deg_normalised = (math.degrees(heading_rad) + 360) % 360
+        return heading_deg_normalised
+
+    @staticmethod
+    def from_sim(sim: 'simulation.Simulation') -> 'GeodeticPosition':
+        """ Return a GeodeticPosition object with lat and lon from simulation """
+        lat_deg = sim[lat_geod_deg]
+        lon_deg = sim[lng_geoc_deg]
+        return GeodeticPosition(lat_deg, lon_deg)
+
+    def __sub__(self, other) -> Tuple[float, float]:
+        """ Returns difference between two Cartesian coords as (delta_lat, delta_long) """
+        return self.lat - other.lat, self.lon - other.lon

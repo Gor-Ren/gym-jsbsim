@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import gym
-import gym_jsbsim
+from gym_jsbsim import utils
 from gym_jsbsim.agents import RandomAgent
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.tasks import HeadingControlTask
@@ -63,11 +63,11 @@ class AgentEnvInteractionTest(unittest.TestCase):
         env.close()
 
     def test_init_and_reset_all_envs(self):
-        for env_id in gym_jsbsim.get_env_id_kwargs_map():
+        for env_id in utils.get_env_id_kwargs_map():
             env = gym.make(env_id)
             self.init_and_reset_env(env)
 
     def test_take_step_with_random_agent_all_envs(self):
-        for env_id in gym_jsbsim.get_env_id_kwargs_map():
+        for env_id in utils.get_env_id_kwargs_map():
             env = gym.make(env_id)
             self.take_step_with_random_agent(env)

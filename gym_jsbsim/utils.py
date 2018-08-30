@@ -1,30 +1,51 @@
-import math
-import gym_jsbsim.properties as prp
 from typing import Tuple
-from gym_jsbsim.simulation import Simulation
+from gym_jsbsim.aircraft import cessna172P
+from typing import Dict
 
 
-class GeodeticPosition(object):
-    def __init__(self, latitude_deg: float, longitude_deg: float):
-        self.lat = latitude_deg
-        self.lon = longitude_deg
+class AttributeFormatter(object):
+    """
+    Replaces characters that would be illegal in an attribute name
 
-    def heading_deg_to(self, destination: 'GeodeticPosition') -> float:
-        """ Determines heading in degrees of course between self and destination """
-        delta_lat, delta_lon = destination - self
-        heading_rad = math.atan2(delta_lon, delta_lat)
-        heading_deg_normalised = (math.degrees(heading_rad) + 360) % 360
-        return heading_deg_normalised
+    Used through its static method, translate()
+    """
+    ILLEGAL_CHARS = '\-/.'
+    TRANSLATE_TO = '_' * len(ILLEGAL_CHARS)
+    TRANSLATION_TABLE = str.maketrans(ILLEGAL_CHARS, TRANSLATE_TO)
 
     @staticmethod
-    def from_sim(sim: Simulation) -> 'GeodeticPosition':
-        """ Return a GeodeticPosition object with lat and lon from simulation """
-        lat_deg = sim[prp.lat_geod_deg]
-        lon_deg = sim[prp.lng_geoc_deg]
-        return GeodeticPosition(lat_deg, lon_deg)
-
-    def __sub__(self, other) -> Tuple[float, float]:
-        """ Returns difference between two Cartesian coords as (delta_lat, delta_long) """
-        return self.lat - other.lat, self.lon - other.lon
+    def translate(string: str):
+        return string.translate(AttributeFormatter.TRANSLATION_TABLE)
 
 
+def get_env_id(task_type, aircraft, shaping, enable_flightgear) -> str:
+    """
+    Creates an env ID from the environment's components
+
+    :param task_type: Task class, the environment's task
+    :param aircraft: Aircraft namedtuple, the aircraft to be flown
+    :param shaping: HeadingControlTask.Shaping enum, the reward shaping setting
+    :param enable_flightgear: True if FlightGear simulator is enabled for visualisation else False
+     """
+    if enable_flightgear:
+        fg_setting = 'FG'
+    else:
+        fg_setting = 'NoFG'
+    return f'JSBSim-{task_type.__name__}-{aircraft.name}-{shaping}-{fg_setting}-v0'
+
+
+def get_env_id_kwargs_map() -> Dict[str, Tuple]:
+    """ Returns all environment IDs mapped to tuple of (task, aircraft, shaping, flightgear) """
+    # lazy import to avoid circular dependencies
+    from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
+
+    map = {}
+    for task_type in (HeadingControlTask, TurnHeadingControlTask):
+        for plane in (cessna172P,):
+            for shaping in (HeadingControlTask.Shaping.OFF, HeadingControlTask.Shaping.BASIC,
+                            HeadingControlTask.Shaping.ADDITIVE):
+                for enable_flightgear in (True, False):
+                    id = get_env_id(task_type, plane, shaping, enable_flightgear)
+                    assert id not in map
+                    map[id] = (task_type, plane, shaping, enable_flightgear)
+    return map

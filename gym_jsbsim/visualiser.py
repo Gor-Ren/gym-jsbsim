@@ -66,7 +66,7 @@ class FigureVisualiser(object):
 
         # delete old control surface data points
         for subplot in self.axes[1:]:
-            # pop and remove all data points
+            # pop and translate all data points
             while subplot.lines:
                 data = subplot.lines.pop()
                 del data

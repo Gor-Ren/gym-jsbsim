@@ -1,4 +1,4 @@
-from gym_jsbsim.utils import GeodeticPosition
+from gym_jsbsim.properties import GeodeticPosition
 import unittest
 
 

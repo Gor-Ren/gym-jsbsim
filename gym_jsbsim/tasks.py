@@ -4,9 +4,8 @@ import random
 import types
 import math
 import enum
-import gym_jsbsim.properties as prp
-from gym_jsbsim import utils
 from collections import namedtuple
+import gym_jsbsim.properties as prp
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim import rewards
 from gym_jsbsim import assessors
@@ -294,7 +293,7 @@ class HeadingControlTask(FlightTask):
 
         Stores result in Simulation as custom property.
         """
-        current_position = utils.GeodeticPosition.from_sim(sim)
+        current_position = prp.GeodeticPosition.from_sim(sim)
         heading_travelled_deg = self.initial_position.heading_deg_to(current_position)
         heading_error_rad = math.radians(heading_travelled_deg - target_heading_deg)
 
@@ -312,7 +311,7 @@ class HeadingControlTask(FlightTask):
         sim[prp.mixture_cmd] = self.MIXTURE_CMD
 
         sim[self.target_heading_deg] = self._get_target_heading()
-        self.initial_position = utils.GeodeticPosition.from_sim(sim)
+        self.initial_position = prp.GeodeticPosition.from_sim(sim)
 
     def _get_target_heading(self) -> float:
         # use the same, initial heading every episode
