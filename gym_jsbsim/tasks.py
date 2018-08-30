@@ -243,9 +243,9 @@ class HeadingControlTask(FlightTask):
                                                           self.state_variables,
                                                           self.distance_parallel_m.max,
                                                           self.distance_parallel_m.max)
-        if shaping == self.Shaping.OFF:
+        if shaping is self.Shaping.OFF:
             shaping_components = ()
-        elif shaping == self.Shaping.BASIC:
+        elif shaping is self.Shaping.BASIC:
             shaping_components = (distance_shaping,)
         else:
             shaping_components = (
@@ -265,11 +265,11 @@ class HeadingControlTask(FlightTask):
     def _select_assessor(self, base_components: Tuple[rewards.RewardComponent, ...],
                          shaping_components: Tuple[rewards.ShapingComponent, ...],
                          shaping: Shaping) -> assessors.AssessorImpl:
-        if shaping == self.Shaping.OFF or self.Shaping.BASIC or self.Shaping.ADDITIVE:
+        if shaping is self.Shaping.OFF or shaping is self.Shaping.BASIC or shaping is self.Shaping.ADDITIVE:
             return assessors.AssessorImpl(base_components, shaping_components)
-        elif shaping == self.Shaping.SEQUENTIAL_CONT:
+        elif shaping is self.Shaping.SEQUENTIAL_CONT:
             raise NotImplementedError
-        elif shaping == self.Shaping.SEQUENTIAL_DISCONT:
+        elif shaping is self.Shaping.SEQUENTIAL_DISCONT:
             raise NotImplementedError
 
     def get_initial_conditions(self) -> Dict[Property, float]:
