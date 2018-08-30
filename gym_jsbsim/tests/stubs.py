@@ -34,6 +34,9 @@ class FlightTaskStub(FlightTask):
         """ Returns a State of this class' test properties populated with input values """
         return self.State(value1, value2)
 
+    def get_props_to_output(self) -> Tuple:
+        return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg
+
     def get_dummy_state_and_properties(self, values: Iterable[float]) -> Tuple[
         NamedTuple, Tuple[prp.Property, ...]]:
         """
@@ -58,6 +61,8 @@ class BasicFlightTask(FlightTask):
     def get_initial_conditions(self):
         return self.base_initial_conditions
 
+    def get_props_to_output(self) -> Tuple:
+        return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg
 
 class SimStub(dict):
 

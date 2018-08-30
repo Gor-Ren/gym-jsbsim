@@ -88,7 +88,7 @@ class JsbSimEnv(gym.Env):
         state = self.task.observe_first_state(self.sim)
 
         if self.flightgear_visualiser:
-            self.flightgear_visualiser.configure_simulation(self.sim)
+            self.flightgear_visualiser.configure_simulation_output(self.sim)
 
         return np.array(state)
 
@@ -121,11 +121,14 @@ class JsbSimEnv(gym.Env):
         """
         if mode == 'human':
             if not self.figure_visualiser:
-                self.figure_visualiser = FigureVisualiser(self.sim)
+                self.figure_visualiser = FigureVisualiser(self.sim,
+                                                          self.task.get_props_to_output())
             self.figure_visualiser.plot(self.sim)
         elif mode == 'flightgear':
             if not self.flightgear_visualiser:
-                self.flightgear_visualiser = FlightGearVisualiser(self.sim, flightgear_blocking)
+                self.flightgear_visualiser = FlightGearVisualiser(self.sim,
+                                                                  self.task.get_props_to_output(),
+                                                                  flightgear_blocking)
             self.flightgear_visualiser.plot(self.sim)
         else:
             super().render(mode=mode)

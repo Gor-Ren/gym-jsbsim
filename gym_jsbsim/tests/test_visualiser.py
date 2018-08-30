@@ -13,7 +13,8 @@ class TestFigureVisualiser(unittest.TestCase):
 
     def setUp(self, plot_position=True):
         self.sim = DefaultSimStub()
-        self.visualiser = FigureVisualiser(sim=DefaultSimStub(), is_plot_position=plot_position)
+        task = BasicFlightTask()
+        self.visualiser = FigureVisualiser(DefaultSimStub(), task.get_props_to_output())
 
     def tearDown(self):
         self.visualiser.close()
@@ -25,15 +26,6 @@ class TestFigureVisualiser(unittest.TestCase):
 
         self.assertIsInstance(self.visualiser.figure, plt.Figure)
         self.assertIsInstance(self.visualiser.axes, gym_jsbsim.visualiser.AxesTuple)
-
-    def test_plot_plots_aircraft_position(self):
-        self.setUp(plot_position=True)
-
-        self.visualiser.plot(self.sim)
-
-        position_axis = self.visualiser.axes.axes_state
-        is_empty_plot = len(position_axis.axes.lines) == 0
-        self.assertFalse(is_empty_plot)
 
     def test_plot_doesnt_plot_position_when_set_by_init(self):
         self.setUp(plot_position=False)
@@ -69,6 +61,7 @@ class TestFlightGearVisualiser(unittest.TestCase):
             self.env.close()
         if self.sim:
             self.sim.close()
+        self.task = BasicFlightTask()
         self.env = JsbSimEnv(task_type=BasicFlightTask)
         self.env.reset()
         self.sim = self.env.sim
@@ -85,11 +78,12 @@ class TestFlightGearVisualiser(unittest.TestCase):
             self.flightgear.close()
 
     def test_init_creates_figure(self):
-        self.flightgear = FlightGearVisualiser(self.sim, block_until_loaded=False)
+        self.flightgear = FlightGearVisualiser(self.sim, self.task.get_props_to_output(),
+                                               block_until_loaded=False)
         self.assertIsInstance(self.flightgear.figure, FigureVisualiser)
 
     def test_launch_flightgear(self):
-        self.flightgear = FlightGearVisualiser(self.sim,
+        self.flightgear = FlightGearVisualiser(self.sim, self.task.get_props_to_output(),
                                                block_until_loaded=False)
         time.sleep(0.5)
 
@@ -98,7 +92,7 @@ class TestFlightGearVisualiser(unittest.TestCase):
         self.flightgear.close()
 
     def test_close_closes_flightgear(self):
-        self.flightgear = FlightGearVisualiser(self.sim,
+        self.flightgear = FlightGearVisualiser(self.sim, self.task.get_props_to_output(),
                                                block_until_loaded=False)
         self.flightgear.close()
         timeout_seconds = 2.0
@@ -108,7 +102,7 @@ class TestFlightGearVisualiser(unittest.TestCase):
 
     def test_plot_displays_actions(self):
         self.setUp()
-        self.flightgear = FlightGearVisualiser(self.sim,
+        self.flightgear = FlightGearVisualiser(self.sim, self.task.get_props_to_output(),
                                                block_until_loaded=False)
         self.flightgear.plot(self.sim)
 

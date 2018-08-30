@@ -1,17 +1,15 @@
 import gym
-import math
 import subprocess
 import time
 import matplotlib.pyplot as plt
 import gym_jsbsim.properties as prp
-from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from gym_jsbsim.simulation import Simulation
-from typing import NamedTuple, Dict
+from typing import NamedTuple, Tuple
 
 
 class AxesTuple(NamedTuple):
     """ Holds references to figure subplots (axes) """
-    axes_state: Axes3D
+    axes_state: plt.Axes
     axes_stick: plt.Axes
     axes_throttle: plt.Axes
     axes_rudder: plt.Axes
@@ -19,21 +17,16 @@ class AxesTuple(NamedTuple):
 
 class FigureVisualiser(object):
     """ Class for manging a matplotlib Figure displaying agent state and actions """
-    props_to_plot: Dict[str, prp.BoundedProperty] = dict(x=prp.lat_geod_deg,
-                                                         y=prp.lng_geoc_deg,
-                                                         z=prp.altitude_sl_ft,
-                                                         u=prp.v_north_fps,
-                                                         v=prp.v_east_fps,
-                                                         w=prp.v_down_fps,
-                                                         ail=prp.aileron_left,
-                                                         ele=prp.elevator,
-                                                         thr=prp.throttle,
-                                                         rud=prp.rudder, )
-    FT_PER_DEG_LAT: int = 365228
-    ft_per_deg_lon: int = None  # calc at reset() - it depends on the longitude value
     PLOT_PAUSE_SECONDS = 0.0001
+    TEXT_KWARGS = dict(fontsize=18,
+                       horizontalalignment='left',
+                       verticalalignment='baseline')
+    TEXT_X_POSN_LABEL = 0.1
+    TEXT_X_POSN_VALUE = 0.7
+    TEXT_Y_POSN_INITIAL = 1.0
+    TEXT_Y_INCREMENT = -0.1
 
-    def __init__(self, sim: Simulation, is_plot_position=True):
+    def __init__(self, _: Simulation, print_props: Tuple[prp.Property]):
         """
         Constructor.
 
@@ -42,18 +35,14 @@ class FigureVisualiser(object):
         coordinate systems). We retrieve longitude from the simulation and
         assume it is constant thereafter.
 
-        :param sim: Simulation that will be plotted
-        :param is_plot_position: aircraft position and velocity is plotted if True
+        :param _: (unused) Simulation that will be plotted
+        :param print_props: Propertys which will have their values printed to Figure.
+            Must be retrievable from the plotted Simulation.
         """
-        self.is_plot_position = is_plot_position
+        self.print_props = print_props
         self.figure: plt.Figure = None
         self.axes: AxesTuple = None
-        self.velocity_arrow = None
-
-        # ft per deg. longitude is distance at equator * cos(lon)
-        # attribution: https://www.colorado.edu/geography/gcraft/warmup/aquifer/html/distance.html
-        lon = sim[self.props_to_plot['y']]
-        self.ft_per_deg_lon = self.FT_PER_DEG_LAT * math.cos(math.radians(lon))
+        self.value_texts: Tuple[plt.Text] = None
 
     def plot(self, sim: Simulation) -> None:
         """
@@ -71,8 +60,7 @@ class FigureVisualiser(object):
                 data = subplot.lines.pop()
                 del data
 
-        if self.is_plot_position:
-            self._plot_position_state(sim, self.axes)
+        self._print_state(sim)
         self._plot_control_states(sim, self.axes)
         self._plot_control_commands(sim, self.axes)
         plt.pause(self.PLOT_PAUSE_SECONDS)  # voodoo pause needed for figure to update
@@ -82,7 +70,6 @@ class FigureVisualiser(object):
             plt.close(self.figure)
             self.figure = None
             self.axes = None
-            self.velocity_arrow = None
 
     def _plot_configure(self):
         """
@@ -102,21 +89,14 @@ class FigureVisualiser(object):
                             wspace=0.3)
 
         # create subplots
-        if self.is_plot_position:
-            axes_state: Axes3D = figure.add_subplot(spec[0, 0:], projection='3d')
-        else:
-            axes_state = None
+        axes_state = figure.add_subplot(spec[0, 0:])
         axes_stick = figure.add_subplot(spec[1, 0])
         axes_throttle = figure.add_subplot(spec[1, 1])
         axes_rudder = figure.add_subplot(spec[2, 0])
 
-        if self.is_plot_position:
-            # config subplot for state
-            axes_state.set_xlabel(self.props_to_plot['x'].description)
-            axes_state.set_ylabel(self.props_to_plot['y'].description)
-            axes_state.set_zlabel(self.props_to_plot['z'].description)
-            green_rgba = (0.556, 0.764, 0.235, 0.8)
-            axes_state.w_zaxis.set_pane_color(green_rgba)
+        # hide state subplot axes - text will be printed to it
+        axes_state.axis('off')
+        self._prepare_state_printing(axes_state)
 
         # config subplot for stick (aileron and elevator control in x/y axes)
         axes_stick.set_xlabel('ailerons [-]', )
@@ -189,41 +169,31 @@ class FigureVisualiser(object):
 
         return figure, all_axes
 
-    def _plot_position_state(self, sim: Simulation, all_axes: AxesTuple):
-        """
-        Plots the state of the simulation on input axes.
+    def _prepare_state_printing(self, ax: plt.Axes):
+        ys = [self.TEXT_Y_POSN_INITIAL + i * self.TEXT_Y_INCREMENT
+              for i in range(len(self.print_props))]
 
-        State is given by three translational coords (x, y, z) and three
-        linear velocities (u, v, w).
+        for prop, y in zip(self.print_props, ys):
+            label = str(prop.name)
+            ax.text(self.TEXT_X_POSN_LABEL, y, label, transform=ax.transAxes, **(self.TEXT_KWARGS))
 
-        The dict 'props' provides a mapping of these variable names to a
-        dict specifying their 'name', the property to be retrieved from
-        JSBSim.
+        # print and store empty Text objects which we will rewrite each plot call
+        value_texts = []
+        dummy_msg = ''
+        for y in ys:
+            text = ax.text(self.TEXT_X_POSN_VALUE, y, dummy_msg, transform=ax.transAxes,
+                           **(self.TEXT_KWARGS))
+            value_texts.append(text)
+        self.value_texts = tuple(value_texts)
 
-        :param all_axes: AxesTuple, collection of axes of subplots to plot on
-        """
-        x, y, z = [sim[self.props_to_plot[var]] for var in 'xyz']
-        u, v, w = [sim[self.props_to_plot[var]] for var in 'uvw']
-
-        # get velocity vector coords using scaled velocity
-        x2 = x + u / self.FT_PER_DEG_LAT
-        y2 = y + v / self.ft_per_deg_lon
-        z2 = z - w  # negative because w is positive in 'down' direction
-
-        # plot aircraft position and velocity
-        all_axes.axes_state.scatter([x], [y], zs=[z], c='k', s=10)
-        if self.velocity_arrow:
-            # get rid of previous timestep velocity arrow
-            self.velocity_arrow.pop().remove()
-        self.velocity_arrow = all_axes.axes_state.plot([x, x2], [y, y2], [z, z2], 'r-')
-
-        # rescale the top z-axis limit, but keep bottom limit at 0
-        all_axes.axes_state.set_autoscalez_on(True)
-        all_axes.axes_state.set_zlim3d(bottom=0, top=None)
+    def _print_state(self, sim: Simulation):
+        # update each Text object with latest value
+        for prop, text in zip(self.print_props, self.value_texts):
+            text.set_text(f'{sim[prop]:.4g}')
 
     def _plot_control_states(self, sim: Simulation, all_axes: AxesTuple):
-        control_surfaces = ['ail', 'ele', 'thr', 'rud']
-        ail, ele, thr, rud = [sim[self.props_to_plot[control]] for control in control_surfaces]
+        control_surfaces = [prp.aileron_left, prp.elevator, prp.throttle, prp.rudder]
+        ail, ele, thr, rud = [sim[control] for control in control_surfaces]
         # plot aircraft control surface positions
         all_axes.axes_stick.plot([ail], [ele], 'r+', mfc='none', markersize=10, clip_on=False)
         all_axes.axes_throttle.plot([0], [thr], 'r+', mfc='none', markersize=10, clip_on=False)
@@ -251,10 +221,10 @@ class FlightGearVisualiser(object):
     """
     Class for visualising aircraft using the FlightGear simulator.
 
-     This visualiser launches FlightGear and (by default) waits for it to
-     launch. A Figure is also displayed (by creating its own FigureVisualiser)
-     which is used to display the agent's actions.
-     """
+    This visualiser launches FlightGear and (by default) waits for it to
+    launch. A Figure is also displayed (by creating its own FigureVisualiser)
+    which is used to display the agent's actions.
+    """
     TYPE = 'socket'
     DIRECTION = 'in'
     RATE = 60
@@ -264,17 +234,19 @@ class FlightGearVisualiser(object):
     LOADED_MESSAGE = 'loading cities done'
     FLIGHTGEAR_TIME_FACTOR = 5
 
-    def __init__(self, sim: Simulation, block_until_loaded=True):
+    def __init__(self, sim: Simulation, print_props: Tuple[prp.Property], block_until_loaded=True):
         """
         Launches FlightGear in subprocess and starts figure for plotting actions.
 
         :param sim: Simulation that will be visualised
+        :param print_props: collection of Propertys to be printed to Figure
         :param block_until_loaded: visualiser will block until it detects that
             FlightGear has loaded if True.
         """
-        self.configure_simulation(sim)
+        self.configure_simulation_output(sim)
+        self.print_props = print_props
         self.flightgear_process = self._launch_flightgear(sim.get_model_name())
-        self.figure = FigureVisualiser(sim, is_plot_position=False)
+        self.figure = FigureVisualiser(sim, print_props)
         if block_until_loaded:
             self._block_until_flightgear_loaded()
 
@@ -296,7 +268,7 @@ class FlightGearVisualiser(object):
         gym.logger.info('Started FlightGear')
         return flightgear_process
 
-    def configure_simulation(self, sim: Simulation):
+    def configure_simulation_output(self, sim: Simulation):
         sim.enable_flightgear_output()
         sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
 

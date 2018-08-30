@@ -317,6 +317,9 @@ class HeadingControlTask(FlightTask):
         # use the same, initial heading every episode
         return self.INITIAL_HEADING_DEG
 
+    def get_props_to_output(self) -> Tuple:
+        return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg, self.target_heading_deg
+
 
 class TurnHeadingControlTask(HeadingControlTask):
     """
