@@ -8,7 +8,7 @@ from typing import Tuple, NamedTuple, Iterable
 
 class AssessorStub(Assessor):
 
-    def assess(self, state: State, last_state: State, is_terminal: bool) -> Reward:
+    def assess(self, state: State, prev_state: State, is_terminal: bool) -> Reward:
         base_reward = (0,)
         shaping_reward = ()
         return Reward(base_reward, shaping_reward)

@@ -8,7 +8,7 @@ class Assessor(ABC):
     """ Interface for Assessors which calculate Rewards from States. """
 
     @abstractmethod
-    def assess(self, state: State, last_state: State, is_terminal: bool) -> Reward:
+    def assess(self, state: State, prev_state: State, is_terminal: bool) -> Reward:
         """ Calculates reward from environment's state, previous state and terminal condition """
         ...
 
@@ -33,9 +33,9 @@ class AssessorImpl(Assessor):
         if not self.base_components:
             raise ValueError('base reward components cannot be empty')
 
-    def assess(self, state: State, last_state: State, is_terminal: bool) -> Reward:
-        return Reward(self._base_rewards(state, last_state, is_terminal),
-                      self._shaping_rewards(state, last_state, is_terminal))
+    def assess(self, state: State, prev_state: State, is_terminal: bool) -> Reward:
+        return Reward(self._base_rewards(state, prev_state, is_terminal),
+                      self._shaping_rewards(state, prev_state, is_terminal))
 
     def _base_rewards(self, state: State, last_state: State, is_terminal: bool) -> Tuple[float, ...]:
         return tuple(cmp.calculate(state, last_state, is_terminal) for cmp in self.base_components)

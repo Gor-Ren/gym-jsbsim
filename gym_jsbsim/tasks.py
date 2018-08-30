@@ -210,7 +210,7 @@ class HeadingControlTask(FlightTask):
         """
         self.max_time_s = episode_time_s
         self.episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
-
+        self.aircraft = aircraft
         self.distance_parallel_m = BoundedProperty('position/dist-parallel-heading-m',
                                                    'distance travelled parallel to target heading [m]',
                                                    0, aircraft.get_max_distance_m(self.max_time_s))
@@ -272,7 +272,7 @@ class HeadingControlTask(FlightTask):
             raise NotImplementedError
 
     def get_initial_conditions(self) -> Dict[Property, float]:
-        extra_conditions = {prp.initial_u_fps: 150,
+        extra_conditions = {prp.initial_u_fps: self.aircraft.get_cruise_speed_fps(),
                             prp.initial_v_fps: 0,
                             prp.initial_w_fps: 0,
                             prp.initial_p_radps: 0,
