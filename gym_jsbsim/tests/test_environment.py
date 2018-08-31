@@ -199,7 +199,7 @@ class TestGymRegistration(unittest.TestCase):
         Shaping = tasks.HeadingControlTask.Shaping
         for task in (tasks.HeadingControlTask, tasks.TurnHeadingControlTask):
             for plane in (aircraft.cessna172P,):
-                for shaping in (Shaping.OFF, Shaping.BASIC, Shaping.ADDITIVE):
+                for shaping in (Shaping.OFF, Shaping.BASIC, Shaping.ADDITIVE, Shaping.SEQUENTIAL_CONT):
                     for enable_flightgear in (True, False):
                         id = utils.get_env_id(task, plane, shaping, enable_flightgear)
                         env = gym.make(id)
