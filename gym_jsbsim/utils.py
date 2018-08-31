@@ -45,7 +45,8 @@ def get_env_id_kwargs_map() -> Dict[str, Tuple]:
     for task_type in (HeadingControlTask, TurnHeadingControlTask):
         for plane in (cessna172P,):
             for shaping in (HeadingControlTask.Shaping.OFF, HeadingControlTask.Shaping.BASIC,
-                            HeadingControlTask.Shaping.ADDITIVE):
+                            HeadingControlTask.Shaping.ADDITIVE,
+                            HeadingControlTask.Shaping.SEQUENTIAL_CONT):
                 for enable_flightgear in (True, False):
                     id = get_env_id(task_type, plane, shaping, enable_flightgear)
                     assert id not in map

@@ -5,16 +5,16 @@ from gym_jsbsim.aircraft import Aircraft, cessna172P
 from gym_jsbsim import utils
 from typing import Type, Tuple, Dict
 
-""""""
-# This script registers all combinations of task, aircraft, shaping settings
-# etc. with OpenAI Gym so that they can be instantiated with a gym.make(id)
-# command.
-#
-# The gym_jsbsim.Envs enum stores all registered environments as members with
-# their gym id string as value. This allows convenient autocompletion and value
-# safety. To use do,
-#       env = gym.make(gym_jsbsim.Envs.desired_environment.value)
+"""
+This script registers all combinations of task, aircraft, shaping settings
+ etc. with OpenAI Gym so that they can be instantiated with a gym.make(id)
+ command.
 
+The gym_jsbsim.Envs enum stores all registered environments as members with
+ their gym id string as value. This allows convenient autocompletion and value
+ safety. To use do:
+       env = gym.make(gym_jsbsim.Envs.desired_environment.value)
+"""
 
 for env_id, (task, plane, shaping, enable_flightgear) in utils.get_env_id_kwargs_map().items():
     if enable_flightgear:

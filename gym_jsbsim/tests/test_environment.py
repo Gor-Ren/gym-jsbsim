@@ -168,7 +168,7 @@ class TestGymRegistration(unittest.TestCase):
     def get_number_of_envs(self) -> int:
         num_tasks = 2
         num_flightgear_setttings = 2
-        num_shaping_settings = 3
+        num_shaping_settings = 4
         num_aircraft = 1
 
         return num_tasks * num_flightgear_setttings * num_shaping_settings * num_aircraft
@@ -177,13 +177,13 @@ class TestGymRegistration(unittest.TestCase):
         expected_envs = self.get_number_of_envs()
         num_envs = len(utils.get_env_id_kwargs_map())
 
-        self.assertGreaterEqual(expected_envs, num_envs)
+        self.assertLessEqual(expected_envs, num_envs)
 
     def test_expected_number_of_envs_from_enum(self):
         expected_envs = self.get_number_of_envs()
         num_envs = len(gym_jsbsim.Envs)
 
-        self.assertGreaterEqual(expected_envs, num_envs)
+        self.assertLessEqual(expected_envs, num_envs)
 
     def test_gym_environments_makeable_by_gym_from_helper_function(self):
         for jsb_env_id in utils.get_env_id_kwargs_map():

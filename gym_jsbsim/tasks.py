@@ -270,7 +270,7 @@ class HeadingControlTask(FlightTask):
         else:
             dist_travel, heading_error, wings_level = shaping_components
             # we want reward for keeping wings level only after heading is good
-            dependency_map = {wings_level: heading_error}
+            dependency_map = {wings_level: (heading_error,)}
             if shaping is self.Shaping.SEQUENTIAL_CONT:
                 return assessors.ContinuousSequentialAssessor(base_components, shaping_components,
                                                               dependency_map)
