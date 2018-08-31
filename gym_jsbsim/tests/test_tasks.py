@@ -87,14 +87,14 @@ class TestHeadingControlTask(unittest.TestCase):
 
         self.assertIsInstance(task.assessor, Assessor)
         self.assertEqual(2, len(task.assessor.base_components))
-        self.assertEqual(1, len(task.assessor.shaping_components))
+        self.assertEqual(2, len(task.assessor.shaping_components))
 
     def test_init_shaping_additive(self):
         task = self.make_task(shaping_type=HeadingControlTask.Shaping.ADDITIVE)
 
         self.assertIsInstance(task.assessor, Assessor)
         self.assertEqual(2, len(task.assessor.base_components))
-        self.assertEqual(3, len(task.assessor.shaping_components))
+        self.assertEqual(4, len(task.assessor.shaping_components))
 
     def test_get_intial_conditions_valid_target_heading(self):
         self.setUp()
@@ -235,7 +235,7 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_task_step_correct_terminal_reward_optimal_behaviour_shaping(self):
         self.setUp()
         Shaping = HeadingControlTask.Shaping
-        for shaping in (Shaping.OFF, Shaping.BASIC, Shaping.ADDITIVE):
+        for shaping in (Shaping.OFF, Shaping.BASIC, Shaping.ADDITIVE, Shaping.SEQUENTIAL_CONT):
             task = self.make_task(shaping_type=shaping,
                                   episode_time_s=1.,
                                   step_frequency_hz=1.)
@@ -250,6 +250,10 @@ class TestHeadingControlTask(unittest.TestCase):
             # aircraft moved maximum distance on correct heading and maintained
             # altitude, so we expect non-shaping reward of 1.0
             self.assertAlmostEqual(1., reward_obj.non_shaping_reward())
+
+    def test_task_step_correct_sequential_reward_shaping_(self):
+        self.setUp()
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.SEQUENTIAL_CONT),
 
     def test_observe_first_state_correct_heading_error(self):
         self.setUp()

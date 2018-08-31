@@ -90,13 +90,14 @@ class FlightTask(Task, ABC):
         (optional) _new_episode_init(): performs any control input/initialisation on episode reset
         (optional) _update_custom_properties: updates any custom properties in the sim
     """
+    INITIAL_ALTITUDE_FT = 5000
     base_state_variables = (prp.altitude_sl_ft, prp.pitch_rad, prp.roll_rad,
                             prp.u_fps, prp.v_fps, prp.w_fps,
                             prp.p_radps, prp.q_radps, prp.r_radps,
                             prp.aileron_left, prp.aileron_right, prp.elevator,
                             prp.rudder)
     base_initial_conditions = types.MappingProxyType(  # MappingProxyType makes dict immutable
-        {prp.initial_altitude_ft: 5000,
+        {prp.initial_altitude_ft: INITIAL_ALTITUDE_FT,
          prp.initial_terrain_altitude_ft: 0.00000001,
          prp.initial_longitude_geoc_deg: -2.3273,
          prp.initial_latitude_geod_deg: 51.3781  # corresponds to UoBath
@@ -199,6 +200,10 @@ class HeadingControlTask(FlightTask):
                                          prp.heading_deg.min, prp.heading_deg.max)
     heading_error_deg = BoundedProperty('target/heading-error-deg',
                                         'error to desired heading [deg]', -180, 180)
+    altitude_error_ft = BoundedProperty('target/altitude-error-ft',
+                                        'error to desired altitude [ft]',
+                                        prp.altitude_sl_ft.min,
+                                        prp.altitude_sl_ft.max)
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
     def __init__(self, shaping_type: Shaping, step_frequency_hz: float, aircraft: Aircraft,
@@ -216,7 +221,7 @@ class HeadingControlTask(FlightTask):
                                                    'distance travelled parallel to target heading [m]',
                                                    0, aircraft.get_max_distance_m(self.max_time_s))
         self.extra_state_variables = (
-            self.heading_error_deg, self.distance_parallel_m)
+            self.altitude_error_ft, self.heading_error_deg, self.distance_parallel_m)
         self.state_variables = FlightTask.base_state_variables + self.extra_state_variables
         assessor = self.make_assessor(shaping_type)
         super().__init__(assessor)
@@ -243,18 +248,24 @@ class HeadingControlTask(FlightTask):
                                                           self.state_variables,
                                                           self.distance_parallel_m.max,
                                                           self.distance_parallel_m.max)
+        altitude_error = rewards.AsymptoticShapingComponent('altitude_error',
+                                                            self.altitude_error_ft,
+                                                            self.state_variables,
+                                                            0,
+                                                            50)
         if shaping is self.Shaping.OFF:
             shaping_components = ()
         elif shaping is self.Shaping.BASIC:
-            shaping_components = (distance_shaping,)
+            shaping_components = (distance_shaping, altitude_error)
         else:
             shaping_components = (
                 distance_shaping,
-                rewards.AngularAsymptoticShapingComponent('heading_error',
-                                                          self.heading_error_deg,
-                                                          self.state_variables,
-                                                          0,
-                                                          15),
+                altitude_error,
+                rewards.AsymptoticShapingComponent('heading_error',
+                                                   self.heading_error_deg,
+                                                   self.state_variables,
+                                                   0,
+                                                   15),
                 rewards.AsymptoticShapingComponent('wings_level', prp.roll_rad,
                                                    self.state_variables,
                                                    0, 0.25),  # 0.25 radians corresponds ~15 deg
@@ -268,9 +279,12 @@ class HeadingControlTask(FlightTask):
         if shaping is self.Shaping.OFF or shaping is self.Shaping.BASIC or shaping is self.Shaping.ADDITIVE:
             return assessors.AssessorImpl(base_components, shaping_components)
         else:
-            dist_travel, heading_error, wings_level = shaping_components
-            # we want reward for keeping wings level only after heading is good
-            dependency_map = {wings_level: (heading_error,)}
+            dist_travel, altitude_error, heading_error, wings_level = shaping_components
+            # worry about control in this order: correct altitude, correct heading, wings level,
+            #   distance travelled
+            dependency_map = {dist_travel: (altitude_error, heading_error, wings_level),
+                              wings_level: (heading_error, altitude_error),
+                              heading_error: (altitude_error,)}
             if shaping is self.Shaping.SEQUENTIAL_CONT:
                 return assessors.ContinuousSequentialAssessor(base_components, shaping_components,
                                                               dependency_map)
@@ -293,6 +307,7 @@ class HeadingControlTask(FlightTask):
     def _update_custom_properties(self, sim: Simulation) -> None:
         self._update_parallel_distance_travelled(sim)
         self._update_heading_error(sim)
+        self._update_altitude_error(sim)
 
     def _update_parallel_distance_travelled(self, sim: Simulation) -> None:
         """
@@ -315,6 +330,12 @@ class HeadingControlTask(FlightTask):
         error_deg = utils.reduce_reflex_angle_deg(heading_deg - target_heading_deg)
         sim[self.heading_error_deg] = error_deg
 
+    def _update_altitude_error(self, sim: Simulation):
+        altitude_ft = sim[prp.altitude_sl_ft]
+        target_altitude_ft = self._get_target_altitude()
+        error_ft = altitude_ft - target_altitude_ft
+        sim[self.altitude_error_ft] = error_ft
+
     def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
         # terminate when time >= max, but use math.isclose() for float equality test
         return math.isclose(episode_time, self.max_time_s) or episode_time > self.max_time_s
@@ -331,8 +352,12 @@ class HeadingControlTask(FlightTask):
         # use the same, initial heading every episode
         return self.INITIAL_HEADING_DEG
 
+    def _get_target_altitude(self) -> float:
+        return self.INITIAL_ALTITUDE_FT
+
     def get_props_to_output(self) -> Tuple:
-        return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg, self.target_heading_deg
+        return (prp.u_fps, prp.altitude_sl_ft, self.altitude_error_ft, prp.heading_deg,
+                self.target_heading_deg, self.heading_error_deg)
 
 
 class TurnHeadingControlTask(HeadingControlTask):

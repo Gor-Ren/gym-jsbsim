@@ -21,8 +21,8 @@ class FigureVisualiser(object):
     TEXT_KWARGS = dict(fontsize=18,
                        horizontalalignment='left',
                        verticalalignment='baseline')
-    TEXT_X_POSN_LABEL = 0.1
-    TEXT_X_POSN_VALUE = 0.7
+    TEXT_X_POSN_LABEL = 0.0
+    TEXT_X_POSN_VALUE = 0.9
     TEXT_Y_POSN_INITIAL = 1.0
     TEXT_Y_INCREMENT = -0.1
 
