@@ -1,9 +1,9 @@
 import collections
 from gym_jsbsim.tasks import FlightTask
-from gym_jsbsim.rewards import State, Reward, RewardComponent
+from gym_jsbsim.rewards import State, Reward, RewardComponent, PotentialBasedComponent
 from gym_jsbsim.assessors import Assessor
 import gym_jsbsim.properties as prp
-from typing import Tuple, NamedTuple, Iterable
+from typing import Tuple, NamedTuple, Iterable, Dict
 
 
 class AssessorStub(Assessor):
@@ -37,19 +37,27 @@ class FlightTaskStub(FlightTask):
     def get_props_to_output(self) -> Tuple:
         return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg
 
-    def get_dummy_state_and_properties(self, values: Iterable[float]) -> Tuple[
+    @staticmethod
+    def get_dummy_state_class_and_properties(length: int):
+        dummy_properties = tuple(prp.Property('test_prop' + str(i), '') for i in range(length))
+        DummyState = collections.namedtuple('DummyState', [prop.name for prop in dummy_properties])
+        return DummyState, dummy_properties
+
+    @staticmethod
+    def get_dummy_state_and_properties(values: Iterable[float]) -> Tuple[
         NamedTuple, Tuple[prp.Property, ...]]:
         """
         given a collection of floats, creates dummy Properties for each value
         and inits a State
         """
-        dummy_properties = tuple(prp.Property('test_prop' + str(i), '') for i in range(len(values)))
-        DummyState = collections.namedtuple('DummyState', [prop.name for prop in dummy_properties])
-        return DummyState(*values), dummy_properties
+        values_safe = tuple(values)
+        DummyState, props = FlightTaskStub.get_dummy_state_class_and_properties(len(values_safe))
+        return DummyState(*values_safe), props
 
 
 class BasicFlightTask(FlightTask):
     """ A Task with basic but realistic state and action space. """
+
     def __init__(self, *_):
         self.state_variables = super().base_state_variables
         self.action_variables = (prp.aileron_cmd, prp.rudder_cmd, prp.elevator_cmd)
@@ -63,6 +71,7 @@ class BasicFlightTask(FlightTask):
 
     def get_props_to_output(self) -> Tuple:
         return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg
+
 
 class SimStub(dict):
 
@@ -130,8 +139,8 @@ class TransitioningSimStub(object):
     def __getitem__(self, prop: prp.Property) -> float:
         return self.current_sim[prop]
 
-    def start_engines():
-        self[prp.engine_running] = 1.0
+    def start_engines(self):
+        self.current_sim[prp.engine_running] = 1.0
 
 
 class DefaultSimStub(object):
@@ -169,6 +178,33 @@ class ConstantRewardComponentStub(RewardComponent):
 
     def get_return_value(self):
         return self.return_value
+
+    def get_name(self):
+        return str(self)
+
+
+class PotentialComponentStub(PotentialBasedComponent):
+    """
+    A stub PotentialBasedComponent which is preconfigured to return a specified
+    potential for a given State
+    """
+
+    def __init__(self, state_potentials: Dict[State, float]):
+        """
+        :param state_potentials: dict mapping States to their potentials
+        """
+        self.state_potentials = state_potentials
+
+    def calculate(self, state: State, last_state: State, is_terminal: bool):
+        potential = self.get_potential(state, is_terminal)
+        last_potential = self.get_potential(last_state, False)
+        return potential - last_potential
+
+    def get_potential(self, state: State, is_terminal):
+        if is_terminal:
+            return 0
+        else:
+            return self.state_potentials[state]
 
     def get_name(self):
         return str(self)

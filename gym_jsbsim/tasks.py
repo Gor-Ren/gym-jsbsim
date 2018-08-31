@@ -266,10 +266,16 @@ class HeadingControlTask(FlightTask):
                          shaping: Shaping) -> assessors.AssessorImpl:
         if shaping is self.Shaping.OFF or shaping is self.Shaping.BASIC or shaping is self.Shaping.ADDITIVE:
             return assessors.AssessorImpl(base_components, shaping_components)
-        elif shaping is self.Shaping.SEQUENTIAL_CONT:
-            raise NotImplementedError
-        elif shaping is self.Shaping.SEQUENTIAL_DISCONT:
-            raise NotImplementedError
+        else:
+            dist_travel, heading_error, wings_level = shaping_components
+            # we want reward for keeping wings level only after heading is good
+            dependency_map = {wings_level: heading_error}
+            if shaping is self.Shaping.SEQUENTIAL_CONT:
+                return assessors.ContinuousSequentialAssessor(base_components, shaping_components,
+                                                              dependency_map)
+            elif shaping is self.Shaping.SEQUENTIAL_DISCONT:
+                return assessors.SequentialAssessor(base_components, shaping_components,
+                                                    dependency_map)
 
     def get_initial_conditions(self) -> Dict[Property, float]:
         extra_conditions = {prp.initial_u_fps: self.aircraft.get_cruise_speed_fps(),

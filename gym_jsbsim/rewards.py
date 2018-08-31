@@ -49,6 +49,16 @@ class RewardComponent(ABC):
         ...
 
 
+class PotentialBasedComponent(RewardComponent, ABC):
+    """
+    Interface for PotentialBasedComponent, an object which calculates one component value of a
+    Reward using a potential function.
+    """
+    @abstractmethod
+    def get_potential(self, state: State, is_terminal) -> float:
+        ...
+
+
 class AbstractComponent(RewardComponent, ABC):
     def __init__(self, name: str, prop: prp.BoundedProperty,
                  state_variables: Tuple[prp.BoundedProperty]):
@@ -203,7 +213,7 @@ class StepFractionComponent(ComplementComponent):
         return normalise_error_asymptotic(absolute_error, self.scaling_factor)
 
 
-class ShapingComponent(ComplementComponent, ABC):
+class ShapingComponent(ComplementComponent, PotentialBasedComponent, ABC):
 
     def get_potential(self, state: State, is_terminal) -> float:
         if is_terminal:

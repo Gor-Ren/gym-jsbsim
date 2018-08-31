@@ -1,6 +1,8 @@
+import functools
+import operator
 from typing import Tuple
 from gym_jsbsim.aircraft import cessna172P
-from typing import Dict
+from typing import Dict, Iterable
 
 
 class AttributeFormatter(object):
@@ -49,3 +51,13 @@ def get_env_id_kwargs_map() -> Dict[str, Tuple]:
                     assert id not in map
                     map[id] = (task_type, plane, shaping, enable_flightgear)
     return map
+
+
+def product(iterable: Iterable):
+    """
+    Multiplies all elements of iterable and returns result
+
+    ATTRIBUTION: code provided by Raymond Hettinger on SO
+    https://stackoverflow.com/questions/595374/whats-the-function-like-sum-but-for-multiplication-product
+    """
+    return functools.reduce(operator.mul, iterable, 1)

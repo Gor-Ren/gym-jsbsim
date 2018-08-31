@@ -1,3 +1,4 @@
+from gym_jsbsim import utils
 from abc import ABC, abstractmethod
 from collections.__init__ import namedtuple
 from typing import Iterable, Tuple, Dict
@@ -37,11 +38,14 @@ class AssessorImpl(Assessor):
         return Reward(self._base_rewards(state, prev_state, is_terminal),
                       self._shaping_rewards(state, prev_state, is_terminal))
 
-    def _base_rewards(self, state: State, last_state: State, is_terminal: bool) -> Tuple[float, ...]:
+    def _base_rewards(self, state: State, last_state: State, is_terminal: bool) -> Tuple[
+        float, ...]:
         return tuple(cmp.calculate(state, last_state, is_terminal) for cmp in self.base_components)
 
-    def _shaping_rewards(self, state: State, last_state: State, is_terminal: bool) -> Tuple[float, ...]:
-        return tuple(cmp.calculate(state, last_state, is_terminal) for cmp in self.shaping_components)
+    def _shaping_rewards(self, state: State, last_state: State, is_terminal: bool) -> Tuple[
+        float, ...]:
+        return tuple(
+            cmp.calculate(state, last_state, is_terminal) for cmp in self.shaping_components)
 
 
 class SequentialAssessor(AssessorImpl, ABC):
@@ -66,14 +70,28 @@ class SequentialAssessor(AssessorImpl, ABC):
             no dependencies
         """
         super().__init__(base_components, shaping_components)
-        self.shaping_dependency_map = shaping_dependency_map.copy()
-        self.Potential = namedtuple('Potential', [cmp.name for cmp in self.shaping_components])
+        self.all_dependant_indices = self._get_sequential_indices(shaping_dependency_map)
+
+    def _get_sequential_indices(self,
+                                shaping_dependency_map: Dict) -> Tuple[Tuple[int, ...]]:
+        """
+        Given a map of shaping components to their sequentially dependant
+        components, determines the indices of the dependant components'
+        potentials and stores them in a tuple such that the ith collection of
+        indices corresponds to the ith reward component's dependants.
+        """
+        all_dependants = []
+        for component in self.shaping_components:
+            dependant_comps = shaping_dependency_map.get(component, ())
+            dependant_indices = tuple(self.shaping_components.index(cmp) for cmp in dependant_comps)
+            all_dependants.append(dependant_indices)
+        return tuple(all_dependants)
 
     def _shaping_rewards(self, state: State,
                          last_state: State,
                          is_terminal: bool) -> Tuple[float, ...]:
-        potentials = self.Potential(cmp.get_potential(state, is_terminal) for cmp in self.shaping_components)
-        last_potentials = self.Potential(cmp.get_potential(last_state, False) for cmp in self.shaping_components)
+        potentials = tuple(cmp.get_potential(state, is_terminal) for cmp in self.shaping_components)
+        last_potentials = tuple(cmp.get_potential(last_state, False) for cmp in self.shaping_components)
 
         seq_potentials = self._apply_dependents(potentials)
         seq_last_potentials = self._apply_dependents(last_potentials)
@@ -82,7 +100,7 @@ class SequentialAssessor(AssessorImpl, ABC):
     @abstractmethod
     def _apply_dependents(self, potentials: Tuple[float, ...]) -> Tuple[float, ...]:
         """
-        Modifies potentials to account for dependent components.
+        Modifies potentials to account for dependant components.
 
         :param potentials: the normal component potential values
         :return: a collection of component potentials, transformed to account
@@ -92,12 +110,44 @@ class SequentialAssessor(AssessorImpl, ABC):
 
 
 class ContinuousSequentialAssessor(SequentialAssessor):
+    """
+    A sequential assessor in which shaping components with dependents have their potential
+    reduced according to their dependent's potentials through multiplication.
+
+    For example a component with a "base" potential of 0.8 and a dependent component at
+    0.5 have a sequential potential of 0.8 * 0.5 = 0.4.
+    """
 
     def _apply_dependents(self, potentials: Tuple[float, ...]):
-        ...
+        sequential_potentials = []
+        for base_potential, dependant_indices in zip(potentials, self.all_dependant_indices):
+            # multiply each base potential value by all dependants
+            sequential_factor = utils.product(potentials[i] for i in dependant_indices)
+            sequential_potentials.append(base_potential * sequential_factor)
+        return tuple(sequential_potentials)
 
 
 class DiscontinuousSequentialAssessor(SequentialAssessor):
+    """
+    A sequential assessor in which shaping components with dependents are given zero
+    potential until their dependent's potentials exceed a critical value.
+
+    For example a component with a "base" potential of 0.8 and a dependent
+    component with potential < critical has sequential potential 0.0. Once
+    the dependent potential >= critical, the dependent component potential
+    returns to 0.8.
+    """
+    DEPENDANT_REQD_POTENTIAL = 0.85
 
     def _apply_dependents(self, potentials: Tuple[float, ...]):
-        ...
+        sequential_potentials = []
+        for base_potential, dependant_indices in zip(potentials, self.all_dependant_indices):
+            # multiply each base potential value by all dependants
+            dependancies_met = all(potentials[i] > self.DEPENDANT_REQD_POTENTIAL
+                                 for i in dependant_indices)
+            if dependancies_met:
+                sequential_potential = base_potential
+            else:
+                sequential_potential = 0.0
+            sequential_potentials.append(sequential_potential)
+        return tuple(sequential_potentials)
