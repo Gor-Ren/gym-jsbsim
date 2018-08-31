@@ -6,9 +6,8 @@ import math
 import enum
 from collections import namedtuple
 import gym_jsbsim.properties as prp
+from gym_jsbsim import assessors, rewards, utils
 from gym_jsbsim.simulation import Simulation
-from gym_jsbsim import rewards
-from gym_jsbsim import assessors
 from gym_jsbsim.properties import BoundedProperty, Property
 from gym_jsbsim.aircraft import Aircraft
 from abc import ABC, abstractmethod
@@ -121,7 +120,7 @@ class FlightTask(Task, ABC):
         self.State = namedtuple('State', legal_attribute_names)
 
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) \
-            -> Tuple[np.ndarray, float, bool, Dict]:
+            -> Tuple[NamedTuple, float, bool, Dict]:
         # input actions
         for prop, command in zip(self.action_variables, action):
             sim[prop] = command
@@ -198,6 +197,8 @@ class HeadingControlTask(FlightTask):
                                              'SEQUENTIAL_DISCONT'])
     target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
                                          prp.heading_deg.min, prp.heading_deg.max)
+    heading_error_deg = BoundedProperty('target/heading-error-deg',
+                                        'error to desired heading [deg]', -180, 180)
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
     def __init__(self, shaping_type: Shaping, step_frequency_hz: float, aircraft: Aircraft,
@@ -215,7 +216,7 @@ class HeadingControlTask(FlightTask):
                                                    'distance travelled parallel to target heading [m]',
                                                    0, aircraft.get_max_distance_m(self.max_time_s))
         self.extra_state_variables = (
-            prp.heading_deg, self.target_heading_deg, self.distance_parallel_m)
+            self.heading_error_deg, self.distance_parallel_m)
         self.state_variables = FlightTask.base_state_variables + self.extra_state_variables
         assessor = self.make_assessor(shaping_type)
         super().__init__(assessor)
@@ -232,7 +233,7 @@ class HeadingControlTask(FlightTask):
                                       self.state_variables, self.distance_parallel_m.max),
             rewards.StepFractionComponent('altitude_keeping', prp.altitude_sl_ft,
                                           self.state_variables,
-                                          target_altitude, 100, self.episode_steps)
+                                          target_altitude, 50, self.episode_steps)
         )
         return base_components
 
@@ -250,13 +251,13 @@ class HeadingControlTask(FlightTask):
             shaping_components = (
                 distance_shaping,
                 rewards.AngularAsymptoticShapingComponent('heading_error',
-                                                          prp.heading_deg,
+                                                          self.heading_error_deg,
                                                           self.state_variables,
-                                                          self._get_target_heading(),
-                                                          30),
+                                                          0,
+                                                          15),
                 rewards.AsymptoticShapingComponent('wings_level', prp.roll_rad,
                                                    self.state_variables,
-                                                   0, 0.5),  # 0.5 radians corresponds ~30 deg
+                                                   0, 0.25),  # 0.25 radians corresponds ~15 deg
             )
 
         return shaping_components
@@ -290,10 +291,10 @@ class HeadingControlTask(FlightTask):
         return {**self.base_initial_conditions, **extra_conditions}
 
     def _update_custom_properties(self, sim: Simulation) -> None:
-        self._update_parallel_distance_travelled(sim, self.INITIAL_HEADING_DEG)
+        self._update_parallel_distance_travelled(sim)
+        self._update_heading_error(sim)
 
-    def _update_parallel_distance_travelled(self, sim: Simulation,
-                                            target_heading_deg: float) -> None:
+    def _update_parallel_distance_travelled(self, sim: Simulation) -> None:
         """
         Calculates how far aircraft has travelled from initial position parallel to max_target heading
 
@@ -301,11 +302,18 @@ class HeadingControlTask(FlightTask):
         """
         current_position = prp.GeodeticPosition.from_sim(sim)
         heading_travelled_deg = self.initial_position.heading_deg_to(current_position)
+        target_heading_deg = sim[self.target_heading_deg]
         heading_error_rad = math.radians(heading_travelled_deg - target_heading_deg)
 
         distance_travelled_m = sim[prp.dist_travel_m]
         parallel_distance_travelled_m = math.cos(heading_error_rad) * distance_travelled_m
         sim[self.distance_parallel_m] = parallel_distance_travelled_m
+
+    def _update_heading_error(self, sim: Simulation):
+        heading_deg = sim[prp.heading_deg]
+        target_heading_deg = sim[self.target_heading_deg]
+        error_deg = utils.reduce_reflex_angle_deg(heading_deg - target_heading_deg)
+        sim[self.heading_error_deg] = error_deg
 
     def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
         # terminate when time >= max, but use math.isclose() for float equality test
@@ -329,7 +337,8 @@ class HeadingControlTask(FlightTask):
 
 class TurnHeadingControlTask(HeadingControlTask):
     """
-    A task in which the agent must make a turn and fly level to a random target heading.
+    A task in which the agent must make a turn from a random initial heading,
+    and fly level to a random target heading.
     """
 
     def get_initial_conditions(self) -> [Dict[Property, float]]:
@@ -337,9 +346,6 @@ class TurnHeadingControlTask(HeadingControlTask):
         random_heading = random.uniform(prp.heading_deg.min, prp.heading_deg.max)
         initial_conditions[prp.initial_heading_deg] = random_heading
         return initial_conditions
-
-    def _update_custom_properties(self, sim: Simulation) -> None:
-        self._update_parallel_distance_travelled(sim, sim[self.target_heading_deg])
 
     def _get_target_heading(self) -> float:
         # select a random heading each episode

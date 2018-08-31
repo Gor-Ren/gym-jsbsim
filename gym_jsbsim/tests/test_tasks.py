@@ -2,12 +2,11 @@ import unittest
 import math
 import numpy as np
 import gym_jsbsim.properties as prp
+from gym_jsbsim import rewards, utils
 from gym_jsbsim.assessors import Assessor
-from gym_jsbsim import rewards
 from gym_jsbsim.aircraft import Aircraft, cessna172P
 from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
 from gym_jsbsim.tests.stubs import SimStub, TransitioningSimStub
-from typing import Dict
 
 
 class TestHeadingControlTask(unittest.TestCase):
@@ -146,6 +145,7 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_task_step_correct_return_types(self):
         sim = SimStub.make_valid_state_stub(self.task)
         steps = 1
+        _ = self.task.observe_first_state(sim)
 
         state, reward, is_terminal, info = self.task.task_step(sim, self.dummy_action, steps)
 
@@ -159,6 +159,7 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_task_step_returns_reward_in_info(self):
         sim = SimStub.make_valid_state_stub(self.task)
         steps = 1
+        _ = self.task.observe_first_state(sim)
 
         _, reward_scalar, _, info = self.task.task_step(sim, self.dummy_action, steps)
         reward_object = info['reward']
@@ -168,6 +169,7 @@ class TestHeadingControlTask(unittest.TestCase):
 
     def test_task_step_returns_non_terminal_time_less_than_max(self):
         sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(sim)
         non_terminal_time = self.default_episode_time_s - 1
         sim[prp.sim_time_s] = non_terminal_time
         steps = 1
@@ -178,6 +180,7 @@ class TestHeadingControlTask(unittest.TestCase):
 
     def test_task_step_returns_terminal_time_exceeds_max(self):
         sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(sim)
         terminal_time = self.default_episode_time_s + 1
         sim[prp.sim_time_s] = terminal_time
         steps = 1
@@ -188,6 +191,7 @@ class TestHeadingControlTask(unittest.TestCase):
 
     def test_task_step_returns_terminal_time_equals_max(self):
         sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(sim)
         terminal_time = self.default_episode_time_s
         sim[prp.sim_time_s] = terminal_time
         steps = 1
@@ -247,6 +251,36 @@ class TestHeadingControlTask(unittest.TestCase):
             # altitude, so we expect non-shaping reward of 1.0
             self.assertAlmostEqual(1., reward_obj.non_shaping_reward())
 
+    def test_observe_first_state_correct_heading_error(self):
+        self.setUp()
+        sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(sim)
+
+        heading = sim[prp.heading_deg]
+        target_heading = sim[self.task.target_heading_deg]
+        error_deg = heading - target_heading
+        expected_acute_error_deg = utils.reduce_reflex_angle_deg(error_deg)
+        actual_error_deg = sim[self.task.heading_error_deg]
+
+        self.assertAlmostEqual(expected_acute_error_deg, actual_error_deg)
+
+    def test_task_step_state_correct_heading_error(self):
+        self.setUp()
+        sim = SimStub.make_valid_state_stub(self.task)
+        state = self.task.observe_first_state(sim)
+
+        heading = sim[prp.heading_deg]
+        target_heading = sim[self.task.target_heading_deg]
+        error_deg = heading - target_heading
+        expected_acute_error_deg = utils.reduce_reflex_angle_deg(error_deg)
+
+        sim_error_deg = sim[self.task.heading_error_deg]
+        heading_error_state_index = self.task.state_variables.index(self.task.heading_error_deg)
+        state_error_deg = state[heading_error_state_index]
+
+        self.assertAlmostEqual(expected_acute_error_deg, sim_error_deg)
+        self.assertAlmostEqual(expected_acute_error_deg, state_error_deg)
+
 
 class TestTurnHeadingControlTask(TestHeadingControlTask):
 
@@ -261,21 +295,19 @@ class TestTurnHeadingControlTask(TestHeadingControlTask):
         return sim[TurnHeadingControlTask.target_heading_deg]
 
     def test_observe_first_state_creates_desired_heading_in_expected_range(self):
-        dummy_sim = SimStub.make_valid_state_stub(self.task)
-        state = self.task.observe_first_state(dummy_sim)
+        sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(sim)
 
-        target_heading_index = self.task.state_variables.index(HeadingControlTask.target_heading_deg)
-        desired_heading = state[target_heading_index]
+        desired_heading = sim[HeadingControlTask.target_heading_deg]
         self.assertGreaterEqual(desired_heading, 0)
         self.assertLessEqual(desired_heading, 360)
 
     def test_observe_first_state_changes_desired_heading(self):
-        dummy_sim = SimStub.make_valid_state_stub(self.task)
-        state = self.task.observe_first_state(dummy_sim)
-        target_heading_attr = HeadingControlTask.target_heading_deg.get_legal_name()
-        desired_heading = state.__getattribute__(target_heading_attr)
+        sim = SimStub.make_valid_state_stub(self.task)
+        _ = self.task.observe_first_state(sim)
+        desired_heading = sim[HeadingControlTask.target_heading_deg]
 
-        new_episode_state = self.task.observe_first_state(dummy_sim)
-        new_desired_heading = new_episode_state.__getattribute__(target_heading_attr)
+        _ = self.task.observe_first_state(sim)
+        new_desired_heading = sim[HeadingControlTask.target_heading_deg]
 
         self.assertNotEqual(desired_heading, new_desired_heading)

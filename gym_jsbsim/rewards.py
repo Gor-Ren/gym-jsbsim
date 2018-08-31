@@ -1,6 +1,8 @@
 import gym_jsbsim.properties as prp
-from abc import ABC, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
 from typing import Tuple, Union
+
+from gym_jsbsim.utils import reduce_reflex_angle_deg
 
 State = 'tasks.FlightTask.State'  # alias for type hint
 
@@ -364,13 +366,3 @@ def normalise_error_linear(absolute_error: float, max_error: float) -> float:
         return 1.0
     else:
         return absolute_error / max_error
-
-
-def reduce_reflex_angle_deg(angle: float) -> float:
-    """ Given an angle in degrees, normalises in [-179, 180] """
-    # ATTRIBUTION: solution from James Polk on SO,
-    # https://stackoverflow.com/questions/2320986/easy-way-to-keeping-angles-between-179-and-180-degrees#
-    new_angle = angle % 360
-    if new_angle > 180:
-        new_angle -= 360
-    return new_angle

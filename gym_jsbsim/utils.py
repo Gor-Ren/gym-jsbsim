@@ -61,3 +61,13 @@ def product(iterable: Iterable):
     https://stackoverflow.com/questions/595374/whats-the-function-like-sum-but-for-multiplication-product
     """
     return functools.reduce(operator.mul, iterable, 1)
+
+
+def reduce_reflex_angle_deg(angle: float) -> float:
+    """ Given an angle in degrees, normalises in [-179, 180] """
+    # ATTRIBUTION: solution from James Polk on SO,
+    # https://stackoverflow.com/questions/2320986/easy-way-to-keeping-angles-between-179-and-180-degrees#
+    new_angle = angle % 360
+    if new_angle > 180:
+        new_angle -= 360
+    return new_angle

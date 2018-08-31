@@ -113,6 +113,7 @@ class SimStub(dict):
         sim[prp.lat_geod_deg] = 33.3
         sim[prp.lng_geoc_deg] = 44.4
         sim[prp.dist_travel_m] = 2.0
+        sim[prp.heading_deg] = 270
         return sim
 
 
