@@ -24,13 +24,13 @@ class Reward(object):
         if not self.base_reward_elements:
             raise ValueError('base agent_reward cannot be empty')
 
-    def reward(self) -> float:
+    def agent_reward(self) -> float:
         """ Returns scalar reward value by taking mean of all reward elements """
         sum_reward = sum(self.base_reward_elements) + sum(self.shaping_reward_elements)
         num_reward_components = len(self.base_reward_elements) + len(self.shaping_reward_elements)
         return sum_reward / num_reward_components
 
-    def non_shaping_reward(self) -> float:
+    def assessment_reward(self) -> float:
         """ Returns scalar non-shaping reward by taking mean of base reward elements. """
         return sum(self.base_reward_elements) / len(self.base_reward_elements)
 
