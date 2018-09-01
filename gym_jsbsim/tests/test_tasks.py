@@ -39,15 +39,16 @@ class TestHeadingControlTask(unittest.TestCase):
 
     def get_sim_with_state(self,
                            task: HeadingControlTask = None,
-                           time_terminal = False,
-                           dist_travel_m = 0.0,
-                           heading_deg = 0.0,
-                           altitude_ft = None,
-                           roll_rad = 0.0,
-                           heading_travel_deg = 0.0) -> SimStub:
+                           time_terminal=False,
+                           dist_travel_m=0.0,
+                           heading_deg=0.0,
+                           altitude_ft=None,
+                           roll_rad=0.0,
+                           heading_travel_deg=0.0) -> SimStub:
         if task is None:
             task = self.task
         sim = SimStub.make_valid_state_stub(task)
+        task.observe_first_state(sim)
 
         if time_terminal:
             sim[prp.sim_time_s] = task.max_time_s + 1
@@ -58,7 +59,6 @@ class TestHeadingControlTask(unittest.TestCase):
         sim[prp.heading_deg] = heading_deg
         sim[prp.altitude_sl_ft] = altitude_ft if altitude_ft is not None else task.INITIAL_ALTITUDE_FT
         sim[prp.roll_rad] = roll_rad
-
         # update lat/lng for heading travelled
         sim[prp.lng_geoc_deg] += math.sin(math.radians(heading_travel_deg))
         sim[prp.lat_geod_deg] += math.cos(math.radians(heading_travel_deg))
@@ -284,13 +284,13 @@ class TestHeadingControlTask(unittest.TestCase):
         task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
 
         initial_state_sim = self.get_sim_with_state(task, time_terminal=False)
+        target_heading = initial_state_sim[self.task.target_heading_deg]
         bad_altitude = sys.float_info.max
-        desired_heading = initial_state_sim[self.task.target_heading_deg]
         good_dist_bad_alt_sim = self.get_sim_with_state(task,
                                                         time_terminal=True,
-                                                        dist_travel_m=task.distance_parallel_m.max,
-                                                        heading_travel_deg=desired_heading,
-                                                        altitude_ft=bad_altitude)
+                                                        altitude_ft=bad_altitude,
+                                                        dist_travel_m=self.task.distance_parallel_m.max,
+                                                        heading_travel_deg=target_heading)
         sim = TransitioningSimStub(initial_state_sim, good_dist_bad_alt_sim)
         _, _, _, info = task.task_step(sim, self.dummy_action, 1)
         reward_obj: rewards.Reward = info['reward']
@@ -298,7 +298,6 @@ class TestHeadingControlTask(unittest.TestCase):
         # we went from our initial position to an optimal distance and terrible altitude
         expected_reward = (1.0 + 0.0) / 2
         self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
-
 
     def test_observe_first_state_correct_heading_error(self):
         self.setUp()
