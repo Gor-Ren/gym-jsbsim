@@ -234,8 +234,9 @@ class HeadingControlTask(FlightTask):
     def _make_base_reward_components(self) -> Tuple[rewards.RewardComponent, ...]:
         target_altitude = self.base_initial_conditions[prp.initial_altitude_ft]
         base_components = (
-            rewards.TerminalComponent('distance_travel', self.distance_parallel_m,
-                                      self.state_variables, self.distance_parallel_m.max),
+            rewards.LinearShapingComponent('distance_travel', self.distance_parallel_m,
+                                           self.state_variables, self.distance_parallel_m.max,
+                                           self.distance_parallel_m.max),
             rewards.StepFractionComponent('altitude_keeping', prp.altitude_sl_ft,
                                           self.state_variables,
                                           target_altitude, 50, self.episode_steps)

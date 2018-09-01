@@ -93,7 +93,7 @@ class FlightGearRenderTest(unittest.TestCase):
         agent = ConstantAgent(self.env.action_space)
         render_every = 5
         report_every = 20
-        EPISODES = 5
+        EPISODES = 10
 
         for _ in range(EPISODES):
             ep_reward = 0
