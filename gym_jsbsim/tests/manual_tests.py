@@ -73,8 +73,8 @@ class TestJsbSimInstance(unittest.TestCase):
                 ep_reward += reward
                 if step_number % report_every == 0:
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
-                    print(f'last reward:\t{reward}')
-                    print(f'episode reward:\t{ep_reward}')
+                    print(f'last agent_reward:\t{agent_reward}')
+                    print(f'episode agent_reward:\t{ep_reward}')
                 step_number += 1
 
 
@@ -90,7 +90,7 @@ class FlightGearRenderTest(unittest.TestCase):
 
     def test_render_steady_level_flight(self):
         self.setUp(plane=aircraft.cessna172P, task_type=tasks.HeadingControlTask)
-        agent = ConstantAgent(self.env.action_space)
+        agent = RandomAgent(self.env.action_space)
         render_every = 5
         report_every = 20
         EPISODES = 10
@@ -109,8 +109,8 @@ class FlightGearRenderTest(unittest.TestCase):
                     self.env.render(mode='flightgear')
                 if step_number % report_every == 0:
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
-                    print(f'last reward:\t{reward}')
-                    print(f'episode reward:\t{ep_reward}')
+                    print(f'last agent_reward:\t{agent_reward}')
+                    print(f'episode agent_reward:\t{ep_reward}')
                     print(f'thrust:\t{self.env.sim[prp.engine_thrust_lbs]}')
                     print(f'engine running:\t{self.env.sim[prp.engine_running]}')
                 step_number += 1
@@ -148,8 +148,8 @@ class TurnHeadingControlTest(unittest.TestCase):
                 if step_number % report_every == 0:
                     heading_target = tasks.HeadingControlTask.target_heading_deg
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
-                    print(f'last reward:\t{reward}')
-                    print(f'episode reward:\t{ep_reward}')
+                    print(f'last agent_reward:\t{agent_reward}')
+                    print(f'episode agent_reward:\t{ep_reward}')
                     print(f'heading:\t{self.env.sim[prp.heading_deg]}')
                     print(f'target heading:\t{self.env.sim[heading_target]}')
                     print('\n')

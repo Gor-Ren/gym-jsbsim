@@ -16,7 +16,7 @@ class JsbSimEnv(gym.Env):
 
     An JsbSimEnv is instantiated with a Task that implements a specific
     aircraft control task with its own specific observation/action space and
-    variables and reward calculation.
+    variables and agent_reward calculation.
 
     ATTRIBUTION: this class implements the OpenAI Gym Env API. Method
     docstrings have been adapted or copied from the OpenAI Gym source code.
@@ -34,7 +34,7 @@ class JsbSimEnv(gym.Env):
         :param aircraft: the JSBSim aircraft to be used
         :param agent_interaction_freq: int, how many times per second the agent
             should interact with environment.
-        :param shaping: a HeadingControlTask.Shaping enum, what type of reward
+        :param shaping: a HeadingControlTask.Shaping enum, what type of agent_reward
             shaping to use (see HeadingControlTask for options)
         """
         if agent_interaction_freq > self.JSBSIM_DT_HZ:

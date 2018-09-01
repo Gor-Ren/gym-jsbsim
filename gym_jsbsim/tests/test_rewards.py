@@ -24,7 +24,7 @@ class TestReward(unittest.TestCase):
         reward = Reward(base_reward, shaping_reward)
 
         expected_r = sum(base_reward) / len(base_reward)
-        self.assertAlmostEqual(expected_r, reward.reward())
+        self.assertAlmostEqual(expected_r, reward.agent_reward())
 
     def test_base_reward_non_shaping_reward(self):
         base_reward = (1, 2)
@@ -33,7 +33,7 @@ class TestReward(unittest.TestCase):
         reward = Reward(base_reward, shaping_reward)
 
         expected_non_shaping_r = sum(base_reward) / len(base_reward)
-        self.assertAlmostEqual(expected_non_shaping_r, reward.non_shaping_reward())
+        self.assertAlmostEqual(expected_non_shaping_r, reward.assessment_reward())
 
     def test_shaping_reward_reward(self):
         base_reward = (1, 2)
@@ -42,7 +42,7 @@ class TestReward(unittest.TestCase):
         reward = Reward(base_reward, shaping_reward)
 
         expected_r = sum(base_reward + shaping_reward) / len(base_reward + shaping_reward)
-        self.assertAlmostEqual(expected_r, reward.reward())
+        self.assertAlmostEqual(expected_r, reward.agent_reward())
 
     def test_shaping_reward_non_shaping_reward(self):
         base_reward = (1, 2)
@@ -51,7 +51,7 @@ class TestReward(unittest.TestCase):
         reward = Reward(base_reward, shaping_reward)
 
         expected_non_shaping_r = sum(base_reward) / len(base_reward)
-        self.assertAlmostEqual(expected_non_shaping_r, reward.non_shaping_reward())
+        self.assertAlmostEqual(expected_non_shaping_r, reward.assessment_reward())
 
     def test_base_reward_is_not_shaping(self):
         base_reward = (1, 2)

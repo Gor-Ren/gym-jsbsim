@@ -11,8 +11,8 @@ class Reward(object):
     Immutable class storing an RL reward.
 
     We decompose rewards into tuples of component values, reflecting contributions
-    from different goals. Separate tuples are maintained for the base (non-shaping)
-    components and the shaping components to allow analysis.
+    from different goals. Separate tuples are maintained for the assessment (non-shaping)
+    components and the shaping components. It is intended that the
 
     Scalar reward values are retrieved by calling .reward() or non_shaping_reward().
     The scalar value is the mean of the components.
@@ -22,7 +22,7 @@ class Reward(object):
         self.base_reward_elements = base_reward_elements
         self.shaping_reward_elements = shaping_reward_elements
         if not self.base_reward_elements:
-            raise ValueError('base reward cannot be empty')
+            raise ValueError('base agent_reward cannot be empty')
 
     def reward(self) -> float:
         """ Returns scalar reward value by taking mean of all reward elements """

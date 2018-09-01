@@ -18,7 +18,7 @@ class Task(ABC):
     """
     Interface for Tasks, modules implementing specific environments in JSBSim.
 
-    A task defines its own state space, action space, termination conditions and reward function.
+    A task defines its own state space, action space, termination conditions and agent_reward function.
     """
 
     @abstractmethod
@@ -137,7 +137,7 @@ class FlightTask(Task, ABC):
         self.last_state = state
         info = {'reward': reward}
 
-        return state, reward.reward(), done, info
+        return state, reward.agent_reward(), done, info
 
     def _update_custom_properties(self, sim: Simulation) -> None:
         """ Calculates any custom properties which change every timestep. """
@@ -357,8 +357,8 @@ class HeadingControlTask(FlightTask):
 
     def get_props_to_output(self) -> Tuple:
         return (prp.u_fps, prp.altitude_sl_ft, self.altitude_error_ft, prp.heading_deg,
-                self.target_heading_deg, self.heading_error_deg, self.distance_parallel_m,
-                prp.roll_rad)
+                self.target_heading_deg, self.heading_error_deg, prp.dist_travel_m,
+                self.distance_parallel_m, prp.roll_rad)
 
 
 class TurnHeadingControlTask(HeadingControlTask):

@@ -45,8 +45,8 @@ class TestAssessorImpl(unittest.TestCase):
 
         expected_shaping_reward = component.get_return_value()
         expected_non_shaping_reward = expected_shaping_reward  # should be same because not shaping
-        self.assertAlmostEqual(expected_shaping_reward, reward.reward())
-        self.assertAlmostEqual(expected_non_shaping_reward, reward.non_shaping_reward())
+        self.assertAlmostEqual(expected_shaping_reward, reward.agent_reward())
+        self.assertAlmostEqual(expected_non_shaping_reward, reward.assessment_reward())
 
     def test_calculate_multiple_base_components(self):
         reward_values = [1, 2, 4]
@@ -58,8 +58,8 @@ class TestAssessorImpl(unittest.TestCase):
 
         expected_shaping_reward = sum(reward_values) / len(reward_values)
         expected_non_shaping_reward = expected_shaping_reward  # should be same because not shaping
-        self.assertAlmostEqual(expected_shaping_reward, reward.reward())
-        self.assertAlmostEqual(expected_non_shaping_reward, reward.non_shaping_reward())
+        self.assertAlmostEqual(expected_shaping_reward, reward.agent_reward())
+        self.assertAlmostEqual(expected_non_shaping_reward, reward.assessment_reward())
 
     def test_calculate_with_shaping_components(self):
         base_reward_vals = [0, 1]
@@ -75,8 +75,8 @@ class TestAssessorImpl(unittest.TestCase):
         expected_shaping_reward = (sum(base_reward_vals + shaping_reward_vals) /
                                    len(base_reward_vals + shaping_reward_vals))
         expected_non_shaping_reward = sum(base_reward_vals) / len(base_reward_vals)
-        self.assertAlmostEqual(expected_shaping_reward, reward.reward())
-        self.assertAlmostEqual(expected_non_shaping_reward, reward.non_shaping_reward())
+        self.assertAlmostEqual(expected_shaping_reward, reward.agent_reward())
+        self.assertAlmostEqual(expected_non_shaping_reward, reward.assessment_reward())
 
 
 class TestContinuousSequentialAssessor(TestAssessorImpl):
@@ -108,8 +108,8 @@ class TestContinuousSequentialAssessor(TestAssessorImpl):
         expected_shaping_reward = (base_reward + (high_potential - low_potential)) / 2
         expected_non_shaping_reward = base_reward
 
-        self.assertAlmostEqual(expected_shaping_reward, reward.reward())
-        self.assertAlmostEqual(expected_non_shaping_reward, reward.non_shaping_reward())
+        self.assertAlmostEqual(expected_shaping_reward, reward.agent_reward())
+        self.assertAlmostEqual(expected_non_shaping_reward, reward.assessment_reward())
 
         # if terminal, expect to see reward as if terminal step potential was zero
         terminal = True
@@ -119,8 +119,8 @@ class TestContinuousSequentialAssessor(TestAssessorImpl):
         expected_shaping_reward = (base_reward + (terminal_potential - low_potential)) / 2
         expected_non_shaping_reward = base_reward
 
-        self.assertAlmostEqual(expected_shaping_reward, reward.reward())
-        self.assertAlmostEqual(expected_non_shaping_reward, reward.non_shaping_reward())
+        self.assertAlmostEqual(expected_shaping_reward, reward.agent_reward())
+        self.assertAlmostEqual(expected_non_shaping_reward, reward.assessment_reward())
 
     def assess_reward_for_potential_change_with_dependency(self,
                                                            state_potential: float,
@@ -169,7 +169,7 @@ class TestContinuousSequentialAssessor(TestAssessorImpl):
         #   zero potential, no reward is given
         expected_reward = 0.0
 
-        self.assertAlmostEqual(expected_reward, reward.reward())
+        self.assertAlmostEqual(expected_reward, reward.agent_reward())
 
     def test_calculate_with_shaping_components_and_dependency_at_fraction(self):
         low_potential = 0.5
@@ -185,7 +185,7 @@ class TestContinuousSequentialAssessor(TestAssessorImpl):
         averaged_reward_values = total_reward_values / (
                 len(reward.shaping_reward_elements) + len(reward.base_reward_elements))
 
-        self.assertAlmostEqual(averaged_reward_values, reward.reward())
+        self.assertAlmostEqual(averaged_reward_values, reward.agent_reward())
 
     def test_calculate_with_shaping_components_and_dependency_at_one(self):
         low_potential = 0.5
@@ -201,4 +201,4 @@ class TestContinuousSequentialAssessor(TestAssessorImpl):
         averaged_reward_values = total_reward_values / (
                 len(reward.shaping_reward_elements) + len(reward.base_reward_elements))
 
-        self.assertAlmostEqual(averaged_reward_values, reward.reward())
+        self.assertAlmostEqual(averaged_reward_values, reward.agent_reward())

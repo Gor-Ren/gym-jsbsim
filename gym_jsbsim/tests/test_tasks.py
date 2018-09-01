@@ -1,6 +1,7 @@
 import unittest
 import math
 import numpy as np
+import sys
 import gym_jsbsim.properties as prp
 from gym_jsbsim import rewards, utils
 from gym_jsbsim.assessors import Assessor
@@ -36,22 +37,31 @@ class TestHeadingControlTask(unittest.TestCase):
                           step_frequency_hz=step_frequency_hz,
                           aircraft=aircraft)
 
-    def get_sim_with_sate(self,
-                          task=None,
-                          time_s = 0.0,
-                          dist_travel_m = 0.0,
-                          heading_deg = 0.0,
-                          altitude_ft = None,
-                          roll_rad = 0.0) -> SimStub:
+    def get_sim_with_state(self,
+                           task: HeadingControlTask = None,
+                           time_terminal = False,
+                           dist_travel_m = 0.0,
+                           heading_deg = 0.0,
+                           altitude_ft = None,
+                           roll_rad = 0.0,
+                           heading_travel_deg = 0.0) -> SimStub:
         if task is None:
             task = self.task
         sim = SimStub.make_valid_state_stub(task)
 
-        sim[prp.sim_time_s] = time_s
+        if time_terminal:
+            sim[prp.sim_time_s] = task.max_time_s + 1
+        else:
+            sim[prp.sim_time_s] = task.max_time_s - 1
+
         sim[prp.dist_travel_m] = dist_travel_m
         sim[prp.heading_deg] = heading_deg
         sim[prp.altitude_sl_ft] = altitude_ft if altitude_ft is not None else task.INITIAL_ALTITUDE_FT
         sim[prp.roll_rad] = roll_rad
+
+        # update lat/lng for heading travelled
+        sim[prp.lng_geoc_deg] += math.sin(math.radians(heading_travel_deg))
+        sim[prp.lat_geod_deg] += math.cos(math.radians(heading_travel_deg))
         return sim
 
     def get_initial_state_sim(self, task=None) -> SimStub:
@@ -183,7 +193,7 @@ class TestHeadingControlTask(unittest.TestCase):
         reward_object = info['reward']
 
         self.assertIsInstance(reward_object, rewards.Reward)
-        self.assertAlmostEqual(reward_object.reward(), reward_scalar)
+        self.assertAlmostEqual(reward_object.agent_reward(), reward_scalar)
 
     def test_task_step_returns_non_terminal_time_less_than_max(self):
         sim = SimStub.make_valid_state_stub(self.task)
@@ -267,11 +277,28 @@ class TestHeadingControlTask(unittest.TestCase):
 
             # aircraft moved maximum distance on correct heading and maintained
             # altitude, so we expect non-shaping reward of 1.0
-            self.assertAlmostEqual(1., reward_obj.non_shaping_reward())
+            self.assertAlmostEqual(1., reward_obj.assessment_reward())
 
-    def test_task_step_correct_sequential_reward_shaping_(self):
+    def test_task_step_correct_distance_reward_terrible_altitude(self):
         self.setUp()
-        task = self.make_task(shaping_type=HeadingControlTask.Shaping.SEQUENTIAL_CONT),
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
+
+        initial_state_sim = self.get_sim_with_state(task, time_terminal=False)
+        bad_altitude = sys.float_info.max
+        desired_heading = initial_state_sim[self.task.target_heading_deg]
+        good_dist_bad_alt_sim = self.get_sim_with_state(task,
+                                                        time_terminal=True,
+                                                        dist_travel_m=task.distance_parallel_m.max,
+                                                        heading_travel_deg=desired_heading,
+                                                        altitude_ft=bad_altitude)
+        sim = TransitioningSimStub(initial_state_sim, good_dist_bad_alt_sim)
+        _, _, _, info = task.task_step(sim, self.dummy_action, 1)
+        reward_obj: rewards.Reward = info['reward']
+
+        # we went from our initial position to an optimal distance and terrible altitude
+        expected_reward = (1.0 + 0.0) / 2
+        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
+
 
     def test_observe_first_state_correct_heading_error(self):
         self.setUp()
