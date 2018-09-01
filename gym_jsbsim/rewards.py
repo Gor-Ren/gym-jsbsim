@@ -338,17 +338,6 @@ class LinearShapingComponent(ShapingComponent):
         return normalise_error_linear(absolute_error, self.scaling_factor)
 
 
-class LinearNonShapingComponent(LinearShapingComponent):
-    """
-    A hack implementation of a potential-based reward component which DOES
-    modify the optimal policy. It achieves this by not setting the potential
-    of a terminal state to 0.0.
-    """
-    def get_potential(self, state: State, is_terminal) -> float:
-        # calculate potential as if state is always non-terminal
-        return super().get_potential(state, False)
-
-
 def normalise_error_asymptotic(absolute_error: float, scaling_factor: float) -> float:
     """
     Given an error in the interval [0, +inf], returns a normalised error in [0, 1]
