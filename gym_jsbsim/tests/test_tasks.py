@@ -15,6 +15,8 @@ class TestHeadingControlTask(unittest.TestCase):
     default_step_frequency_hz = 5
     default_aircraft = cessna172P
 
+    heading_calc_error_fraction = 0.02  # error due to heading and distance calculations
+
     def setUp(self):
         self.task = self.make_task()
         sim = SimStub.make_valid_state_stub(self.task)
@@ -87,14 +89,14 @@ class TestHeadingControlTask(unittest.TestCase):
 
         self.assertIsInstance(task.assessor, Assessor)
         self.assertEqual(2, len(task.assessor.base_components))
-        self.assertEqual(2, len(task.assessor.shaping_components))
+        self.assertEqual(1, len(task.assessor.shaping_components))
 
     def test_init_shaping_additive(self):
         task = self.make_task(shaping_type=HeadingControlTask.Shaping.ADDITIVE)
 
         self.assertIsInstance(task.assessor, Assessor)
         self.assertEqual(2, len(task.assessor.base_components))
-        self.assertEqual(4, len(task.assessor.shaping_components))
+        self.assertEqual(3, len(task.assessor.shaping_components))
 
     def test_get_intial_conditions_valid_target_heading(self):
         self.setUp()
@@ -214,7 +216,7 @@ class TestHeadingControlTask(unittest.TestCase):
 
         # aircraft moved maximum distance on correct heading and maintained
         # altitude, so we expect reward of 1.0
-        self.assertAlmostEqual(1., reward)
+        self.assertAlmostEqual(1., reward, delta=self.heading_calc_error_fraction * 1.)
 
     def test_task_step_correct_non_terminal_reward_optimal_behaviour_no_shaping(self):
         self.setUp()
@@ -228,9 +230,9 @@ class TestHeadingControlTask(unittest.TestCase):
 
         state, reward, done, info = task.task_step(sim, self.dummy_action, 1)
 
-        # aircraft maintained correct altitude (1.0) but sim is non-terminal
-        # so we expect no distance traveled reward (0.0) average to 0.5
-        self.assertAlmostEqual(0.5, reward)
+        # aircraft maintained correct altitude (1.0) and travelled max dist (1.0),
+        #   averages to 1.0
+        self.assertAlmostEqual(1.0, reward, delta=self.heading_calc_error_fraction * 1.0)
 
     def test_task_step_correct_terminal_reward_optimal_behaviour_shaping(self):
         self.setUp()
@@ -249,7 +251,8 @@ class TestHeadingControlTask(unittest.TestCase):
 
             # aircraft moved maximum distance on correct heading and maintained
             # altitude, so we expect non-shaping reward of 1.0
-            self.assertAlmostEqual(1., reward_obj.non_shaping_reward())
+            self.assertAlmostEqual(1., reward_obj.non_shaping_reward(),
+                                   delta=self.heading_calc_error_fraction * 1.0)
 
     def test_task_step_correct_sequential_reward_shaping_(self):
         self.setUp()

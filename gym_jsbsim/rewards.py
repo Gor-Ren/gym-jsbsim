@@ -70,9 +70,10 @@ class AbstractComponent(RewardComponent, ABC):
         :param prop: the BoundedProperty for which a value will be retrieved
             from the State
         :param state_variables: the state variables corresponding to each State element
+            that this component will be passed.
         """
         self.name = name
-        self.index = state_variables.index(prop)
+        self.state_index_of_value = state_variables.index(prop)
 
     def get_name(self):
         return self.name
@@ -103,7 +104,7 @@ class TerminalComponent(AbstractComponent):
 
     def calculate(self, state: State, _: State, is_terminal: bool):
         if is_terminal:
-            value = state[self.index]
+            value = state[self.state_index_of_value]
             return value / self.max_target
         else:
             return 0.0
@@ -158,7 +159,7 @@ class ComplementComponent(AbstractComponent, ABC):
         else:
             # else we have to look it up from the state
             target = state[self.target_index]
-        value = state[self.index]
+        value = state[self.state_index_of_value]
         error = abs(value - target)
         normalised_error = self._normalise_error(error)
         return 1 - normalised_error
@@ -215,10 +216,11 @@ class StepFractionComponent(ComplementComponent):
 
 
 class ShapingComponent(ComplementComponent, PotentialBasedComponent, ABC):
+    TERMINAL_VALUE = 0.0
 
     def get_potential(self, state: State, is_terminal) -> float:
         if is_terminal:
-            return 0
+            return self.TERMINAL_VALUE
         else:
             return self.error_complement(state)
 
@@ -334,6 +336,17 @@ class LinearShapingComponent(ShapingComponent):
 
     def _normalise_error(self, absolute_error: float):
         return normalise_error_linear(absolute_error, self.scaling_factor)
+
+
+class LinearNonShapingComponent(LinearShapingComponent):
+    """
+    A hack implementation of a potential-based reward component which DOES
+    modify the optimal policy. It achieves this by not setting the potential
+    of a terminal state to 0.0.
+    """
+    def get_potential(self, state: State, is_terminal) -> float:
+        # calculate potential as if state is always non-terminal
+        return super().get_potential(state, False)
 
 
 def normalise_error_asymptotic(absolute_error: float, scaling_factor: float) -> float:

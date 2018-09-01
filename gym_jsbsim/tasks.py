@@ -234,7 +234,7 @@ class HeadingControlTask(FlightTask):
     def _make_base_reward_components(self) -> Tuple[rewards.RewardComponent, ...]:
         target_altitude = self.base_initial_conditions[prp.initial_altitude_ft]
         base_components = (
-            rewards.LinearShapingComponent('distance_travel', self.distance_parallel_m,
+            rewards.LinearNonShapingComponent('dist_travel', self.distance_parallel_m,
                                            self.state_variables, self.distance_parallel_m.max,
                                            self.distance_parallel_m.max),
             rewards.StepFractionComponent('altitude_keeping', prp.altitude_sl_ft,
@@ -244,11 +244,6 @@ class HeadingControlTask(FlightTask):
         return base_components
 
     def _make_shaping_components(self, shaping: Shaping) -> Tuple[rewards.ShapingComponent, ...]:
-        distance_shaping = rewards.LinearShapingComponent('dist_travel_shaping',
-                                                          self.distance_parallel_m,
-                                                          self.state_variables,
-                                                          self.distance_parallel_m.max,
-                                                          self.distance_parallel_m.max)
         altitude_error = rewards.AsymptoticShapingComponent('altitude_error',
                                                             self.altitude_error_ft,
                                                             self.state_variables,
@@ -257,10 +252,9 @@ class HeadingControlTask(FlightTask):
         if shaping is self.Shaping.OFF:
             shaping_components = ()
         elif shaping is self.Shaping.BASIC:
-            shaping_components = (distance_shaping, altitude_error)
+            shaping_components = (altitude_error,)
         else:
             shaping_components = (
-                distance_shaping,
                 altitude_error,
                 rewards.AsymptoticShapingComponent('heading_error',
                                                    self.heading_error_deg,
@@ -280,11 +274,10 @@ class HeadingControlTask(FlightTask):
         if shaping is self.Shaping.OFF or shaping is self.Shaping.BASIC or shaping is self.Shaping.ADDITIVE:
             return assessors.AssessorImpl(base_components, shaping_components)
         else:
-            dist_travel, altitude_error, heading_error, wings_level = shaping_components
+            altitude_error, heading_error, wings_level = shaping_components
             # worry about control in this order: correct altitude, correct heading, wings level,
             #   distance travelled
-            dependency_map = {dist_travel: (altitude_error, heading_error, wings_level),
-                              wings_level: (heading_error, altitude_error),
+            dependency_map = {wings_level: (heading_error, altitude_error),
                               heading_error: (altitude_error,)}
             if shaping is self.Shaping.SEQUENTIAL_CONT:
                 return assessors.ContinuousSequentialAssessor(base_components, shaping_components,
