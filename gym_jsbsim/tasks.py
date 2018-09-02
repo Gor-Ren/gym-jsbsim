@@ -109,7 +109,7 @@ class FlightTask(Task, ABC):
     assessor: assessors.Assessor
     State: Type[NamedTuple]
 
-    def __init__(self, assessor: assessors.Assessor, debug: bool=True) -> None:
+    def __init__(self, assessor: assessors.Assessor, debug: bool=False) -> None:
         self.last_state = None
         self.assessor = assessor
         self._make_state_class()
