@@ -108,10 +108,11 @@ class FlightTask(Task, ABC):
     assessor: assessors.Assessor
     State: Type[NamedTuple]
 
-    def __init__(self, assessor: assessors.Assessor) -> None:
+    def __init__(self, assessor: assessors.Assessor, debug: bool=True) -> None:
         self.last_state = None
         self.assessor = assessor
         self._make_state_class()
+        self.debug = debug
 
     def _make_state_class(self) -> None:
         """ Creates a namedtuple for readable State data """
@@ -134,10 +135,22 @@ class FlightTask(Task, ABC):
         state = self.State(*(sim[prop] for prop in self.state_variables))
         done = self._is_terminal(state, sim[prp.sim_time_s])
         reward = self.assessor.assess(state, self.last_state, done)
+        if self.debug:
+            self._validate_state(state, done, action, reward)
         self.last_state = state
         info = {'reward': reward}
 
         return state, reward.agent_reward(), done, info
+
+    def _validate_state(self, state, done, action, reward):
+        if float('nan') in state:
+            error_msg = (f'Invalid state encountered!\n'
+                         f'State: {state}\n'
+                         f'Prev. State: {self.last_state}\n'
+                         f'Action: {action}\n'
+                         f'Terminal: {done}\n'
+                         f'Reward: {reward}')
+            raise RuntimeError(error_msg)
 
     def _update_custom_properties(self, sim: Simulation) -> None:
         """ Calculates any custom properties which change every timestep. """
@@ -194,6 +207,9 @@ class HeadingControlTask(FlightTask):
     MIXTURE_CMD = 0.8
     INITIAL_HEADING_DEG = 270
     DEFAULT_EPISODE_TIME_S = 20.
+    ALTITUDE_SCALING_FT = 25
+    HEADING_ERROR_SCALING_DEG = 7.5
+    ROLL_ERROR_SCALING_RAD = 0.125  # approx. 7.5 deg
     Shaping = enum.Enum.__call__('Shaping', ['OFF', 'BASIC', 'ADDITIVE', 'SEQUENTIAL_CONT',
                                              'SEQUENTIAL_DISCONT'])
     target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
@@ -217,6 +233,7 @@ class HeadingControlTask(FlightTask):
         self.max_time_s = episode_time_s
         self.episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
         self.aircraft = aircraft
+
         self.distance_parallel_m = BoundedProperty('position/dist-parallel-heading-m',
                                                    'distance travelled parallel to target heading [m]',
                                                    0, aircraft.get_max_distance_m(self.max_time_s))
@@ -238,7 +255,8 @@ class HeadingControlTask(FlightTask):
                                       self.state_variables, self.distance_parallel_m.max),
             rewards.StepFractionComponent('altitude_keeping', prp.altitude_sl_ft,
                                           self.state_variables,
-                                          target_altitude, 50, self.episode_steps)
+                                          target_altitude, self.ALTITUDE_SCALING_FT,
+                                          self.episode_steps)
         )
         return base_components
 
@@ -252,7 +270,7 @@ class HeadingControlTask(FlightTask):
                                                             self.altitude_error_ft,
                                                             self.state_variables,
                                                             0,
-                                                            50)
+                                                            self.ALTITUDE_SCALING_FT)
         if shaping is self.Shaping.OFF:
             shaping_components = ()
         elif shaping is self.Shaping.BASIC:
@@ -265,10 +283,10 @@ class HeadingControlTask(FlightTask):
                                                    self.heading_error_deg,
                                                    self.state_variables,
                                                    0,
-                                                   15),
+                                                   self.HEADING_ERROR_SCALING_DEG),
                 rewards.AsymptoticShapingComponent('wings_level', prp.roll_rad,
                                                    self.state_variables,
-                                                   0, 0.25),  # 0.25 radians corresponds ~15 deg
+                                                   0, self.ROLL_ERROR_SCALING_RAD),
             )
 
         return shaping_components
