@@ -18,10 +18,13 @@ class AxesTuple(NamedTuple):
 class FigureVisualiser(object):
     """ Class for manging a matplotlib Figure displaying agent state and actions """
     PLOT_PAUSE_SECONDS = 0.0001
-    TEXT_KWARGS = dict(fontsize=18,
-                       horizontalalignment='left',
-                       verticalalignment='baseline')
-    TEXT_X_POSN_LABEL = 0.0
+    LABEL_TEXT_KWARGS = dict(fontsize=18,
+                             horizontalalignment='right',
+                             verticalalignment='baseline')
+    VALUE_TEXT_KWARGS = dict(fontsize=18,
+                             horizontalalignment='left',
+                             verticalalignment='baseline')
+    TEXT_X_POSN_LABEL = 0.8
     TEXT_X_POSN_VALUE = 0.9
     TEXT_Y_POSN_INITIAL = 1.0
     TEXT_Y_INCREMENT = -0.1
@@ -175,14 +178,14 @@ class FigureVisualiser(object):
 
         for prop, y in zip(self.print_props, ys):
             label = str(prop.name)
-            ax.text(self.TEXT_X_POSN_LABEL, y, label, transform=ax.transAxes, **(self.TEXT_KWARGS))
+            ax.text(self.TEXT_X_POSN_LABEL, y, label, transform=ax.transAxes, **(self.LABEL_TEXT_KWARGS))
 
         # print and store empty Text objects which we will rewrite each plot call
         value_texts = []
         dummy_msg = ''
         for y in ys:
             text = ax.text(self.TEXT_X_POSN_VALUE, y, dummy_msg, transform=ax.transAxes,
-                           **(self.TEXT_KWARGS))
+                           **(self.VALUE_TEXT_KWARGS))
             value_texts.append(text)
         self.value_texts = tuple(value_texts)
 
@@ -233,6 +236,7 @@ class FlightGearVisualiser(object):
     PROTOCOL = 'udp'
     LOADED_MESSAGE = 'loading cities done'
     FLIGHTGEAR_TIME_FACTOR = 5
+    TIME = 'noon'
 
     def __init__(self, sim: Simulation, print_props: Tuple[prp.Property], block_until_loaded=True):
         """
@@ -288,8 +292,11 @@ class FlightGearVisualiser(object):
                                              f'{FlightGearVisualiser.PROTOCOL}'
         flight_model_type_arg = '--fdm=' + 'external'
         disable_ai_arg = '--disable-ai-traffic'
+        disable_live_weather_arg = '--disable-real-weather-fetch'
+        time_of_day_arg = f'--timeofday={FlightGearVisualiser.TIME}'
         return (flightgear_cmd, aircraft_arg, flight_model_arg,
-                flight_model_type_arg, disable_ai_arg)
+                flight_model_type_arg, disable_ai_arg, disable_live_weather_arg,
+                time_of_day_arg)
 
     def _block_until_flightgear_loaded(self):
         while True:
