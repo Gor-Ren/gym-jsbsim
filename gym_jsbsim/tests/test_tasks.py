@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import gym_jsbsim.properties as prp
 from gym_jsbsim import rewards, utils
-from gym_jsbsim.assessors import Assessor
+from gym_jsbsim.assessors import Assessor, AssessorImpl
 from gym_jsbsim.aircraft import Aircraft, cessna172P
 from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
 from gym_jsbsim.tests.stubs import SimStub, TransitioningSimStub
@@ -12,8 +12,8 @@ from gym_jsbsim.tests.stubs import SimStub, TransitioningSimStub
 
 class TestHeadingControlTask(unittest.TestCase):
     default_shaping = HeadingControlTask.Shaping.OFF
-    default_episode_time_s = 15.0
-    default_step_frequency_hz = 5
+    default_episode_time_s = 1
+    default_step_frequency_hz = 1
     default_aircraft = cessna172P
 
     def setUp(self):
@@ -37,31 +37,50 @@ class TestHeadingControlTask(unittest.TestCase):
                           step_frequency_hz=step_frequency_hz,
                           aircraft=aircraft)
 
-    def get_sim_with_state(self,
-                           task: HeadingControlTask = None,
-                           time_terminal=False,
-                           dist_travel_m=0.0,
-                           heading_deg=0.0,
-                           altitude_ft=None,
-                           roll_rad=0.0,
-                           heading_travel_deg=0.0) -> SimStub:
+    def get_initial_sim_with_state(self,
+                                   task: HeadingControlTask = None,
+                                   time_terminal=False,
+                                   dist_travel_m=0.0,
+                                   heading_deg=0.0,
+                                   altitude_ft=None,
+                                   roll_rad=0.0) -> SimStub:
         if task is None:
             task = self.task
         sim = SimStub.make_valid_state_stub(task)
         task.observe_first_state(sim)
 
+        return self.modify_sim_to_state_(sim, task, time_terminal, dist_travel_m, heading_deg,
+                                         altitude_ft, roll_rad)
+
+    def modify_sim_to_state_(self,
+                             sim: SimStub,
+                             task: HeadingControlTask = None,
+                             time_terminal=False,
+                             dist_travel_m=0.0,
+                             heading_deg=0.0,
+                             altitude_ft=None,
+                             roll_rad=0.0,
+                             heading_travel_deg=None) -> SimStub:
+        if task is None:
+            task = self.task
         if time_terminal:
             sim[prp.sim_time_s] = task.max_time_s + 1
         else:
             sim[prp.sim_time_s] = task.max_time_s - 1
 
+        if altitude_ft is None:
+            sim[prp.altitude_sl_ft] = task.INITIAL_ALTITUDE_FT
+        else:
+            sim[prp.altitude_sl_ft] = altitude_ft
         sim[prp.dist_travel_m] = dist_travel_m
         sim[prp.heading_deg] = heading_deg
-        sim[prp.altitude_sl_ft] = altitude_ft if altitude_ft is not None else task.INITIAL_ALTITUDE_FT
         sim[prp.roll_rad] = roll_rad
-        # update lat/lng for heading travelled
-        sim[prp.lng_geoc_deg] += math.sin(math.radians(heading_travel_deg))
-        sim[prp.lat_geod_deg] += math.cos(math.radians(heading_travel_deg))
+        if heading_travel_deg is not None:
+            # move position along target heading
+            delta_lng = math.sin(math.radians(heading_travel_deg))
+            delta_lat = math.cos(math.radians(heading_travel_deg))
+            sim[prp.lng_geoc_deg] += delta_lng
+            sim[prp.lat_geod_deg] += delta_lat
         return sim
 
     def get_initial_state_sim(self, task=None) -> SimStub:
@@ -100,6 +119,24 @@ class TestHeadingControlTask(unittest.TestCase):
         sim[prp.lat_geod_deg] += math.cos(math.radians(target_heading))
         return sim
 
+    def get_transitioning_sim(self, task, time_terminal, altitude_ft, dist_travel_m,
+                              heading_travel_error_deg) -> TransitioningSimStub:
+        """ Makes a sim that transitions between two states.
+
+        The first state is as configured by the input task.
+        The second state's altitude, distance traveled, heading etc. changes as per inputs.
+         """
+        initial_state_sim = self.get_initial_sim_with_state(task, time_terminal=False)
+        target_heading = initial_state_sim[self.task.target_heading_deg]
+        heading_traveled = target_heading + heading_travel_error_deg
+        good_dist_bad_alt_sim = initial_state_sim.copy()
+        good_dist_bad_alt_sim = self.modify_sim_to_state_(good_dist_bad_alt_sim,
+                                                          time_terminal=time_terminal,
+                                                          altitude_ft=altitude_ft,
+                                                          dist_travel_m=dist_travel_m,
+                                                          heading_travel_deg=heading_traveled)
+        return TransitioningSimStub(initial_state_sim, good_dist_bad_alt_sim)
+
     def get_target_heading(self, sim: SimStub):
         return self.task.INITIAL_HEADING_DEG
 
@@ -120,7 +157,7 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_init_shaping_additive(self):
         task = self.make_task(shaping_type=HeadingControlTask.Shaping.ADDITIVE)
 
-        self.assertIsInstance(task.assessor, Assessor)
+        self.assertIsInstance(task.assessor, AssessorImpl)
         self.assertEqual(2, len(task.assessor.base_components))
         self.assertEqual(4, len(task.assessor.shaping_components))
 
@@ -282,21 +319,68 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_task_step_correct_distance_reward_terrible_altitude(self):
         self.setUp()
         task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
-
-        initial_state_sim = self.get_sim_with_state(task, time_terminal=False)
-        target_heading = initial_state_sim[self.task.target_heading_deg]
         bad_altitude = sys.float_info.max
-        good_dist_bad_alt_sim = self.get_sim_with_state(task,
-                                                        time_terminal=True,
-                                                        altitude_ft=bad_altitude,
-                                                        dist_travel_m=self.task.distance_parallel_m.max,
-                                                        heading_travel_deg=target_heading)
-        sim = TransitioningSimStub(initial_state_sim, good_dist_bad_alt_sim)
+        sim = self.get_transitioning_sim(task,
+                                         time_terminal=True,
+                                         altitude_ft=bad_altitude,
+                                         dist_travel_m=self.task.distance_parallel_m.max,
+                                         heading_travel_error_deg=0)
+
         _, _, _, info = task.task_step(sim, self.dummy_action, 1)
         reward_obj: rewards.Reward = info['reward']
 
         # we went from our initial position to an optimal distance and terrible altitude
         expected_reward = (1.0 + 0.0) / 2
+        dist_travel_reward = reward_obj.base_reward_elements[0]
+        altitude_keeping_reward = reward_obj.base_reward_elements[1]
+        self.assertAlmostEqual(1.0, dist_travel_reward)
+        self.assertAlmostEqual(0.0, altitude_keeping_reward)
+        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
+
+    def test_task_step_terrible_heading_travel_terrible_altitude(self):
+        self.setUp()
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
+        bad_altitude = sys.float_info.max
+        heading_error_deg = 90  # perpendicular to target, i.e. no progress
+        sim = self.get_transitioning_sim(task,
+                                         time_terminal=True,
+                                         altitude_ft=bad_altitude,
+                                         dist_travel_m=self.task.distance_parallel_m.max,
+                                         heading_travel_error_deg=heading_error_deg)
+
+        _, _, _, info = task.task_step(sim, self.dummy_action, 1)
+        reward_obj: rewards.Reward = info['reward']
+
+        # we went from our initial position to an optimal distance and terrible altitude
+        expected_reward = (0.0 + 0.0) / 2
+        dist_travel_reward = reward_obj.base_reward_elements[0]
+        altitude_keeping_reward = reward_obj.base_reward_elements[1]
+        self.assertAlmostEqual(0.0, dist_travel_reward)
+        self.assertAlmostEqual(0.0, altitude_keeping_reward)
+        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
+
+    def test_task_step_reward_middling_heading_middling_altitude(self):
+        self.setUp()
+        task = self.make_task(shaping_type=HeadingControlTask.Shaping.OFF)
+        # we get 0.5 reward at scaling distance from target altitude
+        middling_altitude = task.INITIAL_ALTITUDE_FT + task.ALTITUDE_SCALING_FT
+        heading_error_deg = 45
+        sim = self.get_transitioning_sim(task,
+                                         time_terminal=True,
+                                         altitude_ft=middling_altitude,
+                                         dist_travel_m=self.task.distance_parallel_m.max,
+                                         heading_travel_error_deg=heading_error_deg)
+
+        _, _, _, info = task.task_step(sim, self.dummy_action, 1)
+        reward_obj: rewards.Reward = info['reward']
+
+        # we went from our initial position to an optimal distance and terrible altitude
+        fraction_distance_achieved = math.cos(math.radians(heading_error_deg))
+        expected_reward = (0.5 + fraction_distance_achieved) / 2
+        dist_travel_reward = reward_obj.base_reward_elements[0]
+        altitude_keeping_reward = reward_obj.base_reward_elements[1]
+        self.assertAlmostEqual(fraction_distance_achieved, dist_travel_reward)
+        self.assertAlmostEqual(0.5, altitude_keeping_reward)
         self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
 
     def test_observe_first_state_correct_heading_error(self):

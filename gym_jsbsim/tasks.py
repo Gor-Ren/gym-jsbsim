@@ -4,6 +4,7 @@ import random
 import types
 import math
 import enum
+import warnings
 from collections import namedtuple
 import gym_jsbsim.properties as prp
 from gym_jsbsim import assessors, rewards, utils
@@ -133,7 +134,7 @@ class FlightTask(Task, ABC):
 
         self._update_custom_properties(sim)
         state = self.State(*(sim[prop] for prop in self.state_variables))
-        done = self._is_terminal(state, sim[prp.sim_time_s])
+        done = self._is_terminal(sim)
         reward = self.assessor.assess(state, self.last_state, done)
         if self.debug:
             self._validate_state(state, done, action, reward)
@@ -143,25 +144,24 @@ class FlightTask(Task, ABC):
         return state, reward.agent_reward(), done, info
 
     def _validate_state(self, state, done, action, reward):
-        if float('nan') in state:
-            error_msg = (f'Invalid state encountered!\n'
+        if any(math.isnan(el) for el in state):  # float('nan') in state doesn't work!
+            msg = (f'Invalid state encountered!\n'
                          f'State: {state}\n'
                          f'Prev. State: {self.last_state}\n'
                          f'Action: {action}\n'
                          f'Terminal: {done}\n'
                          f'Reward: {reward}')
-            raise RuntimeError(error_msg)
+            warnings.warn(msg, RuntimeWarning)
 
     def _update_custom_properties(self, sim: Simulation) -> None:
         """ Calculates any custom properties which change every timestep. """
         pass
 
     @abstractmethod
-    def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
+    def _is_terminal(self, sim: Simulation) -> bool:
         """ Determines whether the current episode should terminate.
 
-        :param state: the last state observation
-        :param episode_time: the episode time in seconds
+        :param sim: the current simulation
         :return: True if the episode should terminate else False
         """
         ...
@@ -210,6 +210,7 @@ class HeadingControlTask(FlightTask):
     ALTITUDE_SCALING_FT = 25
     HEADING_ERROR_SCALING_DEG = 7.5
     ROLL_ERROR_SCALING_RAD = 0.125  # approx. 7.5 deg
+    MAX_ALTITUDE_DEVIATION_FT = 1000  # terminate if altitude error exceeds this
     Shaping = enum.Enum.__call__('Shaping', ['OFF', 'BASIC', 'ADDITIVE', 'SEQUENTIAL_CONT',
                                              'SEQUENTIAL_DISCONT'])
     target_heading_deg = BoundedProperty('target/heading-deg', 'desired heading [deg]',
@@ -354,9 +355,14 @@ class HeadingControlTask(FlightTask):
         error_ft = altitude_ft - target_altitude_ft
         sim[self.altitude_error_ft] = error_ft
 
-    def _is_terminal(self, state: Tuple[float, ...], episode_time: float) -> bool:
+    def _is_terminal(self, sim: Simulation) -> bool:
         # terminate when time >= max, but use math.isclose() for float equality test
-        return math.isclose(episode_time, self.max_time_s) or episode_time > self.max_time_s
+        episode_time = sim[prp.sim_time_s]
+        altitude_error_ft = sim[self.altitude_error_ft]
+
+        over_time = math.isclose(episode_time, self.max_time_s) or episode_time > self.max_time_s
+        altitude_out_of_bounds = abs(altitude_error_ft) > self.MAX_ALTITUDE_DEVIATION_FT
+        return over_time or altitude_out_of_bounds
 
     def _new_episode_init(self, sim: Simulation) -> None:
         sim.start_engines()

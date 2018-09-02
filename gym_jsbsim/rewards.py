@@ -2,6 +2,7 @@ import gym_jsbsim.properties as prp
 from abc import ABC, abstractmethod
 from typing import Tuple, Union
 from gym_jsbsim.utils import reduce_reflex_angle_deg
+import warnings
 
 State = 'tasks.FlightTask.State'  # alias for type hint
 
@@ -105,7 +106,17 @@ class TerminalComponent(AbstractComponent):
     def calculate(self, state: State, _: State, is_terminal: bool):
         if is_terminal:
             value = state[self.state_index_of_value]
-            return value / self.max_target
+            raw_reward = value / self.max_target
+            if raw_reward > 1.0:
+                warnings.warn('agent achieved higher state value than max of terminal '
+                              f'component: {value} > expected max {self.max_target}')
+                return 1.0
+            elif raw_reward < -1.0:
+                warnings.warn('agent achieved lower state value than negative max of terminal'
+                              f'component: {value} < expected max -{self.max_target}')
+                return -1.0
+            else:
+                return raw_reward
         else:
             return 0.0
 

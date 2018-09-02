@@ -1,7 +1,9 @@
 import collections
+import copy
 from gym_jsbsim.tasks import FlightTask
 from gym_jsbsim.rewards import State, Reward, RewardComponent, PotentialBasedComponent
 from gym_jsbsim.assessors import Assessor
+from gym_jsbsim.simulation import Simulation
 import gym_jsbsim.properties as prp
 from typing import Tuple, NamedTuple, Iterable, Dict
 
@@ -63,7 +65,7 @@ class BasicFlightTask(FlightTask):
         self.action_variables = (prp.aileron_cmd, prp.rudder_cmd, prp.elevator_cmd)
         super().__init__(AssessorStub())
 
-    def _is_terminal(self, _: Tuple[float, ...], __: float) -> bool:
+    def _is_terminal(self, _: Simulation) -> bool:
         return False
 
     def get_initial_conditions(self):
@@ -73,7 +75,9 @@ class BasicFlightTask(FlightTask):
         return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg
 
 
-class SimStub(dict):
+class SimStub(object):
+    def __init__(self):
+        self.data = {}
 
     def run(self):
         pass
@@ -86,10 +90,15 @@ class SimStub(dict):
         return self[prp.sim_time_s]
 
     def __setitem__(self, prop: prp.Property, value: float):
-        return super().__setitem__(prop.name, value)
+        return self.data.__setitem__(prop.name, value)
 
     def __getitem__(self, prop: prp.Property) -> float:
-        return super().__getitem__(prop.name)
+        return self.data.__getitem__(prop.name)
+
+    def copy(self):
+        new = SimStub()
+        new.data = copy.deepcopy(self.data)
+        return new
 
     @staticmethod
     def make_valid_state_stub(task: FlightTask):
@@ -110,10 +119,11 @@ class SimStub(dict):
             typical_value = (prop.min + prop.max) / 2
             sim[prop] = typical_value
         sim[prp.sim_time_s] = 1.0
-        sim[prp.lat_geod_deg] = 33.3
-        sim[prp.lng_geoc_deg] = 44.4
+        sim[prp.lat_geod_deg] = task.get_initial_conditions()[prp.initial_latitude_geod_deg]
+        sim[prp.lng_geoc_deg] = task.get_initial_conditions()[prp.initial_longitude_geoc_deg]
         sim[prp.dist_travel_m] = 2.0
         sim[prp.heading_deg] = 270
+        sim[prp.altitude_sl_ft] = task.INITIAL_ALTITUDE_FT
         return sim
 
 

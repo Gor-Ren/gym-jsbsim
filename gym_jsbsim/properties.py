@@ -93,5 +93,5 @@ class GeodeticPosition(object):
         return GeodeticPosition(lat_deg, lon_deg)
 
     def __sub__(self, other) -> Tuple[float, float]:
-        """ Returns difference between two Cartesian coords as (delta_lat, delta_long) """
+        """ Returns difference between two coords as (delta_lat, delta_long) """
         return self.lat - other.lat, self.lon - other.lon
