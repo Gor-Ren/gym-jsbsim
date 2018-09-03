@@ -236,7 +236,7 @@ class FlightGearVisualiser(object):
     PROTOCOL = 'udp'
     LOADED_MESSAGE = 'loading cities done'
     FLIGHTGEAR_TIME_FACTOR = 5
-    TIME = 'noon'
+    TIME = 'dusk'
 
     def __init__(self, sim: Simulation, print_props: Tuple[prp.Property], block_until_loaded=True):
         """
@@ -293,7 +293,7 @@ class FlightGearVisualiser(object):
         flight_model_type_arg = '--fdm=' + 'external'
         disable_ai_arg = '--disable-ai-traffic'
         disable_live_weather_arg = '--disable-real-weather-fetch'
-        time_of_day_arg = f'--timeofday={FlightGearVisualiser.TIME}'
+        time_of_day_arg = '--timeofday=' + FlightGearVisualiser.TIME
         return (flightgear_cmd, aircraft_arg, flight_model_arg,
                 flight_model_type_arg, disable_ai_arg, disable_live_weather_arg,
                 time_of_day_arg)
