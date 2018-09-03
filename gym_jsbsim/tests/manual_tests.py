@@ -146,7 +146,7 @@ class TurnHeadingControlTest(unittest.TestCase):
                 if step_number % render_every == 0:
                     self.env.render(mode='flightgear')
                 if step_number % report_every == 0:
-                    heading_target = tasks.HeadingControlTask.target_heading_deg
+                    heading_target = tasks.HeadingControlTask.target_track_deg
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
                     print(f'last agent_reward:\t{agent_reward}')
                     print(f'episode agent_reward:\t{ep_reward}')

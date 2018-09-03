@@ -97,7 +97,7 @@ class TestContinuousSequentialAssessor(TestAssessorImpl):
         low_potential, high_potential = 0.5, 1.0
         potential_map = {state_low_potential: low_potential,
                          state_high_potential: high_potential}
-        shape_component = stubs.PotentialComponentStub(potential_map)
+        shape_component = stubs.RewardComponentStub(potential_map)
 
         assessor = self.get_assessor((base_component,), (shape_component,))
 
@@ -145,15 +145,15 @@ class TestContinuousSequentialAssessor(TestAssessorImpl):
                          prev_state: prev_state_potential}
 
         # make components
-        shape_component = stubs.PotentialComponentStub(potential_map)
+        shape_component = stubs.RewardComponentStub(potential_map)
         dependency_potential_map = {key: dependency_potential for key in potential_map}
-        dependant_shape_component = stubs.PotentialComponentStub(dependency_potential_map)
+        dependant_shape_component = stubs.RewardComponentStub(dependency_potential_map)
 
         dependency_map = {shape_component: (dependant_shape_component,)}
 
         assessor = self.get_assessor((base_component,),
                                      (shape_component, dependant_shape_component),
-                                     dependency_map)
+                                     potential_dependency_map=dependency_map)
 
         return assessor.assess(state, prev_state, terminal)
 

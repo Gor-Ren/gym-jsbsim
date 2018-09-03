@@ -2,7 +2,6 @@ import gym_jsbsim.properties as prp
 from abc import ABC, abstractmethod
 from typing import Tuple, Union
 from gym_jsbsim.utils import reduce_reflex_angle_deg
-import warnings
 
 State = 'tasks.FlightTask.State'  # alias for type hint
 
@@ -50,20 +49,25 @@ class RewardComponent(ABC):
     def get_name(self) -> str:
         ...
 
-
-class PotentialBasedComponent(RewardComponent, ABC):
-    """
-    Interface for PotentialBasedComponent, an object which calculates one component value of a
-    Reward using a potential function.
-    """
     @abstractmethod
     def get_potential(self, state: State, is_terminal) -> float:
         ...
 
+    @abstractmethod
+    def is_potential_difference_based(self) -> bool:
+        ...
+
 
 class AbstractComponent(RewardComponent, ABC):
-    def __init__(self, name: str, prop: prp.BoundedProperty,
-                 state_variables: Tuple[prp.BoundedProperty]):
+    """ Base implementation of a RewardComponent implementing common methods. """
+    POTENTIAL_BASED_DIFFERENCE_TERMINAL_VALUE = 0.0
+
+    def __init__(self,
+                 name: str,
+                 prop: prp.BoundedProperty,
+                 state_variables: Tuple[prp.BoundedProperty],
+                 target: Union[int, float, prp.Property, prp.BoundedProperty],
+                 potential_difference_based: bool):
         """
         Constructor.
 
@@ -72,70 +76,13 @@ class AbstractComponent(RewardComponent, ABC):
             from the State
         :param state_variables: the state variables corresponding to each State element
             that this component will be passed.
+        :param is_potential_based: True if reward is based on a potential difference
+            between prev_state and state (AKA potential based shaping reward) else
+            False (and reward depends only on the potential of current state).
         """
         self.name = name
         self.state_index_of_value = state_variables.index(prop)
-
-    def get_name(self):
-        return self.name
-
-
-class TerminalComponent(AbstractComponent):
-    """
-    A sparse reward component which gives a reward on terminal condition.
-
-    The reward is equal to the terminal value of some state property relative
-    to a maximum value.
-    """
-
-    def __init__(self, name: str, prop: prp.BoundedProperty,
-                 state_variables: Tuple[prp.BoundedProperty],
-                 max_target: float):
-        """
-        Constructor.
-
-        :param name: the uniquely identifying name of this component
-        :param prop: the BoundedProperty for which a value will be retrieved
-            from the State
-        :param max_target: the maximum value the property can take, against
-            which reward is calculated as a fraction
-        """
-        super().__init__(name, prop, state_variables)
-        self.max_target = max_target
-
-    def calculate(self, state: State, _: State, is_terminal: bool):
-        if is_terminal:
-            value = state[self.state_index_of_value]
-            raw_reward = value / self.max_target
-            if raw_reward > 1.0:
-                warnings.warn('agent achieved higher state value than max of terminal '
-                              f'component: {value} > expected max {self.max_target}')
-                return 1.0
-            elif raw_reward < -1.0:
-                warnings.warn('agent achieved lower state value than negative max of terminal'
-                              f'component: {value} < expected max -{self.max_target}')
-                return -1.0
-            else:
-                return raw_reward
-        else:
-            return 0.0
-
-
-class ComplementComponent(AbstractComponent, ABC):
-    """
-    Calculates rewards based on a normalised error complement.
-
-    Normalising an error takes some absolute difference |value - target| and
-    transforms it to the interval [0,1], where 0 is no error and 1 is +inf error.
-
-    We then take the complement of this (1-normalised_error) and use it
-    as a reward component.
-    """
-
-    def __init__(self, name: str, prop: prp.BoundedProperty,
-                 state_variables: Tuple[prp.BoundedProperty],
-                 target: Union[int, float, prp.Property, prp.BoundedProperty]):
-        super().__init__(name, prop, state_variables)
+        self.potential_difference_based = potential_difference_based
         self._set_target(target, state_variables)
 
     def _set_target(self, target: Union[int, float, prp.Property, prp.BoundedProperty],
@@ -153,18 +100,45 @@ class ComplementComponent(AbstractComponent, ABC):
             self.constant_target = False
             self.target_index = state_variables.index(target)
 
+    def calculate(self, state: State, prev_state: State, is_terminal: bool):
+        if self.potential_difference_based:
+            # reward is a potential difference of state, prev_state
+            reward = self.get_potential(state, is_terminal) - self.get_potential(prev_state, False)
+        else:
+            # reward is just the error from this state
+            reward = self.get_potential(state, is_terminal)
+        return reward
+
     def is_constant_target(self):
         return self.constant_target
 
-    def error_complement(self, state: State) -> float:
+    def get_name(self) -> str:
+        return self.name
+
+    def is_potential_difference_based(self) -> bool:
+        return self.potential_difference_based
+
+
+class ErrorComponent(AbstractComponent, ABC):
+    """
+    Calculates rewards based on a normalised error from a target value.
+
+    Normalising an error takes some absolute difference |value - target| and
+    transforms it to the interval [-1,0], where 0 is no error and -1 is -inf error.
+    """
+
+    def get_potential(self, state: State, is_terminal) -> float:
         """
         Calculates the 'goodness' of a State given we want the compare_property
         to be some target_value. The target value may be a constant or
         retrieved from another property in the state.
 
-        The 'goodness' of the state is given by 1 - normalised_error, i.e. the
-        error's complement.
+        The 'goodness' of the state is given in the interval [-1,0], where 0
+        corresponds to zero error, and -1 corresponds to inf error.
         """
+        if is_terminal and self.potential_difference_based:
+            return self.POTENTIAL_BASED_DIFFERENCE_TERMINAL_VALUE
+
         if self.is_constant_target():
             target = self.target
         else:
@@ -172,8 +146,7 @@ class ComplementComponent(AbstractComponent, ABC):
             target = state[self.target_index]
         value = state[self.state_index_of_value]
         error = abs(value - target)
-        normalised_error = self._normalise_error(error)
-        return 1 - normalised_error
+        return -1 * self._normalise_error(error)
 
     @abstractmethod
     def _normalise_error(self, absolute_error: float) -> float:
@@ -188,92 +161,34 @@ class ComplementComponent(AbstractComponent, ABC):
         ...
 
 
-class StepFractionComponent(ComplementComponent):
+class AsymptoticErrorComponent(ErrorComponent):
     """
-    Rewards based on a property's closeness to a target value each timestep.
-
-    Reward is equal to error_complement / episode_timesteps, therefore a
-    this component sums to 1.0 over a perfect episode.
+    A reward component which gives a negative reward that asymptotically approaches -1
+    as the error to the desired value approaches +inf. This is convenient for not having
+    to worry about the bounds on the absolute error value.
     """
 
-    def __init__(self, name: str, prop: prp.BoundedProperty,
+    def __init__(self,
+                 name: str,
+                 prop: prp.BoundedProperty,
                  state_variables: Tuple[prp.BoundedProperty],
                  target: Union[int, float, prp.Property, prp.BoundedProperty],
-                 scaling_factor: Union[float, int],
-                 episode_timesteps: int):
-        """
-        Constructor.
-
-        :param name: the name of this component used for __repr__, e.g.
-            'altitude_keeping'
-        :param prop: the Property for which a value will be retrieved
-            from the State
-        :param target: the target value for the property, or the Property from
-            which the target value will be retrieved
-        :param scaling_factor: the property value is scaled down by this amount.
-            The RewardComponent outputs 0.5 when the value equals this factor
-        :param episode_timesteps: the number of timesteps in each episode
-        """
-        super().__init__(name, prop, state_variables, target)
-        self.scaling_factor = scaling_factor
-        self.episode_timesteps = episode_timesteps
-
-    def calculate(self, state: State, _: State, is_terminal: bool):
-        error_complement = self.error_complement(state)
-        return error_complement / self.episode_timesteps
-
-    def _normalise_error(self, absolute_error: float) -> float:
-        return normalise_error_asymptotic(absolute_error, self.scaling_factor)
-
-
-class ShapingComponent(ComplementComponent, PotentialBasedComponent, ABC):
-    TERMINAL_VALUE = 0.0
-
-    def get_potential(self, state: State, is_terminal) -> float:
-        if is_terminal:
-            return self.TERMINAL_VALUE
-        else:
-            return self.error_complement(state)
-
-    def calculate(self, state: State, last_state: State, is_terminal: bool):
-        potential = self.get_potential(state, is_terminal)
-        last_potential = self.get_potential(last_state, False)
-        return potential - last_potential
-
-
-class AsymptoticShapingComponent(ShapingComponent):
-    """
-    A potential-based shaping reward component.
-
-    Potential is based asymptotically on the  size of the error between a
-    property of interest and its target. The error can be unbounded in
-    magnitude.
-    """
-
-    def __init__(self, name: str, prop: prp.BoundedProperty,
-                 state_variables: Tuple[prp.BoundedProperty],
-                 target: Union[int, float, prp.Property, prp.BoundedProperty],
+                 is_potential_based: bool,
                  scaling_factor: Union[float, int]):
         """
         Constructor.
 
-        :param name: the name of this component used for __repr__, e.g.
-            'altitude_keeping'
-        :param prop: the Property for which a value will be retrieved
-            from the State
-        :param target: the target value for the property, or the Property from
-            which the target value will be retrieved
         :param scaling_factor: the property value is scaled down by this amount.
             Shaping potential is at 0.5 when the error equals this factor.
         """
-        super().__init__(name, prop, state_variables, target)
+        super().__init__(name, prop, state_variables, target, is_potential_based)
         self.scaling_factor = scaling_factor
 
     def _normalise_error(self, absolute_error: float):
         return normalise_error_asymptotic(absolute_error, self.scaling_factor)
 
 
-class AngularAsymptoticShapingComponent(AsymptoticShapingComponent):
+class AngularAsymptoticErrorComponent(AsymptoticErrorComponent):
     """
     A potential-based shaping reward component.
 
@@ -284,24 +199,6 @@ class AngularAsymptoticShapingComponent(AsymptoticShapingComponent):
     Values must be in units of degrees. Errors are reduced to the interval
     (-180, 180] before processing.
     """
-
-    def __init__(self, name: str, prop: prp.BoundedProperty,
-                 state_variables: Tuple[prp.BoundedProperty],
-                 target: Union[int, float, prp.Property, prp.BoundedProperty],
-                 scaling_factor: Union[float, int]):
-        """
-        Constructor.
-
-        :param name: the name of this component used for __repr__, e.g.
-            'altitude_keeping'
-        :param prop: the Property for which a value will be retrieved
-            from the State
-        :param target: the target value for the property, or the Property from
-            which the target value will be retrieved
-        :param scaling_factor: the property value is scaled down by this amount.
-            Shaping potential is at 0.5 when the error equals this factor.
-        """
-        super().__init__(name, prop, state_variables, target, scaling_factor)
 
     def _normalise_error(self, angular_error: float):
         """
@@ -317,7 +214,7 @@ class AngularAsymptoticShapingComponent(AsymptoticShapingComponent):
         return super()._normalise_error(reduced_angle_error)
 
 
-class LinearShapingComponent(ShapingComponent):
+class LinearErrorComponent(ErrorComponent):
     """
     A potential-based shaping reward component.
 
@@ -325,24 +222,21 @@ class LinearShapingComponent(ShapingComponent):
     interest and its target. The error must be in the interval [0, scaling_factor].
     """
 
-    def __init__(self, name: str, prop: prp.BoundedProperty,
+    def __init__(self,
+                 name: str,
+                 prop: prp.BoundedProperty,
                  state_variables: Tuple[prp.BoundedProperty],
                  target: Union[int, float, prp.Property, prp.BoundedProperty],
+                 is_potential_based: bool,
                  scaling_factor: Union[float, int]):
         """
         Constructor.
 
-        :param name: the name of this component used for __repr__, e.g.
-            'altitude_keeping'
-        :param prop: the Property for which a value will be retrieved
-            from the State
-        :param target: the target value for the property, or the Property from
-            which the target value will be retrieved
         :param scaling_factor: the max size of the difference between prop and
             target. Minimum potential (0.0) occurs when error is
             max_error_size or greater.
         """
-        super().__init__(name, prop, state_variables, target)
+        super().__init__(name, prop, state_variables, target, is_potential_based)
         self.scaling_factor = scaling_factor
 
     def _normalise_error(self, absolute_error: float):

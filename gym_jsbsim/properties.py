@@ -20,6 +20,7 @@ altitude_sl_ft = BoundedProperty('position/h-sl-ft', 'altitude above mean sea le
 pitch_rad = BoundedProperty('attitude/pitch-rad', 'pitch [rad]', -0.5 * math.pi, 0.5 * math.pi)
 roll_rad = BoundedProperty('attitude/roll-rad', 'roll [rad]', -math.pi, math.pi)
 heading_deg = BoundedProperty('attitude/psi-deg', 'heading [deg]', 0, 360)
+sideslip_deg = BoundedProperty('aero/beta-deg', 'sideslip [deg]', -180, +180)
 lat_geod_deg = BoundedProperty('position/lat-geod-deg', 'geocentric latitude [deg]', -90, 90)
 lng_geoc_deg = BoundedProperty('position/long-gc-deg', 'geodesic longitude [deg]', -180, 180)
 dist_travel_m = Property('position/distance-from-start-mag-mt', 'distance travelled from starting position [m]')
@@ -73,6 +74,22 @@ initial_roc_fpm = Property('ic/roc-fpm', 'initial rate of climb [ft/min]')
 initial_heading_deg = Property('ic/psi-true-deg', 'initial (true) heading [deg]')
 
 
+class Vector2(object):
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+    def heading_deg(self):
+        """ Calculate heading in degrees of vector from origin """
+        heading_rad = math.atan2(self.x, self.y)
+        heading_deg_normalised = (math.degrees(heading_rad) + 360) % 360
+        return heading_deg_normalised
+
+    @staticmethod
+    def from_sim(sim: 'simulation.Simulation') -> 'Vector2':
+        return Vector2(sim[v_east_fps], sim[v_north_fps])
+
+
 class GeodeticPosition(object):
     def __init__(self, latitude_deg: float, longitude_deg: float):
         self.lat = latitude_deg
@@ -80,10 +97,8 @@ class GeodeticPosition(object):
 
     def heading_deg_to(self, destination: 'GeodeticPosition') -> float:
         """ Determines heading in degrees of course between self and destination """
-        delta_lat, delta_lon = destination - self
-        heading_rad = math.atan2(delta_lon, delta_lat)
-        heading_deg_normalised = (math.degrees(heading_rad) + 360) % 360
-        return heading_deg_normalised
+        difference_vector = destination - self
+        return difference_vector.heading_deg()
 
     @staticmethod
     def from_sim(sim: 'simulation.Simulation') -> 'GeodeticPosition':
@@ -92,6 +107,6 @@ class GeodeticPosition(object):
         lon_deg = sim[lng_geoc_deg]
         return GeodeticPosition(lat_deg, lon_deg)
 
-    def __sub__(self, other) -> Tuple[float, float]:
+    def __sub__(self, other) -> Vector2:
         """ Returns difference between two coords as (delta_lat, delta_long) """
-        return self.lat - other.lat, self.lon - other.lon
+        return Vector2(self.lat - other.lat, self.lon - other.lon)

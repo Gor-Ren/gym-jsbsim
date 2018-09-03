@@ -1,7 +1,6 @@
 import gym
 import numpy as np
-from enum import Enum
-from gym_jsbsim.tasks import HeadingControlTask
+from gym_jsbsim.tasks import Shaping, HeadingControlTask
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.visualiser import FigureVisualiser, FlightGearVisualiser
 from gym_jsbsim.aircraft import Aircraft, cessna172P
@@ -25,7 +24,7 @@ class JsbSimEnv(gym.Env):
     metadata = {'render.modes': ['human', 'flightgear']}
 
     def __init__(self, task_type: Type[HeadingControlTask], aircraft: Aircraft = cessna172P,
-                 agent_interaction_freq: int = 5, shaping: Enum = HeadingControlTask.Shaping.OFF):
+                 agent_interaction_freq: int = 5, shaping: Shaping=Shaping.STANDARD):
         """
         Constructor. Inits some internal state, but JsbSimEnv.reset() must be
         called first before interacting with environment.

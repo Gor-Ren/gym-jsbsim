@@ -39,14 +39,12 @@ def get_env_id(task_type, aircraft, shaping, enable_flightgear) -> str:
 def get_env_id_kwargs_map() -> Dict[str, Tuple]:
     """ Returns all environment IDs mapped to tuple of (task, aircraft, shaping, flightgear) """
     # lazy import to avoid circular dependencies
-    from gym_jsbsim.tasks import HeadingControlTask, TurnHeadingControlTask
+    from gym_jsbsim.tasks import Shaping, HeadingControlTask, TurnHeadingControlTask
 
     map = {}
     for task_type in (HeadingControlTask, TurnHeadingControlTask):
         for plane in (cessna172P,):
-            for shaping in (HeadingControlTask.Shaping.OFF, HeadingControlTask.Shaping.BASIC,
-                            HeadingControlTask.Shaping.ADDITIVE,
-                            HeadingControlTask.Shaping.SEQUENTIAL_CONT):
+            for shaping in (Shaping.STANDARD, Shaping.SEQUENTIAL_CONT):
                 for enable_flightgear in (True, False):
                     id = get_env_id(task_type, plane, shaping, enable_flightgear)
                     assert id not in map

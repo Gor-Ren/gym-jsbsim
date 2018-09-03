@@ -1,7 +1,7 @@
 import collections
 import copy
 from gym_jsbsim.tasks import FlightTask
-from gym_jsbsim.rewards import State, Reward, RewardComponent, PotentialBasedComponent
+from gym_jsbsim.rewards import State, Reward, RewardComponent
 from gym_jsbsim.assessors import Assessor
 from gym_jsbsim.simulation import Simulation
 import gym_jsbsim.properties as prp
@@ -123,6 +123,8 @@ class SimStub(object):
         sim[prp.lng_geoc_deg] = task.get_initial_conditions()[prp.initial_longitude_geoc_deg]
         sim[prp.dist_travel_m] = 2.0
         sim[prp.heading_deg] = 270
+        sim[prp.v_north_fps] = 0
+        sim[prp.v_east_fps] = 200.  # corresp. to travel at track 270 deg
         sim[prp.altitude_sl_ft] = task.INITIAL_ALTITUDE_FT
         return sim
 
@@ -187,6 +189,12 @@ class ConstantRewardComponentStub(RewardComponent):
     def calculate(self, _: State, __: State, ___: bool):
         return self.return_value
 
+    def get_potential(self, state: State, is_terminal):
+        return self.return_value
+
+    def is_potential_difference_based(self):
+        return False
+
     def get_return_value(self):
         return self.return_value
 
@@ -194,7 +202,7 @@ class ConstantRewardComponentStub(RewardComponent):
         return str(self)
 
 
-class PotentialComponentStub(PotentialBasedComponent):
+class RewardComponentStub(RewardComponent):
     """
     A stub PotentialBasedComponent which is preconfigured to return a specified
     potential for a given State
@@ -219,6 +227,9 @@ class PotentialComponentStub(PotentialBasedComponent):
 
     def get_name(self):
         return str(self)
+
+    def is_potential_difference_based(self) -> bool:
+        return True
 
 
 class RewardStub(Reward):

@@ -168,7 +168,7 @@ class TestGymRegistration(unittest.TestCase):
     def get_number_of_envs(self) -> int:
         num_tasks = 2
         num_flightgear_setttings = 2
-        num_shaping_settings = 4
+        num_shaping_settings = 2
         num_aircraft = 1
 
         return num_tasks * num_flightgear_setttings * num_shaping_settings * num_aircraft
@@ -196,10 +196,10 @@ class TestGymRegistration(unittest.TestCase):
             self.assertIsInstance(env, JsbSimEnv)
 
     def test_gym_environments_configured_correctly(self):
-        Shaping = tasks.HeadingControlTask.Shaping
+        Shaping = tasks.Shaping
         for task in (tasks.HeadingControlTask, tasks.TurnHeadingControlTask):
             for plane in (aircraft.cessna172P,):
-                for shaping in (Shaping.OFF, Shaping.BASIC, Shaping.ADDITIVE, Shaping.SEQUENTIAL_CONT):
+                for shaping in (Shaping.STANDARD, Shaping.SEQUENTIAL_CONT):
                     for enable_flightgear in (True, False):
                         id = utils.get_env_id(task, plane, shaping, enable_flightgear)
                         env = gym.make(id)
