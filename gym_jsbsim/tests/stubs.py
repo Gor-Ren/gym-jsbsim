@@ -230,20 +230,3 @@ class RewardComponentStub(RewardComponent):
 
     def is_potential_difference_based(self) -> bool:
         return True
-
-
-class RewardStub(Reward):
-    def __init__(self, agent_reward_value: float, assessment_reward_value: float):
-        assert isinstance(agent_reward_value, float)
-        assert isinstance(assessment_reward_value, float)
-        self.agent_reward_value = agent_reward_value
-        self.assessment_reward_value = assessment_reward_value
-
-    def agent_reward(self) -> float:
-        return self.agent_reward_value
-
-    def assessment_reward(self) -> float:
-        return self.assessment_reward_value
-
-    def is_shaping(self):
-        return True

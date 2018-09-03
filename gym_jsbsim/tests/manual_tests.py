@@ -5,7 +5,7 @@ from typing import Type
 from gym_jsbsim import tasks, aircraft
 from gym_jsbsim.tests.stubs import BasicFlightTask
 from gym_jsbsim.environment import JsbSimEnv
-from gym_jsbsim.agents import RandomAgent, ConstantAgent
+from gym_jsbsim.agents import RandomAgent
 
 
 class TestJsbSimInstance(unittest.TestCase):
@@ -109,11 +109,14 @@ class FlightGearRenderTest(unittest.TestCase):
                     self.env.render(mode='flightgear')
                 if step_number % report_every == 0:
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
-                    print(f'last agent_reward:\t{agent_reward}')
-                    print(f'episode agent_reward:\t{ep_reward}')
+                    print(f'last reward:\t{reward}')
+                    print(f'episode reward:\t{ep_reward}')
                     print(f'thrust:\t{self.env.sim[prp.engine_thrust_lbs]}')
                     print(f'engine running:\t{self.env.sim[prp.engine_running]}')
                 step_number += 1
+            print(f'***\n'
+                  f'EPISODE REWARD: {ep_reward}\n'
+                  f'***')
 
 
 class TurnHeadingControlTest(unittest.TestCase):
@@ -148,8 +151,8 @@ class TurnHeadingControlTest(unittest.TestCase):
                 if step_number % report_every == 0:
                     heading_target = tasks.HeadingControlTask.target_track_deg
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
-                    print(f'last agent_reward:\t{agent_reward}')
-                    print(f'episode agent_reward:\t{ep_reward}')
+                    print(f'last reward:\t{reward}')
+                    print(f'episode reward:\t{ep_reward}')
                     print(f'heading:\t{self.env.sim[prp.heading_deg]}')
                     print(f'target heading:\t{self.env.sim[heading_target]}')
                     print('\n')

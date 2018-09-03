@@ -272,3 +272,20 @@ def normalise_error_linear(absolute_error: float, max_error: float) -> float:
         return 1.0
     else:
         return absolute_error / max_error
+
+
+class RewardStub(Reward):
+    def __init__(self, agent_reward_value: float, assessment_reward_value: float):
+        assert isinstance(agent_reward_value, float)
+        assert isinstance(assessment_reward_value, float)
+        self.agent_reward_value = agent_reward_value
+        self.assessment_reward_value = assessment_reward_value
+
+    def agent_reward(self) -> float:
+        return self.agent_reward_value
+
+    def assessment_reward(self) -> float:
+        return self.assessment_reward_value
+
+    def is_shaping(self):
+        return True

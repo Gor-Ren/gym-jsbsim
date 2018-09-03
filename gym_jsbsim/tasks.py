@@ -11,6 +11,7 @@ from gym_jsbsim import assessors, rewards, utils
 from gym_jsbsim.simulation import Simulation
 from gym_jsbsim.properties import BoundedProperty, Property
 from gym_jsbsim.aircraft import Aircraft
+from gym_jsbsim.rewards import RewardStub
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence, Dict, Tuple, NamedTuple, Type
 
@@ -136,6 +137,8 @@ class FlightTask(Task, ABC):
         state = self.State(*(sim[prop] for prop in self.state_variables))
         done = self._is_terminal(sim)
         reward = self.assessor.assess(state, self.last_state, done)
+        if done:
+            reward = self._reward_terminal_override(reward, sim)
         if self.debug:
             self._validate_state(state, done, action, reward)
         self.last_state = state
@@ -163,6 +166,14 @@ class FlightTask(Task, ABC):
 
         :param sim: the current simulation
         :return: True if the episode should terminate else False
+        """
+        ...
+
+    @abstractmethod
+    def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation) -> bool:
+        """
+        Determines whether a custom reward is needed, e.g. because
+        a terminal condition is met.
         """
         ...
 
@@ -330,11 +341,31 @@ class HeadingControlTask(FlightTask):
     def _is_terminal(self, sim: Simulation) -> bool:
         # terminate when time >= max, but use math.isclose() for float equality test
         episode_time = sim[prp.sim_time_s]
-        altitude_error_ft = sim[self.altitude_error_ft]
-
         over_time = math.isclose(episode_time, self.max_time_s) or episode_time > self.max_time_s
-        altitude_out_of_bounds = abs(altitude_error_ft) > self.MAX_ALTITUDE_DEVIATION_FT
-        return over_time or altitude_out_of_bounds
+        return over_time or self._altitude_out_of_bounds(sim)
+
+    def _altitude_out_of_bounds(self, sim: Simulation) -> bool:
+        altitude_error_ft = sim[self.altitude_error_ft]
+        return abs(altitude_error_ft) > self.MAX_ALTITUDE_DEVIATION_FT
+
+    def get_altitude_error_exceeded_reward(self, sim: Simulation) -> rewards.Reward:
+        """
+        if aircraft is too low, we need big negative reward as if every remaining
+        timestep was -1 reward to end of episode
+        """
+        time_s = sim.get_sim_time()
+        remaining_time_s = self.max_time_s - time_s
+        remaining_time_proportion = remaining_time_s / self.max_time_s
+        remaining_steps = remaining_time_proportion * self.episode_steps
+
+        reward_scalar = remaining_steps * -1
+        return RewardStub(reward_scalar, reward_scalar)
+
+    def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation) -> rewards.Reward:
+        if self._altitude_out_of_bounds(sim):
+            return self.get_altitude_error_exceeded_reward(sim)
+        else:
+            return reward
 
     def _new_episode_init(self, sim: Simulation) -> None:
         sim.start_engines()
@@ -352,9 +383,8 @@ class HeadingControlTask(FlightTask):
         return self.INITIAL_ALTITUDE_FT
 
     def get_props_to_output(self) -> Tuple:
-        return (prp.u_fps, prp.altitude_sl_ft, self.altitude_error_ft, prp.heading_deg,
-                self.target_track_deg, self.track_error_deg, prp.dist_travel_m,
-                self.distance_parallel_m, prp.roll_rad)
+        return (prp.u_fps, prp.altitude_sl_ft, self.altitude_error_ft, self.target_track_deg,
+                self.track_error_deg, prp.roll_rad, prp.sideslip_deg)
 
 
 class TurnHeadingControlTask(HeadingControlTask):

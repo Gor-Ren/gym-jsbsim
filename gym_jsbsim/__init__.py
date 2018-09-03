@@ -3,7 +3,6 @@ import enum
 from gym_jsbsim.tasks import Task, HeadingControlTask, TurnHeadingControlTask
 from gym_jsbsim.aircraft import Aircraft, cessna172P
 from gym_jsbsim import utils
-from typing import Type, Tuple, Dict
 
 """
 This script registers all combinations of task, aircraft, shaping settings
