@@ -124,6 +124,9 @@ class AbstractTestErrorComponent(unittest.TestCase, ABC):
 
 
 class TestAsymptoticErrorComponent(AbstractTestErrorComponent):
+    PERFECT_POTENTIAL = 1.0
+    SCALING_FACTOR_POTENTIAL = 0.5
+    INF_ERROR_POTENTIAL = 0.0
 
     def get_class_under_test(self):
         return AsymptoticErrorComponent
@@ -137,19 +140,20 @@ class TestAsymptoticErrorComponent(AbstractTestErrorComponent):
         component: AsymptoticErrorComponent = self.get_component_target_constant(
             target_value=target_value)
 
-        expected_potential = 0.0
+        expected_potential = self.PERFECT_POTENTIAL
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
 
     def test_calculate_get_potential_perfect_state_terminal(self):
         target_value = 0
         actual_value = target_value
         state = self.dummy_task.get_state(actual_value, target_value)
+        shaping = True
         terminal = True
 
         component: AsymptoticErrorComponent = self.get_component_target_constant(
-            target_value=target_value)
+            target_value=target_value, shaping=shaping)
 
-        expected_potential = 0.0
+        expected_potential = component.POTENTIAL_BASED_DIFFERENCE_TERMINAL_VALUE
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
 
     def test_calculate_get_potential_terrible_state(self):
@@ -161,7 +165,7 @@ class TestAsymptoticErrorComponent(AbstractTestErrorComponent):
         component: AsymptoticErrorComponent = self.get_component_target_constant(
             target_value=target_value)
 
-        expected_potential = -1.0
+        expected_potential = self.INF_ERROR_POTENTIAL
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
 
     def test_calculate_get_potential_midway_value(self):
@@ -173,26 +177,28 @@ class TestAsymptoticErrorComponent(AbstractTestErrorComponent):
         component: AsymptoticErrorComponent = self.get_component_target_constant(
             target_value=target_value)
 
-        expected_potential = -0.5
+        expected_potential = self.SCALING_FACTOR_POTENTIAL
         self.assertAlmostEqual(expected_potential, component.get_potential(state, terminal))
 
-    def test_calculate_same_states_non_terminal(self):
+    def test_calculate_same_perfect_states_shaping_non_terminal(self):
         last_state = self.get_default_perfect_state()
         state = self.get_default_perfect_state()
         terminal = False
 
         component = self.get_component_target_constant(shaping=True)
 
-        self.assertAlmostEqual(0.0, component.calculate(state, last_state, terminal))
+        potential_diff = self.PERFECT_POTENTIAL - self.PERFECT_POTENTIAL
+        self.assertAlmostEqual(potential_diff, component.calculate(state, last_state, terminal))
 
-    def test_calculate_same_states__shaping_terminal(self):
+    def test_calculate_same_perfect_states_shaping_terminal(self):
         last_state = self.get_default_perfect_state()
         state = self.get_default_perfect_state()
         terminal = True
 
         component = self.get_component_target_constant(shaping=True)
 
-        self.assertAlmostEqual(0.0 - 0.0, component.calculate(state, last_state, terminal))
+        potential_diff = component.POTENTIAL_BASED_DIFFERENCE_TERMINAL_VALUE - self.PERFECT_POTENTIAL
+        self.assertAlmostEqual(potential_diff, component.calculate(state, last_state, terminal))
 
     def test_calculate_improved_state_shaping_non_terminal(self):
         last_state = self.get_default_middling_state()
@@ -201,7 +207,8 @@ class TestAsymptoticErrorComponent(AbstractTestErrorComponent):
 
         component = self.get_component_target_constant(shaping=True)
 
-        self.assertAlmostEqual(0.5, component.calculate(state, last_state, terminal))
+        potential_diff = self.PERFECT_POTENTIAL - self.SCALING_FACTOR_POTENTIAL
+        self.assertAlmostEqual(potential_diff, component.calculate(state, last_state, terminal))
 
     def test_calculate_worsening_state_non_terminal(self):
         last_state = self.get_default_perfect_state()
@@ -210,10 +217,14 @@ class TestAsymptoticErrorComponent(AbstractTestErrorComponent):
 
         component = self.get_component_target_constant()
 
-        self.assertAlmostEqual(-1.0, component.calculate(state, last_state, terminal))
+        potential_diff = self.INF_ERROR_POTENTIAL - self.PERFECT_POTENTIAL
+        self.assertAlmostEqual(potential_diff, component.calculate(state, last_state, terminal))
 
 
 class TestLinearShapingComponent(AbstractTestErrorComponent):
+    PERFECT_POTENTIAL = 1.0
+    MIDDLE_POTENTIAL = 0.5
+    SCALING_FACTOR_POTENTIAL = 0.0
 
     def get_class_under_test(self):
         return LinearErrorComponent
@@ -241,7 +252,7 @@ class TestLinearShapingComponent(AbstractTestErrorComponent):
         component: LinearErrorComponent = self.get_component_target_constant()
         self.assertIsInstance(component, LinearErrorComponent)
 
-        self.assertAlmostEqual(0.0, component.get_potential(state, terminal))
+        self.assertAlmostEqual(self.PERFECT_POTENTIAL, component.get_potential(state, terminal))
 
     def test_calculate_get_potential_perfect_state_terminal(self):
         state = self.get_default_perfect_state()
@@ -249,7 +260,8 @@ class TestLinearShapingComponent(AbstractTestErrorComponent):
 
         component: LinearErrorComponent = self.get_component_target_constant()
 
-        self.assertAlmostEqual(0.0, component.get_potential(state, terminal))
+        self.assertAlmostEqual(component.POTENTIAL_BASED_DIFFERENCE_TERMINAL_VALUE,
+                               component.get_potential(state, terminal))
 
     def test_calculate_get_potential_rubbish_state(self):
         state = self.get_default_rubbish_state()
@@ -257,7 +269,8 @@ class TestLinearShapingComponent(AbstractTestErrorComponent):
 
         component: LinearErrorComponent = self.get_component_target_constant()
 
-        self.assertAlmostEqual(-1.0, component.get_potential(state, terminal))
+        self.assertAlmostEqual(self.SCALING_FACTOR_POTENTIAL,
+                               component.get_potential(state, terminal))
 
     def test_calculate_get_potential_midway_value(self):
         state = self.get_default_middling_state()
@@ -265,7 +278,7 @@ class TestLinearShapingComponent(AbstractTestErrorComponent):
 
         component: LinearErrorComponent = self.get_component_target_constant()
 
-        self.assertAlmostEqual(-0.5, component.get_potential(state, terminal))
+        self.assertAlmostEqual(self.MIDDLE_POTENTIAL, component.get_potential(state, terminal))
 
     def test_calculate_same_states_non_terminal(self):
         last_state = self.get_default_perfect_state()
@@ -283,7 +296,8 @@ class TestLinearShapingComponent(AbstractTestErrorComponent):
 
         component = self.get_component_target_constant(shaping=True)
 
-        self.assertAlmostEqual(0.0, component.calculate(state, last_state, terminal))
+        pot_difference = component.POTENTIAL_BASED_DIFFERENCE_TERMINAL_VALUE - self.PERFECT_POTENTIAL
+        self.assertAlmostEqual(pot_difference, component.calculate(state, last_state, terminal))
 
     def test_calculate_improved_state_shaping_non_terminal(self):
         last_state = self.get_default_middling_state()
@@ -313,6 +327,10 @@ class TestAngularAsmyptoticErrorComponent(unittest.TestCase):
     default_State = dummy_task.State
     default_scaling_factor = 10
     default_name = 'test_component'
+
+    PERFECT_POTENTIAL = 1.0
+    SCALING_FACTOR_POTENTIAL = 0.5
+    INF_ERROR_POTENTIAL = 0.0
 
     @staticmethod
     def get_component_constant(name=default_name,
@@ -345,7 +363,7 @@ class TestAngularAsmyptoticErrorComponent(unittest.TestCase):
 
         component = self.get_component_constant()
 
-        self.assertAlmostEqual(0.0, component.get_potential(state, terminal))
+        self.assertAlmostEqual(self.PERFECT_POTENTIAL, component.get_potential(state, terminal))
 
     def test_get_potential_value_scaling_factor_off_target(self):
         target = self.default_target_value
@@ -357,8 +375,10 @@ class TestAngularAsmyptoticErrorComponent(unittest.TestCase):
 
         component = self.get_component_constant()
 
-        self.assertAlmostEqual(-0.5, component.get_potential(state_left_of_target, terminal))
-        self.assertAlmostEqual(-0.5, component.get_potential(state_right_of_target, terminal))
+        self.assertAlmostEqual(self.SCALING_FACTOR_POTENTIAL,
+                               component.get_potential(state_left_of_target, terminal))
+        self.assertAlmostEqual(self.SCALING_FACTOR_POTENTIAL,
+                               component.get_potential(state_right_of_target, terminal))
 
     def test_get_potential_equal_across_360_degrees(self):
         target = 0
@@ -375,8 +395,8 @@ class TestAngularAsmyptoticErrorComponent(unittest.TestCase):
         potential_left_positive = component.get_potential(state_left_of_target_positive, terminal)
         potential_right = component.get_potential(state_right_of_target, terminal)
 
-        self.assertLess(potential_left_negative, 0)
-        self.assertLess(potential_left_positive, 0)
-        self.assertLess(potential_right, 0)
+        self.assertLess(potential_left_negative, self.PERFECT_POTENTIAL)
+        self.assertLess(potential_left_positive, self.PERFECT_POTENTIAL)
+        self.assertLess(potential_right, self.PERFECT_POTENTIAL)
         self.assertAlmostEqual(potential_left_negative, potential_left_positive)
         self.assertAlmostEqual(potential_left_negative, potential_right)

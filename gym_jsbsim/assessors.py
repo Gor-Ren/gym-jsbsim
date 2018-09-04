@@ -17,35 +17,46 @@ class AssessorImpl(Assessor):
     """
     Determines the Reward from a state transitions.
 
-    Initialised with RewardComponents which allow
-    calculation of the base (non-shaping) and shaping rewards respectively.
+    Initialised with RewardComponents which allow calculation of the base
+    (policy-influencing) and shaping rewards (non-policy-influencing) rewards respectively.
     """
 
     def __init__(self, base_components: Iterable['RewardComponent'],
-                 potential_based_components: Iterable['RewardComponent'] = ()):
+                 potential_based_components: Iterable['RewardComponent'] = (),
+                 positive_rewards: bool=False):
         """
         :param base_components: RewardComponents from which Reward is to be calculated
         :param potential_based_components: RewardComponents from which a potential-based
             reward component is to be calculated from
+        :param positive_rewards: True if rewards should be in [0.0, 1.0] (0.0 corresp. to
+            worst behaviour), else rewards will be in [-1.0, 0.0] with 0.0 corresp. to
+            perfect behaviour. Has no effect one potential difference based components.
         """
         self.base_components = tuple(base_components)
         self.potential_components = tuple(potential_based_components)
+        self.positive_rewards = positive_rewards
         if not self.base_components:
             raise ValueError('base reward components cannot be empty')
+        if any(cmp.is_potential_difference_based() for cmp in self.base_components):
+            raise ValueError('base rewards must be non potential based in this implementation')
+            # because of the positive_rewards logic
 
     def assess(self, state: State, prev_state: State, is_terminal: bool) -> Reward:
         return Reward(self._base_rewards(state, prev_state, is_terminal),
                       self._potential_based_rewards(state, prev_state, is_terminal))
 
-    def _base_rewards(self, state: State, last_state: State, is_terminal: bool) -> Tuple[
+    def _base_rewards(self, state: State, prev_state: State, is_terminal: bool) -> Tuple[
         float, ...]:
-        return tuple(cmp.calculate(state, last_state, is_terminal) for cmp in self.base_components)
+        cmp_values = (cmp.calculate(state, prev_state, is_terminal) for cmp in self.base_components)
+        if self.positive_rewards:
+            return tuple(cmp_values)
+        else:
+            return tuple(value - 1 for value in cmp_values)
 
     def _potential_based_rewards(self, state: State, last_state: State, is_terminal: bool) -> Tuple[
         float, ...]:
         return tuple(
-            cmp.calculate(state, last_state, is_terminal) for cmp in
-            self.potential_components)
+            cmp.calculate(state, last_state, is_terminal) for cmp in self.potential_components)
 
 
 class SequentialAssessor(AssessorImpl, ABC):
@@ -61,7 +72,8 @@ class SequentialAssessor(AssessorImpl, ABC):
     def __init__(self, base_components: Iterable['RewardComponent'],
                  potential_components: Iterable['RewardComponent'] = (),
                  base_dependency_map: Dict['RewardComponent', Tuple['RewardComponent', ...]] = {},
-                 potential_dependency_map: Dict['RewardComponent', Tuple['RewardComponent', ...]] = {}):
+                 potential_dependency_map: Dict['RewardComponent', Tuple['RewardComponent', ...]] = {},
+                 positive_rewards: bool = False):
         """
         :param base_components: RewardComponents from which the non-shaping
             part of the Reward is to be calculated
@@ -74,7 +86,7 @@ class SequentialAssessor(AssessorImpl, ABC):
             dependencies to their dependent components, defaults to
             no dependencies
         """
-        super().__init__(base_components, potential_components)
+        super().__init__(base_components, potential_components, positive_rewards)
         self.base_dependent_indices = self._get_sequential_indices(self.base_components,
                                                                    base_dependency_map)
         self.potential_dependant_indices = self._get_sequential_indices(self.potential_components,
@@ -98,8 +110,13 @@ class SequentialAssessor(AssessorImpl, ABC):
 
     def _base_rewards(self, state: State, prev_state: State, is_terminal: bool) -> Tuple[
         float, ...]:
-        normal_potentials = super()._base_rewards(state, prev_state, is_terminal)
-        return self._apply_dependents(normal_potentials, self.base_dependent_indices)
+        potentials = tuple(cmp.get_potential(state, is_terminal) for cmp in self.base_components)
+        seq_values = self._apply_dependents(potentials, self.base_dependent_indices)
+
+        if self.positive_rewards:
+            return tuple(seq_values)
+        else:
+            return tuple(value - 1 for value in seq_values)
 
     def _potential_based_rewards(self, state: State, prev_state: State,
                                  is_terminal: bool) -> Tuple[float, ...]:

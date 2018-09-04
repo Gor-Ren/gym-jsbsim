@@ -105,6 +105,7 @@ class FlightTask(Task, ABC):
          prp.initial_latitude_geod_deg: 51.3781  # corresponds to UoBath
          }
     )
+    last_reward = Property('reward/last_reward', 'agent reward from last step')
     state_variables: Tuple[BoundedProperty, ...]
     action_variables: Tuple[BoundedProperty, ...]
     assessor: assessors.Assessor
@@ -141,6 +142,7 @@ class FlightTask(Task, ABC):
             reward = self._reward_terminal_override(reward, sim)
         if self.debug:
             self._validate_state(state, done, action, reward)
+        self._store_reward(reward, sim)
         self.last_state = state
         info = {'reward': reward}
 
@@ -155,6 +157,9 @@ class FlightTask(Task, ABC):
                    f'Terminal: {done}\n'
                    f'Reward: {reward}')
             warnings.warn(msg, RuntimeWarning)
+
+    def _store_reward(self, reward: rewards.Reward, sim: Simulation):
+        sim[self.last_reward] = reward.agent_reward()
 
     def _update_custom_properties(self, sim: Simulation) -> None:
         """ Calculates any custom properties which change every timestep. """
@@ -193,6 +198,7 @@ class FlightTask(Task, ABC):
         By default it simply starts the aircraft engines.
         """
         sim.start_engines()
+        sim[self.last_reward] = 0.0
 
     @abstractmethod
     def get_initial_conditions(self) -> Dict[Property, float]:
@@ -223,12 +229,12 @@ class HeadingControlTask(FlightTask):
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
     INITIAL_HEADING_DEG = 270
-    DEFAULT_EPISODE_TIME_S = 200.
+    DEFAULT_EPISODE_TIME_S = 60.
     ALTITUDE_SCALING_FT = 25
     TRACK_ERROR_SCALING_DEG = 7.5
     ROLL_ERROR_SCALING_RAD = 0.09  # approx. 5 deg
     SIDESLIP_ERROR_SCALING_DEG = 2.
-    MAX_ALTITUDE_DEVIATION_FT = 4500  # terminate if altitude error exceeds this
+    MAX_ALTITUDE_DEVIATION_FT = 1500  # terminate if altitude error exceeds this
     target_track_deg = BoundedProperty('target/track-deg', 'desired heading [deg]',
                                        prp.heading_deg.min, prp.heading_deg.max)
     track_error_deg = BoundedProperty('error/track-error-deg',
@@ -353,7 +359,7 @@ class HeadingControlTask(FlightTask):
         if aircraft is out of bounds, we give the largest possible negative reward:
         as if every timestep in the episode was -1.
         """
-        reward_scalar = self.episode_steps * -1
+        reward_scalar = self.episode_steps * -1.
         return RewardStub(reward_scalar, reward_scalar)
 
     def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation) -> rewards.Reward:
@@ -363,12 +369,11 @@ class HeadingControlTask(FlightTask):
             return reward
 
     def _new_episode_init(self, sim: Simulation) -> None:
-        sim.start_engines()
+        super()._new_episode_init(sim)
         sim[prp.throttle_cmd] = self.THROTTLE_CMD
         sim[prp.mixture_cmd] = self.MIXTURE_CMD
 
         sim[self.target_track_deg] = self._get_target_track()
-        self.initial_position = prp.GeodeticPosition.from_sim(sim)
 
     def _get_target_track(self) -> float:
         # use the same, initial heading every episode
@@ -379,7 +384,7 @@ class HeadingControlTask(FlightTask):
 
     def get_props_to_output(self) -> Tuple:
         return (prp.u_fps, prp.altitude_sl_ft, self.altitude_error_ft, self.target_track_deg,
-                self.track_error_deg, prp.roll_rad, prp.sideslip_deg)
+                self.track_error_deg, prp.roll_rad, prp.sideslip_deg, self.last_reward)
 
 
 class TurnHeadingControlTask(HeadingControlTask):

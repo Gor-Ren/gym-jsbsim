@@ -1,5 +1,7 @@
 import collections
 import copy
+
+from gym_jsbsim import rewards
 from gym_jsbsim.tasks import FlightTask
 from gym_jsbsim.rewards import State, Reward, RewardComponent
 from gym_jsbsim.assessors import Assessor
@@ -56,6 +58,9 @@ class FlightTaskStub(FlightTask):
         DummyState, props = FlightTaskStub.get_dummy_state_class_and_properties(len(values_safe))
         return DummyState(*values_safe), props
 
+    def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation):
+        return False
+
 
 class BasicFlightTask(FlightTask):
     """ A Task with basic but realistic state and action space. """
@@ -73,6 +78,9 @@ class BasicFlightTask(FlightTask):
 
     def get_props_to_output(self) -> Tuple:
         return prp.u_fps, prp.altitude_sl_ft, prp.heading_deg
+
+    def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation) -> bool:
+        return False
 
 
 class SimStub(object):

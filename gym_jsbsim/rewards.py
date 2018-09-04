@@ -58,8 +58,12 @@ class RewardComponent(ABC):
         ...
 
 
-class AbstractComponent(RewardComponent, ABC):
-    """ Base implementation of a RewardComponent implementing common methods. """
+class NormalisedComponent(RewardComponent, ABC):
+    """
+    Base implementation of a RewardComponent implementing common methods.
+
+    All potentials of subclasses should be normalised in [0.0, 1.0]
+    """
     POTENTIAL_BASED_DIFFERENCE_TERMINAL_VALUE = 0.0
 
     def __init__(self,
@@ -101,11 +105,17 @@ class AbstractComponent(RewardComponent, ABC):
             self.target_index = state_variables.index(target)
 
     def calculate(self, state: State, prev_state: State, is_terminal: bool):
+        """
+        Calculates the value of this RewardComponent.
+
+        If this component is potential difference based, its value is the
+        difference in potentials between prev_state and state. Otherwise its
+        value is the potential of state.
+        """
         if self.potential_difference_based:
             # reward is a potential difference of state, prev_state
             reward = self.get_potential(state, is_terminal) - self.get_potential(prev_state, False)
         else:
-            # reward is just the error from this state
             reward = self.get_potential(state, is_terminal)
         return reward
 
@@ -119,12 +129,12 @@ class AbstractComponent(RewardComponent, ABC):
         return self.potential_difference_based
 
 
-class ErrorComponent(AbstractComponent, ABC):
+class ErrorComponent(NormalisedComponent, ABC):
     """
-    Calculates rewards based on a normalised error from a target value.
+    Calculates rewards based on a normalised error complement from a target value.
 
     Normalising an error takes some absolute difference |value - target| and
-    transforms it to the interval [-1,0], where 0 is no error and -1 is -inf error.
+    transforms it to the interval [0,1], where 1.0 is no error and 0.0 is inf error.
     """
 
     def get_potential(self, state: State, is_terminal) -> float:
@@ -146,7 +156,7 @@ class ErrorComponent(AbstractComponent, ABC):
             target = state[self.target_index]
         value = state[self.state_index_of_value]
         error = abs(value - target)
-        return -1 * self._normalise_error(error)
+        return 1 - self._normalise_error(error)
 
     @abstractmethod
     def _normalise_error(self, absolute_error: float) -> float:

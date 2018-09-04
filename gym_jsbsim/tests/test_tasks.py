@@ -75,7 +75,7 @@ class TestHeadingControlTask(unittest.TestCase):
         v_north = math.cos(math.radians(track_deg))
         sim[prp.v_east_fps] = v_east
         sim[prp.v_north_fps] = v_north
-        sim[task.track_error_deg] = 0.0  # consistent with the velocities set
+        task._update_track_error(sim)
         sim[prp.roll_rad] = roll_rad
         sim[prp.sideslip_deg] = sideslip_deg
         return sim
@@ -118,8 +118,8 @@ class TestHeadingControlTask(unittest.TestCase):
         The second state's altitude, distance traveled, heading etc. changes as per inputs.
          """
         initial_state_sim = self.get_initial_sim_with_state(task, time_terminal=False)
-        target_heading = initial_state_sim[self.task.target_track_deg]
-        track_deg = target_heading + track_error_deg
+        target_track = initial_state_sim[self.task.target_track_deg]
+        track_deg = target_track + track_error_deg
         next_state_sim = initial_state_sim.copy()
         next_state_sim = self.modify_sim_to_state_(next_state_sim,
                                                    time_terminal=time_terminal,
@@ -296,7 +296,7 @@ class TestHeadingControlTask(unittest.TestCase):
             # altitude, so we expect non-shaping reward of 1.0
             self.assertAlmostEqual(0., reward_obj.assessment_reward())
 
-    def test_task_step_terrible_altitude_others_perfect(self):
+    def test_task_step_terrible_altitude_reward_override(self):
         self.setUp()
         task = self.make_task(shaping_type=Shaping.STANDARD)
         bad_altitude = sys.float_info.max
@@ -307,21 +307,23 @@ class TestHeadingControlTask(unittest.TestCase):
                                          track_error_deg=0.,
                                          sideslip_deg=0.)
 
-        _, _, _, info = task.task_step(sim, self.dummy_action, 1)
+        _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
         reward_obj: rewards.Reward = info['reward']
 
         # we went from our initial position to an optimal distance and terrible altitude
-        expected_reward = (0. * 3 - 1.) / 4
+        episode_steps = self.default_episode_time_s // self.default_step_frequency_hz
+        expected_reward = -1 * episode_steps
+        self.assertAlmostEqual(expected_reward, reward_scalar)
         self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
 
-    def test_task_step_middling_track_travel_terrible_altitude(self):
+    def test_task_step_middling_track_otherwise_perfect(self):
         self.setUp()
         task = self.make_task(shaping_type=Shaping.STANDARD)
-        bad_altitude = sys.float_info.max
+        perfect_altitude = task._get_target_altitude()
         middling_track = HeadingControlTask.TRACK_ERROR_SCALING_DEG
         sim = self.get_transitioning_sim(task,
                                          time_terminal=True,
-                                         altitude_ft=bad_altitude,
+                                         altitude_ft=perfect_altitude,
                                          roll_rad=0.,
                                          track_error_deg=middling_track,
                                          sideslip_deg=0., )
@@ -329,8 +331,8 @@ class TestHeadingControlTask(unittest.TestCase):
         _, _, _, info = task.task_step(sim, self.dummy_action, 1)
         reward_obj: rewards.Reward = info['reward']
 
-        # track middling (-.5), altitude terrible (-1), sidelip perfect (0.), roll perfect (0.)
-        expected_reward = (-.5 + -1 + 0. + 0.) / 4
+        # track middling (-.5), otherwise perfect (0. times 3)
+        expected_reward = (-.5 + 0. * 3) / 4
         self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
 
     def test_task_step_reward_middling_everything(self):
@@ -368,6 +370,47 @@ class TestHeadingControlTask(unittest.TestCase):
         actual_error_deg = sim[self.task.track_error_deg]
 
         self.assertAlmostEqual(expected_acute_error_deg, actual_error_deg)
+
+    def test_task_step_reward_sequential_cont_perfect(self):
+        self.setUp()
+        task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT)
+        perfect_alt = task.INITIAL_ALTITUDE_FT
+        perfect_roll, perfect_sideslip, perfect_track_error = 0., 0., 0.
+        sim = self.get_transitioning_sim(task,
+                                         time_terminal=False,
+                                         altitude_ft=perfect_alt,
+                                         roll_rad=perfect_roll,
+                                         track_error_deg=perfect_track_error,
+                                         sideslip_deg=perfect_sideslip)
+
+        _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
+        reward_obj: rewards.Reward = info['reward']
+
+        self.assertAlmostEqual(0.0, reward_scalar)
+        self.assertAlmostEqual(0.0, reward_obj.agent_reward())
+
+    def test_task_step_reward_sequential_cont_all_middling(self):
+        self.setUp()
+        task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT)
+        middling_alt = task.INITIAL_ALTITUDE_FT + task.ALTITUDE_SCALING_FT
+        middling_roll = task.ROLL_ERROR_SCALING_RAD
+        middling_sideslip = task.SIDESLIP_ERROR_SCALING_DEG
+        middling_track_error = task.TRACK_ERROR_SCALING_DEG
+        sim = self.get_transitioning_sim(task,
+                                         time_terminal=False,
+                                         altitude_ft=middling_alt,
+                                         roll_rad=middling_roll,
+                                         track_error_deg=middling_track_error,
+                                         sideslip_deg=middling_sideslip)
+
+        _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
+        reward_obj: rewards.Reward = info['reward']
+
+        component_values = -0.5
+        # two components have no dependencies, one component has 1, one component has 2,
+        expected_reward = ((0.5**1 -1) * 2 + (0.5**2 - 1) + (0.5**3 -1)) / 4
+        self.assertAlmostEqual(expected_reward, reward_scalar)
+        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
 
 
 class TestTurnHeadingControlTask(TestHeadingControlTask):

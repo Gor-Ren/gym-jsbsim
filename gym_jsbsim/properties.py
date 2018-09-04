@@ -109,4 +109,4 @@ class GeodeticPosition(object):
 
     def __sub__(self, other) -> Vector2:
         """ Returns difference between two coords as (delta_lat, delta_long) """
-        return Vector2(self.lat - other.lat, self.lon - other.lon)
+        return Vector2(self.lon - other.lon, self.lat - other.lat)

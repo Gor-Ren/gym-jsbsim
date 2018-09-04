@@ -73,8 +73,8 @@ class TestJsbSimInstance(unittest.TestCase):
                 ep_reward += reward
                 if step_number % report_every == 0:
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
-                    print(f'last agent_reward:\t{agent_reward}')
-                    print(f'episode agent_reward:\t{ep_reward}')
+                    print(f'last reward:\t{reward}')
+                    print(f'episode reward:\t{ep_reward}')
                 step_number += 1
 
 
@@ -121,16 +121,18 @@ class FlightGearRenderTest(unittest.TestCase):
 
 class TurnHeadingControlTest(unittest.TestCase):
     def setUp(self, plane: aircraft.Aircraft = aircraft.cessna172P,
-              task_type: Type[tasks.HeadingControlTask] = tasks.TurnHeadingControlTask):
+              task_type: Type[tasks.HeadingControlTask] = tasks.TurnHeadingControlTask,
+              shaping: tasks.Shaping = tasks.Shaping.STANDARD):
         self.env = None
-        self.env = JsbSimEnv(aircraft=plane, task_type=task_type)
+        self.env = JsbSimEnv(aircraft=plane, task_type=task_type, shaping=shaping)
         self.env.reset()
 
     def tearDown(self):
         self.env.close()
 
     def test_render_heading_control(self):
-        self.setUp(plane=aircraft.cessna172P, task_type=tasks.TurnHeadingControlTask)
+        self.setUp(plane=aircraft.cessna172P, task_type=tasks.TurnHeadingControlTask,
+                   shaping=tasks.Shaping.SEQUENTIAL_CONT)
         agent = RandomAgent(self.env.action_space)
         render_every = 5
         report_every = 20
@@ -146,6 +148,8 @@ class TurnHeadingControlTest(unittest.TestCase):
                 action = agent.act(state)
                 state, reward, done, info = self.env.step(action)
                 ep_reward += reward
+                if step_number % render_every == 0:
+                    self.env.render(mode='flightgear')
                 if step_number % report_every == 0:
                     heading_target = tasks.HeadingControlTask.target_track_deg
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
