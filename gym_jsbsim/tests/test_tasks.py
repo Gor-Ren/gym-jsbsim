@@ -15,6 +15,7 @@ class TestHeadingControlTask(unittest.TestCase):
     default_episode_time_s = 1
     default_step_frequency_hz = 1
     default_aircraft = cessna172P
+    default_steps_remaining_non_terminal = 10
 
     def setUp(self):
         self.task = self.make_task()
@@ -54,17 +55,18 @@ class TestHeadingControlTask(unittest.TestCase):
     def modify_sim_to_state_(self,
                              sim: SimStub,
                              task: HeadingControlTask = None,
-                             time_terminal=False,
+                             steps_terminal=False,
                              track_deg=0.0,
                              altitude_ft=None,
                              roll_rad=0.0,
                              sideslip_deg=0.0) -> SimStub:
         if task is None:
             task = self.task
-        if time_terminal:
-            sim[prp.sim_time_s] = task.max_time_s + 1
+
+        if steps_terminal:
+            sim[self.task.steps_left] = 0
         else:
-            sim[prp.sim_time_s] = task.max_time_s - 1
+            sim[self.task.steps_left] = self.default_steps_remaining_non_terminal
 
         if altitude_ft is None:
             sim[prp.altitude_sl_ft] = task.INITIAL_ALTITUDE_FT
@@ -104,13 +106,13 @@ class TestHeadingControlTask(unittest.TestCase):
         perfect_roll = 0.0
         perfect_sideslip = 0.0
 
-        self.modify_sim_to_state_(sim, task, time_terminal=time_terminal, track_deg=perfect_track,
+        self.modify_sim_to_state_(sim, task, steps_terminal=time_terminal, track_deg=perfect_track,
                                   altitude_ft=perfect_altitude, roll_rad=perfect_roll,
                                   sideslip_deg=perfect_sideslip)
 
         return sim
 
-    def get_transitioning_sim(self, task, time_terminal, altitude_ft, roll_rad,
+    def get_transitioning_sim(self, task, steps_terminal, altitude_ft, roll_rad,
                               track_error_deg, sideslip_deg) -> TransitioningSimStub:
         """ Makes a sim that transitions between two states.
 
@@ -122,7 +124,7 @@ class TestHeadingControlTask(unittest.TestCase):
         track_deg = target_track + track_error_deg
         next_state_sim = initial_state_sim.copy()
         next_state_sim = self.modify_sim_to_state_(next_state_sim,
-                                                   time_terminal=time_terminal,
+                                                   steps_terminal=steps_terminal,
                                                    altitude_ft=altitude_ft,
                                                    roll_rad=roll_rad,
                                                    track_deg=track_deg,
@@ -220,11 +222,10 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_task_step_returns_non_terminal_time_less_than_max(self):
         sim = SimStub.make_valid_state_stub(self.task)
         _ = self.task.observe_first_state(sim)
-        non_terminal_time = self.default_episode_time_s - 1
-        sim[prp.sim_time_s] = non_terminal_time
-        steps = 1
+        non_terminal_steps_left = 2
+        sim[self.task.steps_left] = non_terminal_steps_left
 
-        _, _, is_terminal, _ = self.task.task_step(sim, self.dummy_action, steps)
+        _, _, is_terminal, _ = self.task.task_step(sim, self.dummy_action, 1)
 
         self.assertFalse(is_terminal)
 
@@ -296,12 +297,12 @@ class TestHeadingControlTask(unittest.TestCase):
             # altitude, so we expect non-shaping reward of 1.0
             self.assertAlmostEqual(0., reward_obj.assessment_reward())
 
-    def test_task_step_terrible_altitude_reward_override(self):
+    def test_task_step_out_of_bounds_altitude_reward_override(self):
         self.setUp()
         task = self.make_task(shaping_type=Shaping.STANDARD)
         bad_altitude = sys.float_info.max
         sim = self.get_transitioning_sim(task,
-                                         time_terminal=True,
+                                         steps_terminal=False,
                                          altitude_ft=bad_altitude,
                                          roll_rad=0.,
                                          track_error_deg=0.,
@@ -311,8 +312,7 @@ class TestHeadingControlTask(unittest.TestCase):
         reward_obj: rewards.Reward = info['reward']
 
         # we went from our initial position to an optimal distance and terrible altitude
-        episode_steps = self.default_episode_time_s // self.default_step_frequency_hz
-        expected_reward = -1 * episode_steps
+        expected_reward = -1 + -1. * sim[self.task.steps_left]
         self.assertAlmostEqual(expected_reward, reward_scalar)
         self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
 
@@ -322,7 +322,7 @@ class TestHeadingControlTask(unittest.TestCase):
         perfect_altitude = task._get_target_altitude()
         middling_track = HeadingControlTask.TRACK_ERROR_SCALING_DEG
         sim = self.get_transitioning_sim(task,
-                                         time_terminal=True,
+                                         steps_terminal=True,
                                          altitude_ft=perfect_altitude,
                                          roll_rad=0.,
                                          track_error_deg=middling_track,
@@ -344,7 +344,7 @@ class TestHeadingControlTask(unittest.TestCase):
         middling_roll = HeadingControlTask.ROLL_ERROR_SCALING_RAD
         middling_sideslip = HeadingControlTask.SIDESLIP_ERROR_SCALING_DEG
         sim = self.get_transitioning_sim(task,
-                                         time_terminal=True,
+                                         steps_terminal=True,
                                          altitude_ft=middling_altitude,
                                          roll_rad=middling_roll,
                                          track_error_deg=middling_track,
@@ -377,7 +377,7 @@ class TestHeadingControlTask(unittest.TestCase):
         perfect_alt = task.INITIAL_ALTITUDE_FT
         perfect_roll, perfect_sideslip, perfect_track_error = 0., 0., 0.
         sim = self.get_transitioning_sim(task,
-                                         time_terminal=False,
+                                         steps_terminal=False,
                                          altitude_ft=perfect_alt,
                                          roll_rad=perfect_roll,
                                          track_error_deg=perfect_track_error,
@@ -397,7 +397,7 @@ class TestHeadingControlTask(unittest.TestCase):
         middling_sideslip = task.SIDESLIP_ERROR_SCALING_DEG
         middling_track_error = task.TRACK_ERROR_SCALING_DEG
         sim = self.get_transitioning_sim(task,
-                                         time_terminal=False,
+                                         steps_terminal=False,
                                          altitude_ft=middling_alt,
                                          roll_rad=middling_roll,
                                          track_error_deg=middling_track_error,

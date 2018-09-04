@@ -234,7 +234,7 @@ class HeadingControlTask(FlightTask):
     TRACK_ERROR_SCALING_DEG = 7.5
     ROLL_ERROR_SCALING_RAD = 0.09  # approx. 5 deg
     SIDESLIP_ERROR_SCALING_DEG = 2.
-    MAX_ALTITUDE_DEVIATION_FT = 1500  # terminate if altitude error exceeds this
+    MAX_ALTITUDE_DEVIATION_FT = 4500  # terminate if altitude error exceeds this
     target_track_deg = BoundedProperty('target/track-deg', 'desired heading [deg]',
                                        prp.heading_deg.min, prp.heading_deg.max)
     track_error_deg = BoundedProperty('error/track-error-deg',
@@ -254,10 +254,12 @@ class HeadingControlTask(FlightTask):
         :param aircraft: the aircraft used in the simulation
         """
         self.max_time_s = episode_time_s
-        self.episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
+        episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
+        self.steps_left = BoundedProperty('info/steps_left', 'steps remaining in episode', 0,
+                                     episode_steps)
         self.aircraft = aircraft
         self.extra_state_variables = (self.altitude_error_ft, prp.sideslip_deg,
-                                      self.track_error_deg)
+                                      self.track_error_deg, self.steps_left)
         self.state_variables = FlightTask.base_state_variables + self.extra_state_variables
         assessor = self.make_assessor(shaping_type)
         super().__init__(assessor)
@@ -330,6 +332,7 @@ class HeadingControlTask(FlightTask):
     def _update_custom_properties(self, sim: Simulation) -> None:
         self._update_track_error(sim)
         self._update_altitude_error(sim)
+        self._decrement_steps_left(sim)
 
     def _update_track_error(self, sim: Simulation):
         v_north_fps, v_east_fps = sim[prp.v_north_fps], sim[prp.v_east_fps]
@@ -344,22 +347,24 @@ class HeadingControlTask(FlightTask):
         error_ft = altitude_ft - target_altitude_ft
         sim[self.altitude_error_ft] = error_ft
 
+    def _decrement_steps_left(self, sim: Simulation):
+        sim[self.steps_left] -= 1
+
     def _is_terminal(self, sim: Simulation) -> bool:
         # terminate when time >= max, but use math.isclose() for float equality test
-        episode_time = sim[prp.sim_time_s]
-        over_time = math.isclose(episode_time, self.max_time_s) or episode_time > self.max_time_s
-        return over_time or self._altitude_out_of_bounds(sim)
+        terminal_step = sim[self.steps_left] <= 0
+        return terminal_step or self._altitude_out_of_bounds(sim)
 
     def _altitude_out_of_bounds(self, sim: Simulation) -> bool:
         altitude_error_ft = sim[self.altitude_error_ft]
         return abs(altitude_error_ft) > self.MAX_ALTITUDE_DEVIATION_FT
 
-    def _get_out_of_bounds_reward(self, _: Simulation) -> rewards.Reward:
+    def _get_out_of_bounds_reward(self, sim: Simulation) -> rewards.Reward:
         """
         if aircraft is out of bounds, we give the largest possible negative reward:
-        as if every timestep in the episode was -1.
+        as if this timestep, and every remaining timestep in the episode was -1.
         """
-        reward_scalar = self.episode_steps * -1.
+        reward_scalar = (1 + sim[self.steps_left]) * -1.
         return RewardStub(reward_scalar, reward_scalar)
 
     def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation) -> rewards.Reward:
@@ -372,7 +377,7 @@ class HeadingControlTask(FlightTask):
         super()._new_episode_init(sim)
         sim[prp.throttle_cmd] = self.THROTTLE_CMD
         sim[prp.mixture_cmd] = self.MIXTURE_CMD
-
+        sim[self.steps_left] = self.steps_left.max
         sim[self.target_track_deg] = self._get_target_track()
 
     def _get_target_track(self) -> float:
@@ -384,7 +389,8 @@ class HeadingControlTask(FlightTask):
 
     def get_props_to_output(self) -> Tuple:
         return (prp.u_fps, prp.altitude_sl_ft, self.altitude_error_ft, self.target_track_deg,
-                self.track_error_deg, prp.roll_rad, prp.sideslip_deg, self.last_reward)
+                self.track_error_deg, prp.roll_rad, prp.sideslip_deg, self.last_reward,
+                self.steps_left)
 
 
 class TurnHeadingControlTask(HeadingControlTask):
