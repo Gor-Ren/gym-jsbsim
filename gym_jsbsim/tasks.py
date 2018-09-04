@@ -348,22 +348,17 @@ class HeadingControlTask(FlightTask):
         altitude_error_ft = sim[self.altitude_error_ft]
         return abs(altitude_error_ft) > self.MAX_ALTITUDE_DEVIATION_FT
 
-    def get_altitude_error_exceeded_reward(self, sim: Simulation) -> rewards.Reward:
+    def _get_out_of_bounds_reward(self, _: Simulation) -> rewards.Reward:
         """
-        if aircraft is too low, we need big negative reward as if every remaining
-        timestep was -1 reward to end of episode
+        if aircraft is out of bounds, we give the largest possible negative reward:
+        as if every timestep in the episode was -1.
         """
-        time_s = sim.get_sim_time()
-        remaining_time_s = self.max_time_s - time_s
-        remaining_time_proportion = remaining_time_s / self.max_time_s
-        remaining_steps = remaining_time_proportion * self.episode_steps
-
-        reward_scalar = remaining_steps * -1
+        reward_scalar = self.episode_steps * -1
         return RewardStub(reward_scalar, reward_scalar)
 
     def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation) -> rewards.Reward:
         if self._altitude_out_of_bounds(sim):
-            return self.get_altitude_error_exceeded_reward(sim)
+            return self._get_out_of_bounds_reward(sim)
         else:
             return reward
 
