@@ -246,7 +246,7 @@ class HeadingControlTask(FlightTask):
     action_variables = (prp.aileron_cmd, prp.elevator_cmd, prp.rudder_cmd)
 
     def __init__(self, shaping_type: Shaping, step_frequency_hz: float, aircraft: Aircraft,
-                 episode_time_s: float = DEFAULT_EPISODE_TIME_S):
+                 episode_time_s: float = DEFAULT_EPISODE_TIME_S, positive_rewards: bool = True):
         """
         Constructor.
 
@@ -256,11 +256,12 @@ class HeadingControlTask(FlightTask):
         self.max_time_s = episode_time_s
         episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
         self.steps_left = BoundedProperty('info/steps_left', 'steps remaining in episode', 0,
-                                     episode_steps)
+                                          episode_steps)
         self.aircraft = aircraft
         self.extra_state_variables = (self.altitude_error_ft, prp.sideslip_deg,
                                       self.track_error_deg, self.steps_left)
         self.state_variables = FlightTask.base_state_variables + self.extra_state_variables
+        self.positive_rewards = positive_rewards
         assessor = self.make_assessor(shaping_type)
         super().__init__(assessor)
 
@@ -303,19 +304,22 @@ class HeadingControlTask(FlightTask):
                          shaping_components: Tuple[rewards.RewardComponent, ...],
                          shaping: Shaping) -> assessors.AssessorImpl:
         if shaping is Shaping.STANDARD:
-            return assessors.AssessorImpl(base_components, shaping_components)
+            return assessors.AssessorImpl(base_components, shaping_components,
+                                          positive_rewards=self.positive_rewards)
         else:
             altitude_error, wings_level, no_sideslip, travel_direction = base_components
-            # worry about control in this order: correct altitude, correct track, wings level
-            # no_sideslip does not need any dependency (flight should always be coordinated)
-            dependency_map = {wings_level: (travel_direction, altitude_error),
+            # worry about control in this order: altitude, track, wings level, no sideslip
+            dependency_map = {no_sideslip: (wings_level, travel_direction, altitude_error),
+                              wings_level: (travel_direction, altitude_error),
                               travel_direction: (altitude_error,)}
             if shaping is Shaping.SEQUENTIAL_CONT:
                 return assessors.ContinuousSequentialAssessor(base_components, shaping_components,
-                                                              base_dependency_map=dependency_map)
+                                                              base_dependency_map=dependency_map,
+                                                              positive_rewards=self.positive_rewards)
             elif shaping is Shaping.SEQUENTIAL_DISCONT:
                 return assessors.SequentialAssessor(base_components, shaping_components,
-                                                    base_dependency_map=dependency_map)
+                                                    base_dependency_map=dependency_map,
+                                                    positive_rewards=self.positive_rewards)
 
     def get_initial_conditions(self) -> Dict[Property, float]:
         extra_conditions = {prp.initial_u_fps: self.aircraft.get_cruise_speed_fps(),
@@ -368,7 +372,8 @@ class HeadingControlTask(FlightTask):
         return RewardStub(reward_scalar, reward_scalar)
 
     def _reward_terminal_override(self, reward: rewards.Reward, sim: Simulation) -> rewards.Reward:
-        if self._altitude_out_of_bounds(sim):
+        if self._altitude_out_of_bounds(sim) and not self.positive_rewards:
+            # if using negative rewards, need to give a big negative reward on terminal
             return self._get_out_of_bounds_reward(sim)
         else:
             return reward

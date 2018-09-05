@@ -16,6 +16,11 @@ class TestHeadingControlTask(unittest.TestCase):
     default_step_frequency_hz = 1
     default_aircraft = cessna172P
     default_steps_remaining_non_terminal = 10
+    default_positive_rewards = True
+
+    PERFECT_POSITIVE_REWARD = 1.0
+    MIDDLING_POSITIVE_REWARD = 0.5
+    TERRIBLE_POSITIVE_REWARD = 0.0
 
     def setUp(self):
         self.task = self.make_task()
@@ -31,12 +36,14 @@ class TestHeadingControlTask(unittest.TestCase):
                   shaping_type: Shaping = default_shaping,
                   episode_time_s: float = default_episode_time_s,
                   step_frequency_hz: float = default_step_frequency_hz,
-                  aircraft: Aircraft = default_aircraft) -> HeadingControlTask:
+                  aircraft: Aircraft = default_aircraft,
+                  positive_rewards: bool = True) -> HeadingControlTask:
         task_class = self.get_class_under_test()
         return task_class(shaping_type=shaping_type,
                           episode_time_s=episode_time_s,
                           step_frequency_hz=step_frequency_hz,
-                          aircraft=aircraft)
+                          aircraft=aircraft,
+                          positive_rewards=positive_rewards)
 
     def get_initial_sim_with_state(self,
                                    task: HeadingControlTask = None,
@@ -252,111 +259,140 @@ class TestHeadingControlTask(unittest.TestCase):
         self.assertTrue(is_terminal)
 
     def test_task_step_correct_terminal_reward_optimal_behaviour_no_shaping(self):
-        self.setUp()
-        task = self.make_task(shaping_type=Shaping.STANDARD,
-                              episode_time_s=1.,
-                              step_frequency_hz=1.)
-        initial_state_sim = self.get_initial_state_sim(task)
-        _ = task.observe_first_state(initial_state_sim)
-        final_state_sim = self.get_perfect_state_sim(task, time_terminal=True)
-        sim = TransitioningSimStub(initial_state_sim, final_state_sim)
+        for positive_reward in (True, False):
 
-        state, reward, done, info = task.task_step(sim, self.dummy_action, 1)
-
-        # aircraft moved maximum distance on correct heading and maintained
-        # altitude, so we expect reward of 1.0
-        self.assertAlmostEqual(0., reward)
-
-    def test_task_step_correct_non_terminal_reward_optimal_behaviour_no_shaping(self):
-        self.setUp()
-        task = self.make_task(shaping_type=Shaping.STANDARD)
-        initial_state_sim = self.get_initial_state_sim(task)
-        _ = task.observe_first_state(initial_state_sim)
-        final_state_sim = self.get_perfect_state_sim(task, time_terminal=False)
-        sim = TransitioningSimStub(initial_state_sim, final_state_sim)
-
-        state, reward, done, info = task.task_step(sim, self.dummy_action, 1)
-
-        # aircraft maintained correct altitude (1.0) but sim is non-terminal
-        # so we expect no distance traveled reward (0.0) average to 0.5
-        self.assertAlmostEqual(0.0, reward)
-
-    def test_task_step_correct_terminal_reward_optimal_behaviour_shaping(self):
-        self.setUp()
-        for shaping in (Shaping.STANDARD, Shaping.SEQUENTIAL_CONT):
-            task = self.make_task(shaping_type=shaping)
+            self.setUp()
+            task = self.make_task(shaping_type=Shaping.STANDARD,
+                                  episode_time_s=1.,
+                                  step_frequency_hz=1.,
+                                  positive_rewards=positive_reward)
             initial_state_sim = self.get_initial_state_sim(task)
             _ = task.observe_first_state(initial_state_sim)
             final_state_sim = self.get_perfect_state_sim(task, time_terminal=True)
             sim = TransitioningSimStub(initial_state_sim, final_state_sim)
 
+            state, reward, done, info = task.task_step(sim, self.dummy_action, 1)
+
+            if positive_reward:
+                expected_reward = self.PERFECT_POSITIVE_REWARD
+            else:
+                expected_reward = self.PERFECT_POSITIVE_REWARD - 1
+
+            self.assertAlmostEqual(expected_reward, reward)
+
+    def test_task_step_correct_non_terminal_reward_optimal_behaviour_no_shaping(self):
+        for positive_reward in (True, False):
+            self.setUp()
+            task = self.make_task(shaping_type=Shaping.STANDARD, positive_rewards=positive_reward)
+            initial_state_sim = self.get_initial_state_sim(task)
+            _ = task.observe_first_state(initial_state_sim)
+            final_state_sim = self.get_perfect_state_sim(task, time_terminal=False)
+            sim = TransitioningSimStub(initial_state_sim, final_state_sim)
+
+            state, reward, done, info = task.task_step(sim, self.dummy_action, 1)
+
+            if positive_reward:
+                expected_reward = self.PERFECT_POSITIVE_REWARD
+            else:
+                expected_reward = self.PERFECT_POSITIVE_REWARD - 1
+            self.assertAlmostEqual(expected_reward, reward)
+
+    def test_task_step_correct_terminal_reward_optimal_behaviour_shaping(self):
+        for positive_reward in (True, False):
+            self.setUp()
+            for shaping in (Shaping.STANDARD, Shaping.SEQUENTIAL_CONT):
+                task = self.make_task(shaping_type=shaping, positive_rewards=positive_reward)
+                initial_state_sim = self.get_initial_state_sim(task)
+                _ = task.observe_first_state(initial_state_sim)
+                final_state_sim = self.get_perfect_state_sim(task, time_terminal=True)
+                sim = TransitioningSimStub(initial_state_sim, final_state_sim)
+
+                _, _, _, info = task.task_step(sim, self.dummy_action, 1)
+                reward_obj: rewards.Reward = info['reward']
+
+                if positive_reward:
+                    expected_reward = self.PERFECT_POSITIVE_REWARD
+                else:
+                    expected_reward = self.PERFECT_POSITIVE_REWARD - 1
+                self.assertAlmostEqual(expected_reward, reward_obj.assessment_reward())
+
+    def test_task_step_out_of_bounds_altitude_reward_override(self):
+        for positive_reward in (True, False):
+            self.setUp()
+            task = self.make_task(shaping_type=Shaping.STANDARD, positive_rewards=positive_reward)
+            bad_altitude = sys.float_info.max
+            sim = self.get_transitioning_sim(task,
+                                             steps_terminal=False,
+                                             altitude_ft=bad_altitude,
+                                             roll_rad=0.,
+                                             track_error_deg=0.,
+                                             sideslip_deg=0.)
+
+            _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
+            reward_obj: rewards.Reward = info['reward']
+
+            if positive_reward:
+                # no reward override, just a state with perfect roll/track/sideslip and terrible alt
+                expected_reward = (self.PERFECT_POSITIVE_REWARD * 3 + self.TERRIBLE_POSITIVE_REWARD) / 4
+            else:
+                # big negative reward for out of bounds
+                expected_reward = -1 + -1. * sim[self.task.steps_left]
+            self.assertAlmostEqual(expected_reward, reward_scalar)
+            self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
+
+    def test_task_step_middling_track_otherwise_perfect(self):
+        for positive_reward in (True, False):
+            self.setUp()
+            task = self.make_task(shaping_type=Shaping.STANDARD, positive_rewards=positive_reward)
+            perfect_altitude = task._get_target_altitude()
+            middling_track = HeadingControlTask.TRACK_ERROR_SCALING_DEG
+            sim = self.get_transitioning_sim(task,
+                                             steps_terminal=True,
+                                             altitude_ft=perfect_altitude,
+                                             roll_rad=0.,
+                                             track_error_deg=middling_track,
+                                             sideslip_deg=0., )
+
             _, _, _, info = task.task_step(sim, self.dummy_action, 1)
             reward_obj: rewards.Reward = info['reward']
 
-            # aircraft moved maximum distance on correct heading and maintained
-            # altitude, so we expect non-shaping reward of 1.0
-            self.assertAlmostEqual(0., reward_obj.assessment_reward())
-
-    def test_task_step_out_of_bounds_altitude_reward_override(self):
-        self.setUp()
-        task = self.make_task(shaping_type=Shaping.STANDARD)
-        bad_altitude = sys.float_info.max
-        sim = self.get_transitioning_sim(task,
-                                         steps_terminal=False,
-                                         altitude_ft=bad_altitude,
-                                         roll_rad=0.,
-                                         track_error_deg=0.,
-                                         sideslip_deg=0.)
-
-        _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
-        reward_obj: rewards.Reward = info['reward']
-
-        # we went from our initial position to an optimal distance and terrible altitude
-        expected_reward = -1 + -1. * sim[self.task.steps_left]
-        self.assertAlmostEqual(expected_reward, reward_scalar)
-        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
-
-    def test_task_step_middling_track_otherwise_perfect(self):
-        self.setUp()
-        task = self.make_task(shaping_type=Shaping.STANDARD)
-        perfect_altitude = task._get_target_altitude()
-        middling_track = HeadingControlTask.TRACK_ERROR_SCALING_DEG
-        sim = self.get_transitioning_sim(task,
-                                         steps_terminal=True,
-                                         altitude_ft=perfect_altitude,
-                                         roll_rad=0.,
-                                         track_error_deg=middling_track,
-                                         sideslip_deg=0., )
-
-        _, _, _, info = task.task_step(sim, self.dummy_action, 1)
-        reward_obj: rewards.Reward = info['reward']
-
-        # track middling (-.5), otherwise perfect (0. times 3)
-        expected_reward = (-.5 + 0. * 3) / 4
-        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
+            expected_positive_reward = (self.MIDDLING_POSITIVE_REWARD +
+                                        self.PERFECT_POSITIVE_REWARD * 3) / 4
+            if positive_reward:
+                # track middling (.5), otherwise perfect (1. times 3)
+                expected_reward = expected_positive_reward
+            else:
+                expected_reward = expected_positive_reward - 1
+            self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
 
     def test_task_step_reward_middling_everything(self):
-        self.setUp()
-        task = self.make_task(shaping_type=Shaping.STANDARD)
-        # we get 0.5 reward at scaling distance from target altitude
-        middling_altitude = task.INITIAL_ALTITUDE_FT + task.ALTITUDE_SCALING_FT
-        middling_track = HeadingControlTask.TRACK_ERROR_SCALING_DEG
-        middling_roll = HeadingControlTask.ROLL_ERROR_SCALING_RAD
-        middling_sideslip = HeadingControlTask.SIDESLIP_ERROR_SCALING_DEG
-        sim = self.get_transitioning_sim(task,
-                                         steps_terminal=True,
-                                         altitude_ft=middling_altitude,
-                                         roll_rad=middling_roll,
-                                         track_error_deg=middling_track,
-                                         sideslip_deg=middling_sideslip)
+        for positive_reward in (True, False):
+            self.setUp()
+            task = self.make_task(shaping_type=Shaping.STANDARD, positive_rewards=positive_reward)
+            # we get 0.5 reward at scaling distance from target altitude
+            middling_altitude = task.INITIAL_ALTITUDE_FT + task.ALTITUDE_SCALING_FT
+            middling_track = HeadingControlTask.TRACK_ERROR_SCALING_DEG
+            middling_roll = HeadingControlTask.ROLL_ERROR_SCALING_RAD
+            middling_sideslip = HeadingControlTask.SIDESLIP_ERROR_SCALING_DEG
+            sim = self.get_transitioning_sim(task,
+                                             steps_terminal=True,
+                                             altitude_ft=middling_altitude,
+                                             roll_rad=middling_roll,
+                                             track_error_deg=middling_track,
+                                             sideslip_deg=middling_sideslip)
 
-        _, _, _, info = task.task_step(sim, self.dummy_action, 1)
-        reward_obj: rewards.Reward = info['reward']
+            _, _, _, info = task.task_step(sim, self.dummy_action, 1)
+            reward_obj: rewards.Reward = info['reward']
 
-        # we went from our initial position to an optimal distance and terrible altitude
-        expected_reward = (-0.5 * 4) / 4
-        [self.assertAlmostEqual(-0.5, comp) for comp in reward_obj.base_reward_elements]
-        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
+            if positive_reward:
+                middling_reward = self.MIDDLING_POSITIVE_REWARD
+            else:
+                middling_reward = self.MIDDLING_POSITIVE_REWARD - 1
+            expected_reward = (middling_reward * 4) / 4
+
+            [self.assertAlmostEqual(middling_reward, comp) for comp in
+             reward_obj.base_reward_elements]
+            self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
 
     def test_observe_first_state_correct_track_error(self):
         self.setUp()
@@ -372,45 +408,58 @@ class TestHeadingControlTask(unittest.TestCase):
         self.assertAlmostEqual(expected_acute_error_deg, actual_error_deg)
 
     def test_task_step_reward_sequential_cont_perfect(self):
-        self.setUp()
-        task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT)
-        perfect_alt = task.INITIAL_ALTITUDE_FT
-        perfect_roll, perfect_sideslip, perfect_track_error = 0., 0., 0.
-        sim = self.get_transitioning_sim(task,
-                                         steps_terminal=False,
-                                         altitude_ft=perfect_alt,
-                                         roll_rad=perfect_roll,
-                                         track_error_deg=perfect_track_error,
-                                         sideslip_deg=perfect_sideslip)
+        for positive_reward in (True, False):
+            self.setUp()
+            task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT,
+                                  positive_rewards=positive_reward)
+            perfect_alt = task.INITIAL_ALTITUDE_FT
+            perfect_roll, perfect_sideslip, perfect_track_error = 0., 0., 0.
+            sim = self.get_transitioning_sim(task,
+                                             steps_terminal=False,
+                                             altitude_ft=perfect_alt,
+                                             roll_rad=perfect_roll,
+                                             track_error_deg=perfect_track_error,
+                                             sideslip_deg=perfect_sideslip)
 
-        _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
-        reward_obj: rewards.Reward = info['reward']
+            _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
+            reward_obj: rewards.Reward = info['reward']
 
-        self.assertAlmostEqual(0.0, reward_scalar)
-        self.assertAlmostEqual(0.0, reward_obj.agent_reward())
+            if positive_reward:
+                expected_reward = self.PERFECT_POSITIVE_REWARD
+            else:
+                expected_reward = self.PERFECT_POSITIVE_REWARD - 1
+            msg = f'positive reward: {positive_reward}'
+            self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
+            self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
 
     def test_task_step_reward_sequential_cont_all_middling(self):
-        self.setUp()
-        task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT)
-        middling_alt = task.INITIAL_ALTITUDE_FT + task.ALTITUDE_SCALING_FT
-        middling_roll = task.ROLL_ERROR_SCALING_RAD
-        middling_sideslip = task.SIDESLIP_ERROR_SCALING_DEG
-        middling_track_error = task.TRACK_ERROR_SCALING_DEG
-        sim = self.get_transitioning_sim(task,
-                                         steps_terminal=False,
-                                         altitude_ft=middling_alt,
-                                         roll_rad=middling_roll,
-                                         track_error_deg=middling_track_error,
-                                         sideslip_deg=middling_sideslip)
+        for positive_reward in (True, False):
+            self.setUp()
+            task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT,
+                                  positive_rewards=positive_reward)
+            middling_alt = task.INITIAL_ALTITUDE_FT + task.ALTITUDE_SCALING_FT
+            middling_roll = task.ROLL_ERROR_SCALING_RAD
+            middling_sideslip = task.SIDESLIP_ERROR_SCALING_DEG
+            middling_track_error = task.TRACK_ERROR_SCALING_DEG
+            sim = self.get_transitioning_sim(task,
+                                             steps_terminal=False,
+                                             altitude_ft=middling_alt,
+                                             roll_rad=middling_roll,
+                                             track_error_deg=middling_track_error,
+                                             sideslip_deg=middling_sideslip)
 
-        _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
-        reward_obj: rewards.Reward = info['reward']
+            _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
+            reward_obj: rewards.Reward = info['reward']
 
-        component_values = -0.5
-        # two components have no dependencies, one component has 1, one component has 2,
-        expected_reward = ((0.5**1 -1) * 2 + (0.5**2 - 1) + (0.5**3 -1)) / 4
-        self.assertAlmostEqual(expected_reward, reward_scalar)
-        self.assertAlmostEqual(expected_reward, reward_obj.agent_reward())
+            # one component has no dependencies, one has 1 dep, one has 2, one has 3
+            expected_positive_reward = ((0.5 ** 1) + (0.5 ** 2) + (0.5 ** 3) + (0.5 ** 4)) / 4
+            if positive_reward:
+                expected_reward = expected_positive_reward
+            else:
+                expected_reward = expected_positive_reward - 1
+            msg = f'positive reward: {positive_reward}'
+            self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
+            self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
 
 
 class TestTurnHeadingControlTask(TestHeadingControlTask):
