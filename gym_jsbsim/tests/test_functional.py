@@ -16,7 +16,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
 
         # we interact at 5 Hz, so we expect the sim to run 12 timesteps per
         #   interaction since it runs at 120 Hz
-        self.assertEqual(12, env.sim_steps)
+        self.assertEqual(12, env.sim_steps_per_agent_step)
 
         # we init a random agent with a seed
         agent = RandomAgent(action_space=env.action_space)
@@ -53,7 +53,7 @@ class AgentEnvInteractionTest(unittest.TestCase):
         self.assertEqual(first_state.shape, state.shape)
         self.assertTrue(np.any(np.not_equal(first_state, state)),
                         msg='state should have changed after simulation step')
-        expected_time_step_size = env.sim_steps / env.JSBSIM_DT_HZ
+        expected_time_step_size = env.sim_steps_per_agent_step / env.JSBSIM_DT_HZ
         self.assertAlmostEqual(expected_time_step_size, env.sim.get_sim_time())
         self.assertFalse(done, msg='episode is terminal after only a single step')
 

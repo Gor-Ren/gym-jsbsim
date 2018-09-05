@@ -41,7 +41,7 @@ class JsbSimEnv(gym.Env):
                              'or equal to JSBSim integration frequency of '
                              f'{self.JSBSIM_DT_HZ} Hz.')
         self.sim: Simulation = None
-        self.sim_steps: int = self.JSBSIM_DT_HZ // agent_interaction_freq
+        self.sim_steps_per_agent_step: int = self.JSBSIM_DT_HZ // agent_interaction_freq
         self.aircraft = aircraft
         self.task = task_type(shaping, agent_interaction_freq, aircraft)
         # set Space objects
@@ -69,7 +69,7 @@ class JsbSimEnv(gym.Env):
         if not (action.shape == self.action_space.shape):
             raise ValueError('mismatch between action and action space size')
 
-        state, reward, done, info = self.task.task_step(self.sim, action, self.sim_steps)
+        state, reward, done, info = self.task.task_step(self.sim, action, self.sim_steps_per_agent_step)
         return np.array(state), reward, done, info
 
     def reset(self):
