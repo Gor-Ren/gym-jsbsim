@@ -198,7 +198,7 @@ class FlightTask(Task, ABC):
         By default it simply starts the aircraft engines.
         """
         sim.start_engines()
-        sim[self.last_reward] = 0.0
+        sim[self.last_reward] = 1.0
 
     @abstractmethod
     def get_initial_conditions(self) -> Dict[Property, float]:
@@ -229,12 +229,13 @@ class HeadingControlTask(FlightTask):
     THROTTLE_CMD = 0.8
     MIXTURE_CMD = 0.8
     INITIAL_HEADING_DEG = 270
-    DEFAULT_EPISODE_TIME_S = 15.
-    ALTITUDE_SCALING_FT = 25
-    TRACK_ERROR_SCALING_DEG = 7.5
-    ROLL_ERROR_SCALING_RAD = 0.09  # approx. 5 deg
+    DEFAULT_EPISODE_TIME_S = 60.
+    ALTITUDE_SCALING_FT = 100
+    TRACK_ERROR_SCALING_DEG = 10
+    ROLL_ERROR_SCALING_RAD = 0.1  # approx. 5 deg
     SIDESLIP_ERROR_SCALING_DEG = 2.
     MAX_ALTITUDE_DEVIATION_FT = 4500  # terminate if altitude error exceeds this
+    MIN_CONTINUATION_REWARD = 0.2  # terminate episode if reward drops below this
     target_track_deg = BoundedProperty('target/track-deg', 'desired heading [deg]',
                                        prp.heading_deg.min, prp.heading_deg.max)
     track_error_deg = BoundedProperty('error/track-error-deg',
@@ -357,7 +358,9 @@ class HeadingControlTask(FlightTask):
     def _is_terminal(self, sim: Simulation) -> bool:
         # terminate when time >= max, but use math.isclose() for float equality test
         terminal_step = sim[self.steps_left] <= 0
-        return terminal_step or self._altitude_out_of_bounds(sim)
+        last_reward = sim[self.last_reward]
+        state_out_of_bounds = last_reward < self.MIN_CONTINUATION_REWARD
+        return terminal_step or state_out_of_bounds or self._altitude_out_of_bounds(sim)
 
     def _altitude_out_of_bounds(self, sim: Simulation) -> bool:
         altitude_error_ft = sim[self.altitude_error_ft]

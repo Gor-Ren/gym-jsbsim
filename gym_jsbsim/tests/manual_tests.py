@@ -5,7 +5,7 @@ from typing import Type
 from gym_jsbsim import tasks, aircraft
 from gym_jsbsim.tests.stubs import BasicFlightTask
 from gym_jsbsim.environment import JsbSimEnv
-from gym_jsbsim.agents import RandomAgent
+from gym_jsbsim.agents import RandomAgent, ConstantAgent
 
 
 class TestJsbSimInstance(unittest.TestCase):
@@ -90,10 +90,10 @@ class FlightGearRenderTest(unittest.TestCase):
 
     def test_render_steady_level_flight(self):
         self.setUp(plane=aircraft.cessna172P, task_type=tasks.HeadingControlTask)
-        agent = RandomAgent(self.env.action_space)
+        agent = ConstantAgent(self.env.action_space)
         render_every = 5
         report_every = 20
-        EPISODES = 10
+        EPISODES = 999
 
         for _ in range(EPISODES):
             ep_reward = 0

@@ -227,7 +227,7 @@ class TestHeadingControlTask(unittest.TestCase):
         self.assertAlmostEqual(reward_object.agent_reward(), reward_scalar)
 
     def test_task_step_returns_non_terminal_time_less_than_max(self):
-        sim = SimStub.make_valid_state_stub(self.task)
+        sim = self.get_perfect_state_sim(self.task, time_terminal=False)
         _ = self.task.observe_first_state(sim)
         non_terminal_steps_left = 2
         sim[self.task.steps_left] = non_terminal_steps_left
