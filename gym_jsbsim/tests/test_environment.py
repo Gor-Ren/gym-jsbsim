@@ -168,7 +168,7 @@ class TestGymRegistration(unittest.TestCase):
     def get_number_of_envs(self) -> int:
         num_tasks = 2
         num_flightgear_setttings = 2
-        num_shaping_settings = 2
+        num_shaping_settings = 3
         num_aircraft = 1
 
         return num_tasks * num_flightgear_setttings * num_shaping_settings * num_aircraft
