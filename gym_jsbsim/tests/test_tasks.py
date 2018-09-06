@@ -48,7 +48,7 @@ class TestHeadingControlTask(unittest.TestCase):
     def get_initial_sim_with_state(self,
                                    task: HeadingControlTask = None,
                                    time_terminal=False,
-                                   track_deg=0.0,
+                                   track_deg=None,
                                    altitude_ft=None,
                                    roll_rad=0.0) -> SimStub:
         if task is None:
@@ -56,8 +56,17 @@ class TestHeadingControlTask(unittest.TestCase):
         sim = SimStub.make_valid_state_stub(task)
         task.observe_first_state(sim)
 
-        return self.modify_sim_to_state_(sim, task, time_terminal, track_deg,
-                                         altitude_ft, roll_rad)
+        if track_deg is None:
+            # get the target value and use that (i.e. perfect state)
+            track_deg = sim[task.target_track_deg]
+
+        perfect_initial_sim = self.modify_sim_to_state_(sim, task, time_terminal, track_deg,
+                                                        altitude_ft, roll_rad)
+        # the task set its last_state attr when it observed the first state - reset this
+        #   based on the perfect sim values we just set. Ugh.
+        perfect_state = task.State(*(sim[prop] for prop in task.state_variables))
+        task.last_state = perfect_state
+        return perfect_initial_sim
 
     def modify_sim_to_state_(self,
                              sim: SimStub,
@@ -145,15 +154,16 @@ class TestHeadingControlTask(unittest.TestCase):
         task = self.make_task(shaping_type=Shaping.STANDARD)
 
         self.assertIsInstance(task.assessor, Assessor)
-        self.assertEqual(4, len(task.assessor.base_components))
+        self.assertEqual(2, len(task.assessor.base_components))
+        self.assertEqual(0, len(task.assessor.potential_components))
         self.assertFalse(task.assessor.potential_components)  # assert empty
 
-    def test_init_shaping_sequential_cont(self):
-        task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT)
+    def test_init_shaping_sequential(self):
+        task = self.make_task(shaping_type=Shaping.EXTRA_SEQUENTIAL)
 
         self.assertIsInstance(task.assessor, Assessor)
-        self.assertEqual(4, len(task.assessor.base_components))
-        self.assertEqual(0, len(task.assessor.potential_components))
+        self.assertEqual(2, len(task.assessor.base_components))
+        self.assertEqual(2, len(task.assessor.potential_components))
 
     def test_get_intial_conditions_valid_target_heading(self):
         self.setUp()
@@ -300,7 +310,7 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_task_step_correct_terminal_reward_optimal_behaviour_shaping(self):
         for positive_reward in (True, False):
             self.setUp()
-            for shaping in (Shaping.STANDARD, Shaping.SEQUENTIAL_CONT):
+            for shaping in (Shaping.STANDARD, Shaping.EXTRA_SEQUENTIAL):
                 task = self.make_task(shaping_type=shaping, positive_rewards=positive_reward)
                 initial_state_sim = self.get_initial_state_sim(task)
                 _ = task.observe_first_state(initial_state_sim)
@@ -332,8 +342,8 @@ class TestHeadingControlTask(unittest.TestCase):
             reward_obj: rewards.Reward = info['reward']
 
             if positive_reward:
-                # no reward override, just a state with perfect roll/track/sideslip and terrible alt
-                expected_reward = (self.PERFECT_POSITIVE_REWARD * 3 + self.TERRIBLE_POSITIVE_REWARD) / 4
+                # no reward override when using positive reward; perfect track and terrible alt
+                expected_reward = (self.PERFECT_POSITIVE_REWARD + self.TERRIBLE_POSITIVE_REWARD) / 2
             else:
                 # big negative reward for out of bounds
                 expected_reward = -1 + -1. * sim[self.task.steps_left]
@@ -357,9 +367,8 @@ class TestHeadingControlTask(unittest.TestCase):
             reward_obj: rewards.Reward = info['reward']
 
             expected_positive_reward = (self.MIDDLING_POSITIVE_REWARD +
-                                        self.PERFECT_POSITIVE_REWARD * 3) / 4
+                                        self.PERFECT_POSITIVE_REWARD) / 2
             if positive_reward:
-                # track middling (.5), otherwise perfect (1. times 3)
                 expected_reward = expected_positive_reward
             else:
                 expected_reward = expected_positive_reward - 1
@@ -410,7 +419,7 @@ class TestHeadingControlTask(unittest.TestCase):
     def test_task_step_reward_sequential_cont_perfect(self):
         for positive_reward in (True, False):
             self.setUp()
-            task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT,
+            task = self.make_task(shaping_type=Shaping.EXTRA_SEQUENTIAL,
                                   positive_rewards=positive_reward)
             perfect_alt = task.INITIAL_ALTITUDE_FT
             perfect_roll, perfect_sideslip, perfect_track_error = 0., 0., 0.
@@ -424,18 +433,21 @@ class TestHeadingControlTask(unittest.TestCase):
             _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
             reward_obj: rewards.Reward = info['reward']
 
+            expected_shaping_reward = 0  # no improvement (initial state was perfect)
             if positive_reward:
-                expected_reward = self.PERFECT_POSITIVE_REWARD
+                expected_base_reward = self.PERFECT_POSITIVE_REWARD
+                expected_reward = (expected_base_reward + expected_shaping_reward) / 2
             else:
-                expected_reward = self.PERFECT_POSITIVE_REWARD - 1
+                expected_base_reward = self.PERFECT_POSITIVE_REWARD - 1
+                expected_reward = (expected_base_reward + expected_shaping_reward) / 2
             msg = f'positive reward: {positive_reward}'
             self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
             self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
 
-    def test_task_step_reward_sequential_cont_all_middling(self):
+    def test_task_step_reward_sequential_extra_shaping_all_middling(self):
         for positive_reward in (True, False):
             self.setUp()
-            task = self.make_task(shaping_type=Shaping.SEQUENTIAL_CONT,
+            task = self.make_task(shaping_type=Shaping.EXTRA_SEQUENTIAL,
                                   positive_rewards=positive_reward)
             middling_alt = task.INITIAL_ALTITUDE_FT + task.ALTITUDE_SCALING_FT
             middling_roll = task.ROLL_ERROR_SCALING_RAD
@@ -451,16 +463,48 @@ class TestHeadingControlTask(unittest.TestCase):
             _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
             reward_obj: rewards.Reward = info['reward']
 
-            # one component has no dependencies, one has 1 dep, one has 2, one has 3
-            expected_positive_reward = ((0.5 ** 1) + (0.5 ** 2) + (0.5 ** 3) + (0.5 ** 4)) / 4
+            # 2 base reward components are both middling
+            expected_positive_base_reward = (self.MIDDLING_POSITIVE_REWARD * 2) / 2
+            # shaping rewards went from perfect to 1 middling with no deps (.5),
+            #   1 middling with a middling dep (.5 * .5)
+            expected_shaping_reward = ((.5 - 1) + (.5 ** 2 - 1.)) / 2
             if positive_reward:
-                expected_reward = expected_positive_reward
+                expected_reward = (expected_positive_base_reward + expected_shaping_reward) / 2
             else:
-                expected_reward = expected_positive_reward - 1
+                expected_base_reward = expected_positive_base_reward - 1
+                expected_reward = (expected_base_reward + expected_shaping_reward) / 2
             msg = f'positive reward: {positive_reward}'
             self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
             self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
 
+    def test_task_step_reward_on_terminal_shaping(self):
+        for positive_reward in (True, False):
+            for shaping in (Shaping.EXTRA, Shaping.EXTRA_SEQUENTIAL):
+                self.setUp()
+                task = self.make_task(shaping_type=shaping,
+                                      positive_rewards=positive_reward)
+                perfect_alt = task.INITIAL_ALTITUDE_FT
+                perfect_roll, perfect_sideslip, perfect_track_error = 0., 0., 0.
+                sim = self.get_transitioning_sim(task,
+                                                 steps_terminal=True,
+                                                 altitude_ft=perfect_alt,
+                                                 roll_rad=perfect_roll,
+                                                 track_error_deg=perfect_track_error,
+                                                 sideslip_deg=perfect_sideslip)
+
+                _, reward_scalar, _, info = task.task_step(sim, self.dummy_action, 1)
+                reward_obj: rewards.Reward = info['reward']
+
+                expected_shaping_reward = -1  # went from perfect (1.) to terminal (0.)
+                if positive_reward:
+                    expected_base_reward = self.PERFECT_POSITIVE_REWARD
+                    expected_reward = (expected_base_reward + expected_shaping_reward) / 2
+                else:
+                    expected_base_reward = self.PERFECT_POSITIVE_REWARD - 1
+                    expected_reward = (expected_base_reward + expected_shaping_reward) / 2
+                msg = f'positive reward: {positive_reward}'
+                self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
+                self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
 
 class TestTurnHeadingControlTask(TestHeadingControlTask):
 

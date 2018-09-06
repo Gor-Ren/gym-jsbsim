@@ -217,8 +217,8 @@ class FlightTask(Task, ABC):
 
 class Shaping(enum.Enum):
     STANDARD = 'STANDARD'
-    SEQUENTIAL_CONT = 'SEQUENTIAL_CONTINUOUS'
-    SEQUENTIAL_DISCONT = 'SEQUENTIAL_DISCONTINUOUS'
+    EXTRA = 'EXTRA'
+    EXTRA_SEQUENTIAL = 'EXTRA_SEQUENTIAL'
 
 
 class HeadingControlTask(FlightTask):
@@ -279,18 +279,6 @@ class HeadingControlTask(FlightTask):
                                              target=0.0,
                                              is_potential_based=False,
                                              scaling_factor=self.ALTITUDE_SCALING_FT),
-            rewards.AsymptoticErrorComponent(name='wings_level',
-                                             prop=prp.roll_rad,
-                                             state_variables=self.state_variables,
-                                             target=0.0,
-                                             is_potential_based=False,
-                                             scaling_factor=self.ROLL_ERROR_SCALING_RAD),
-            rewards.AsymptoticErrorComponent(name='no_sideslip',
-                                             prop=prp.sideslip_deg,
-                                             state_variables=self.state_variables,
-                                             target=0.0,
-                                             is_potential_based=False,
-                                             scaling_factor=self.SIDESLIP_ERROR_SCALING_DEG),
             rewards.AsymptoticErrorComponent(name='travel_direction',
                                              prop=self.track_error_deg,
                                              state_variables=self.state_variables,
@@ -308,19 +296,30 @@ class HeadingControlTask(FlightTask):
             return assessors.AssessorImpl(base_components, shaping_components,
                                           positive_rewards=self.positive_rewards)
         else:
-            altitude_error, wings_level, no_sideslip, travel_direction = base_components
-            # worry about control in this order: altitude, track, wings level, no sideslip
-            dependency_map = {no_sideslip: (wings_level, travel_direction, altitude_error),
-                              wings_level: (travel_direction, altitude_error),
-                              travel_direction: (altitude_error,)}
-            if shaping is Shaping.SEQUENTIAL_CONT:
-                return assessors.ContinuousSequentialAssessor(base_components, shaping_components,
-                                                              base_dependency_map=dependency_map,
-                                                              positive_rewards=self.positive_rewards)
-            elif shaping is Shaping.SEQUENTIAL_DISCONT:
-                return assessors.SequentialAssessor(base_components, shaping_components,
-                                                    base_dependency_map=dependency_map,
-                                                    positive_rewards=self.positive_rewards)
+            wings_level = rewards.AsymptoticErrorComponent(name='wings_level',
+                                                           prop=prp.roll_rad,
+                                                           state_variables=self.state_variables,
+                                                           target=0.0,
+                                                           is_potential_based=True,
+                                                           scaling_factor=self.ROLL_ERROR_SCALING_RAD)
+            no_sideslip = rewards.AsymptoticErrorComponent(name='no_sideslip',
+                                                           prop=prp.sideslip_deg,
+                                                           state_variables=self.state_variables,
+                                                           target=0.0,
+                                                           is_potential_based=True,
+                                                           scaling_factor=self.SIDESLIP_ERROR_SCALING_DEG)
+            potential_based_components = (wings_level, no_sideslip)
+
+        if shaping is Shaping.EXTRA:
+            return assessors.AssessorImpl(base_components, potential_based_components,
+                                          positive_rewards=self.positive_rewards)
+        elif shaping is Shaping.EXTRA_SEQUENTIAL:
+            altitude_error, travel_direction = base_components
+            # make the wings_level shaping reward dependent on facing the correct direction
+            dependency_map = {wings_level: (travel_direction,)}
+            return assessors.ContinuousSequentialAssessor(base_components, potential_based_components,
+                                                          potential_dependency_map=dependency_map,
+                                                          positive_rewards=self.positive_rewards)
 
     def get_initial_conditions(self) -> Dict[Property, float]:
         extra_conditions = {prp.initial_u_fps: self.aircraft.get_cruise_speed_fps(),

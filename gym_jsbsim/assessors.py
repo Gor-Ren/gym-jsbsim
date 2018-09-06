@@ -1,3 +1,4 @@
+import warnings
 from gym_jsbsim import utils
 from abc import ABC, abstractmethod
 from typing import Iterable, Tuple, Dict
@@ -23,7 +24,7 @@ class AssessorImpl(Assessor):
 
     def __init__(self, base_components: Iterable['RewardComponent'],
                  potential_based_components: Iterable['RewardComponent'] = (),
-                 positive_rewards: bool=False):
+                 positive_rewards: bool = False):
         """
         :param base_components: RewardComponents from which Reward is to be calculated
         :param potential_based_components: RewardComponents from which a potential-based
@@ -40,8 +41,11 @@ class AssessorImpl(Assessor):
         if any(cmp.is_potential_difference_based() for cmp in self.base_components):
             raise ValueError('base rewards must be non potential based in this implementation')
             # because of the positive_rewards logic
+        if not all(cmp.is_potential_difference_based() for cmp in self.potential_components):
+            warnings.warn(f'Potential component not is_potential_difference_based()')
 
     def assess(self, state: State, prev_state: State, is_terminal: bool) -> Reward:
+        """ Calculates a Reward from the state transition. """
         return Reward(self._base_rewards(state, prev_state, is_terminal),
                       self._potential_based_rewards(state, prev_state, is_terminal))
 
@@ -72,7 +76,8 @@ class SequentialAssessor(AssessorImpl, ABC):
     def __init__(self, base_components: Iterable['RewardComponent'],
                  potential_components: Iterable['RewardComponent'] = (),
                  base_dependency_map: Dict['RewardComponent', Tuple['RewardComponent', ...]] = {},
-                 potential_dependency_map: Dict['RewardComponent', Tuple['RewardComponent', ...]] = {},
+                 potential_dependency_map: Dict[
+                     'RewardComponent', Tuple['RewardComponent', ...]] = {},
                  positive_rewards: bool = False):
         """
         :param base_components: RewardComponents from which the non-shaping
@@ -87,32 +92,18 @@ class SequentialAssessor(AssessorImpl, ABC):
             no dependencies
         """
         super().__init__(base_components, potential_components, positive_rewards)
-        self.base_dependent_indices = self._get_sequential_indices(self.base_components,
-                                                                   base_dependency_map)
-        self.potential_dependant_indices = self._get_sequential_indices(self.potential_components,
-                                                                        potential_dependency_map)
-
-    @staticmethod
-    def _get_sequential_indices(components: Tuple['RewardComponent'],
-                                dependency_map: Dict) -> Tuple[Tuple[int, ...]]:
-        """
-        Given a collection of components, and map of components to their
-        sequential dependents, determines the indices of the dependant components'
-        potentials and stores them in a tuple such that the ith collection of
-        indices corresponds to the ith reward component's dependants.
-        """
-        all_dependants = []
-        for component in components:
-            dependant_comps = dependency_map.get(component, ())
-            dependant_indices = tuple(components.index(cmp) for cmp in dependant_comps)
-            all_dependants.append(dependant_indices)
-        return tuple(all_dependants)
+        self.base_dependency_map = base_dependency_map
+        self.potential_dependency_map = potential_dependency_map
 
     def _base_rewards(self, state: State, prev_state: State, is_terminal: bool) -> Tuple[
         float, ...]:
         potentials = tuple(cmp.get_potential(state, is_terminal) for cmp in self.base_components)
-        seq_values = self._apply_dependents(potentials, self.base_dependent_indices)
+        seq_discounts = self._get_sequential_discounts(state,
+                                                       is_terminal,
+                                                       self.base_components,
+                                                       self.base_dependency_map)
 
+        seq_values = (pot * discount for pot, discount in zip(potentials, seq_discounts))
         if self.positive_rewards:
             return tuple(seq_values)
         else:
@@ -120,27 +111,42 @@ class SequentialAssessor(AssessorImpl, ABC):
 
     def _potential_based_rewards(self, state: State, prev_state: State,
                                  is_terminal: bool) -> Tuple[float, ...]:
-        potentials = tuple(
-            cmp.get_potential(state, is_terminal) for cmp in self.potential_components)
-        prev_potentials = tuple(
-            cmp.get_potential(prev_state, False) for cmp in self.potential_components)
+        potentials = tuple(cmp.get_potential(state, is_terminal)
+                           for cmp in self.potential_components)
+        prev_potentials = tuple(cmp.get_potential(prev_state, False)
+                                for cmp in self.potential_components)
 
-        seq_potentials = self._apply_dependents(potentials, self.potential_dependant_indices)
-        seq_last_potentials = self._apply_dependents(prev_potentials,
-                                                     self.potential_dependant_indices)
-        return tuple(pot - last_pot for pot, last_pot in zip(seq_potentials, seq_last_potentials))
+        discounts = self._get_sequential_discounts(state,
+                                                   is_terminal,
+                                                   self.potential_components,
+                                                   self.potential_dependency_map)
+        prev_discounts = self._get_sequential_discounts(prev_state,
+                                                        False,
+                                                        self.potential_components,
+                                                        self.potential_dependency_map)
+
+        seq_potentials = (p * d for p, d in zip(potentials, discounts))
+        seq_prev_potentials = (p * d for p, d in zip(prev_potentials, prev_discounts))
+        return tuple(pot - prev_pot for pot, prev_pot in zip(seq_potentials, seq_prev_potentials))
 
     @abstractmethod
-    def _apply_dependents(self, potentials: Tuple[float, ...],
-                          dependent_indices: Tuple[Tuple[int, ...]]) -> Tuple[float, ...]:
+    def _get_sequential_discounts(self, state: State, is_terminal: bool,
+                                  components: Iterable['RewardComponent'],
+                                  dependency_map: Dict['RewardComponent', Tuple]) -> Tuple[
+        float, ...]:
         """
-        Modifies potentials to account for dependant components.
+        Calculates a discount factor in [0,1] from each component's dependencies.
 
-        :param potentials: the normal component potential values
-        :param dependent_indices: tuple of tuples containing indices, such that
-            the ith element contains a tuple of all dependent's of ith component
-        :return: a collection of component potentials, transformed to account
-            for sequential dependencies
+        The dependencies may reduce that component's values because they are not
+        yet met. A component with no dependencies has discount factor 1.0.
+
+        :param state: the state that discount factor is to be evaluated at
+        :param is_terminal: whether the transition to state was terminal
+        :param components: the RewardComponents to be assessed for discounting
+        :param dependency_map: a map of RewardComponents to their dependent
+            RewardComponents.
+        :return: tuple of floats, discount factors in [0,1], corresponding to
+            same order as 'components' input
         """
         ...
 
@@ -154,37 +160,15 @@ class ContinuousSequentialAssessor(SequentialAssessor):
     0.5 have a sequential potential of 0.8 * 0.5 = 0.4.
     """
 
-    def _apply_dependents(self, potentials: Tuple[float, ...],
-                          dependant_indices: Tuple[Tuple[int, ...]]) -> Tuple[float, ...]:
-        sequential_potentials = []
-        for base_potential, indices in zip(potentials, dependant_indices):
-            # multiply each base potential value by all dependants
-            sequential_factor = utils.product(potentials[i] for i in indices)
-            sequential_potentials.append(base_potential * sequential_factor)
-        return tuple(sequential_potentials)
-
-
-class DiscontinuousSequentialAssessor(SequentialAssessor):
-    """
-    A sequential assessor in which shaping components with dependents are given zero
-    potential until their dependent's potentials exceed a critical value.
-
-    For example a component with a "base" potential of 0.8 and a dependent
-    component with potential < critical has sequential potential 0.0. Once
-    the dependent potential >= critical, the dependent component potential
-    returns to 0.8.
-    """
-    DEPENDANT_REQD_POTENTIAL = 0.85
-
-    def _apply_dependents(self, potentials: Tuple[float, ...],
-                          dependant_indices: Tuple[Tuple[int, ...]]) -> Tuple[float, ...]:
-        sequential_potentials = []
-        for base_potential, indices in zip(potentials, dependant_indices):
-            # multiply each base potential value by all dependants
-            dependancies_met = all(potentials[i] > self.DEPENDANT_REQD_POTENTIAL for i in indices)
-            if dependancies_met:
-                sequential_potential = base_potential
-            else:
-                sequential_potential = 0.0
-            sequential_potentials.append(sequential_potential)
-        return tuple(sequential_potentials)
+    def _get_sequential_discounts(self, state: State, is_terminal: bool,
+                                  components: Iterable['RewardComponent'],
+                                  dependency_map: Dict[
+                                      'RewardComponent', Tuple['RewardComponent', ...]]) -> Tuple[
+        float, ...]:
+        discounts = []
+        for component in components:
+            dependents = dependency_map.get(component, ())
+            dependent_potentials = (dep.get_potential(state, is_terminal) for dep in dependents)
+            discount = utils.product(pot for pot in dependent_potentials)
+            discounts.append(discount)
+        return tuple(discounts)

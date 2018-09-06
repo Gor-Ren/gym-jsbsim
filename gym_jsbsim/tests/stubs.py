@@ -132,7 +132,7 @@ class SimStub(object):
         sim[prp.dist_travel_m] = 2.0
         sim[prp.heading_deg] = 270
         sim[prp.v_north_fps] = 0
-        sim[prp.v_east_fps] = 200.  # corresp. to travel at track 270 deg
+        sim[prp.v_east_fps] = -200.  # corresp. to travel at track 270 deg
         sim[prp.altitude_sl_ft] = task.INITIAL_ALTITUDE_FT
         return sim
 

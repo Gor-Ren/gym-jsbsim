@@ -1,7 +1,5 @@
 import math
 import collections
-from typing import Tuple
-
 from gym_jsbsim import utils
 
 
