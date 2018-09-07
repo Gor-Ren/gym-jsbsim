@@ -300,6 +300,12 @@ class HeadingControlTask(FlightTask):
             return assessors.AssessorImpl(base_components, shaping_components,
                                           positive_rewards=self.positive_rewards)
         else:
+            travel_direction = rewards.AsymptoticErrorComponent(name='travel_direction_potential',
+                                                                prop=self.track_error_deg,
+                                                                state_variables=self.state_variables,
+                                                                target=0.0,
+                                                                is_potential_based=True,
+                                                                scaling_factor=self.TRACK_ERROR_SCALING_DEG)
             wings_level = rewards.AsymptoticErrorComponent(name='wings_level',
                                                            prop=prp.roll_rad,
                                                            state_variables=self.state_variables,
@@ -312,16 +318,16 @@ class HeadingControlTask(FlightTask):
                                                            target=0.0,
                                                            is_potential_based=True,
                                                            scaling_factor=self.SIDESLIP_ERROR_SCALING_DEG)
-            potential_based_components = (wings_level, no_sideslip)
+            potential_based_components = (travel_direction, wings_level, no_sideslip)
 
         if shaping is Shaping.EXTRA:
             return assessors.AssessorImpl(base_components, potential_based_components,
                                           positive_rewards=self.positive_rewards)
         elif shaping is Shaping.EXTRA_SEQUENTIAL:
-            altitude_error, travel_direction = base_components
             # make the wings_level shaping reward dependent on facing the correct direction
             dependency_map = {wings_level: (travel_direction,)}
-            return assessors.ContinuousSequentialAssessor(base_components, potential_based_components,
+            return assessors.ContinuousSequentialAssessor(base_components,
+                                                          potential_based_components,
                                                           potential_dependency_map=dependency_map,
                                                           positive_rewards=self.positive_rewards)
 
