@@ -235,7 +235,7 @@ class HeadingControlTask(FlightTask):
     INITIAL_HEADING_DEG = 270
     DEFAULT_EPISODE_TIME_S = 60.
     ALTITUDE_SCALING_FT = 150
-    TRACK_ERROR_SCALING_DEG = 30
+    TRACK_ERROR_SCALING_DEG = 8
     ROLL_ERROR_SCALING_RAD = 0.15  # approx. 8 deg
     SIDESLIP_ERROR_SCALING_DEG = 3.
     MIN_STATE_QUALITY = 0.15  # terminate if state 'quality' is less than this
