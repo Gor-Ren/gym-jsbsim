@@ -443,6 +443,7 @@ class TestHeadingControlTask(unittest.TestCase):
             msg = f'positive reward: {positive_reward}'
             self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
             self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
+            self.assertAlmostEqual(expected_base_reward, reward_obj.assessment_reward())
 
     def test_task_step_reward_sequential_extra_shaping_all_middling(self):
         for positive_reward in (True, False):
@@ -464,18 +465,19 @@ class TestHeadingControlTask(unittest.TestCase):
             reward_obj: rewards.Reward = info['reward']
 
             # 2 base reward components are both middling
-            expected_positive_base_reward = (self.MIDDLING_POSITIVE_REWARD * 2) / 2
+            expected_base_reward = (self.MIDDLING_POSITIVE_REWARD * 2) / 2
             # shaping rewards went from perfect to 1 middling with no deps (.5),
             #   1 middling with a middling dep (.5 * .5)
             expected_shaping_reward = ((.5 - 1) + (.5 ** 2 - 1.)) / 2
             if positive_reward:
-                expected_reward = (expected_positive_base_reward + expected_shaping_reward) / 2
+                expected_reward = (expected_base_reward + expected_shaping_reward) / 2
             else:
-                expected_base_reward = expected_positive_base_reward - 1
+                expected_base_reward = expected_base_reward - 1
                 expected_reward = (expected_base_reward + expected_shaping_reward) / 2
             msg = f'positive reward: {positive_reward}'
             self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
             self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
+            self.assertAlmostEqual(expected_base_reward, reward_obj.assessment_reward())
 
     def test_task_step_reward_on_terminal_shaping(self):
         for positive_reward in (True, False):
@@ -505,6 +507,8 @@ class TestHeadingControlTask(unittest.TestCase):
                 msg = f'positive reward: {positive_reward}'
                 self.assertAlmostEqual(expected_reward, reward_scalar, msg=msg)
                 self.assertAlmostEqual(expected_reward, reward_obj.agent_reward(), msg=msg)
+                self.assertAlmostEqual(expected_base_reward, reward_obj.assessment_reward())
+
 
 class TestTurnHeadingControlTask(TestHeadingControlTask):
 
@@ -518,7 +522,7 @@ class TestTurnHeadingControlTask(TestHeadingControlTask):
     def get_target_track(self, sim: SimStub):
         return sim[TurnHeadingControlTask.target_track_deg]
 
-    def test_observe_first_state_creates_desired_heading_in_expected_range(self):
+    def test_observe_first_state_creates_target_heading_in_expected_range(self):
         sim = SimStub.make_valid_state_stub(self.task)
         _ = self.task.observe_first_state(sim)
 
@@ -526,7 +530,7 @@ class TestTurnHeadingControlTask(TestHeadingControlTask):
         self.assertGreaterEqual(desired_heading, 0)
         self.assertLessEqual(desired_heading, 360)
 
-    def test_observe_first_state_changes_desired_heading(self):
+    def test_observe_first_state_changes_target_heading(self):
         sim = SimStub.make_valid_state_stub(self.task)
         _ = self.task.observe_first_state(sim)
         desired_heading = sim[HeadingControlTask.target_track_deg]

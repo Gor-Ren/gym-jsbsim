@@ -105,7 +105,10 @@ class FlightTask(Task, ABC):
          prp.initial_latitude_geod_deg: 51.3781  # corresponds to UoBath
          }
     )
-    last_reward = Property('reward/last_reward', 'agent reward from last step')
+    last_agent_reward = Property('reward/last_agent_reward', 'agent reward from step; includes'
+                                                             'potential-based shaping reward')
+    last_assessment_reward = Property('reward/last_assess_reward', 'assessment reward from step;'
+                                                                   'excludes shaping')
     state_variables: Tuple[BoundedProperty, ...]
     action_variables: Tuple[BoundedProperty, ...]
     assessor: assessors.Assessor
@@ -159,7 +162,8 @@ class FlightTask(Task, ABC):
             warnings.warn(msg, RuntimeWarning)
 
     def _store_reward(self, reward: rewards.Reward, sim: Simulation):
-        sim[self.last_reward] = reward.agent_reward()
+        sim[self.last_agent_reward] = reward.agent_reward()
+        sim[self.last_assessment_reward] = reward.assessment_reward()
 
     def _update_custom_properties(self, sim: Simulation) -> None:
         """ Calculates any custom properties which change every timestep. """
@@ -198,7 +202,7 @@ class FlightTask(Task, ABC):
         By default it simply starts the aircraft engines.
         """
         sim.start_engines()
-        sim[self.last_reward] = 1.0
+        self._store_reward(RewardStub(1.0, 1.0), sim)
 
     @abstractmethod
     def get_initial_conditions(self) -> Dict[Property, float]:
@@ -357,7 +361,7 @@ class HeadingControlTask(FlightTask):
     def _is_terminal(self, sim: Simulation) -> bool:
         # terminate when time >= max, but use math.isclose() for float equality test
         terminal_step = sim[self.steps_left] <= 0
-        state_quality = sim[self.last_reward]
+        state_quality = sim[self.last_assessment_reward]
         state_out_of_bounds = state_quality < self.MIN_STATE_QUALITY  # TODO: issues if sequential?
         return terminal_step or state_out_of_bounds or self._altitude_out_of_bounds(sim)
 
@@ -396,8 +400,8 @@ class HeadingControlTask(FlightTask):
 
     def get_props_to_output(self) -> Tuple:
         return (prp.u_fps, prp.altitude_sl_ft, self.altitude_error_ft, self.target_track_deg,
-                self.track_error_deg, prp.roll_rad, prp.sideslip_deg, self.last_reward,
-                self.steps_left)
+                self.track_error_deg, prp.roll_rad, prp.sideslip_deg, self.last_agent_reward,
+                self.last_assessment_reward, self.steps_left)
 
 
 class TurnHeadingControlTask(HeadingControlTask):
