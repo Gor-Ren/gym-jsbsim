@@ -238,7 +238,7 @@ class HeadingControlTask(FlightTask):
     TRACK_ERROR_SCALING_DEG = 8
     ROLL_ERROR_SCALING_RAD = 0.15  # approx. 8 deg
     SIDESLIP_ERROR_SCALING_DEG = 3.
-    MIN_STATE_QUALITY = 0.15  # terminate if state 'quality' is less than this
+    MIN_STATE_QUALITY = 0.0  # terminate if state 'quality' is less than this
     MAX_ALTITUDE_DEVIATION_FT = 1000  # terminate if altitude error exceeds this
     target_track_deg = BoundedProperty('target/track-deg', 'desired heading [deg]',
                                        prp.heading_deg.min, prp.heading_deg.max)
