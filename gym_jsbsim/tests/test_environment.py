@@ -169,7 +169,7 @@ class TestGymRegistration(unittest.TestCase):
         num_tasks = 2
         num_flightgear_setttings = 2
         num_shaping_settings = 3
-        num_aircraft = 1
+        num_aircraft = 3
 
         return num_tasks * num_flightgear_setttings * num_shaping_settings * num_aircraft
 
@@ -198,7 +198,7 @@ class TestGymRegistration(unittest.TestCase):
     def test_gym_environments_configured_correctly(self):
         Shaping = tasks.Shaping
         for task in (tasks.HeadingControlTask, tasks.TurnHeadingControlTask):
-            for plane in (aircraft.cessna172P,):
+            for plane in (aircraft.cessna172P, aircraft.f15, aircraft.a320):
                 for shaping in (Shaping.STANDARD, Shaping.EXTRA_SEQUENTIAL):
                     for enable_flightgear in (True, False):
                         id = utils.get_env_id(task, plane, shaping, enable_flightgear)

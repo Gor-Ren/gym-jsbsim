@@ -1,7 +1,7 @@
 import functools
 import operator
 from typing import Tuple
-from gym_jsbsim.aircraft import cessna172P
+from gym_jsbsim.aircraft import cessna172P, a320, f15
 from typing import Dict, Iterable
 
 
@@ -43,7 +43,7 @@ def get_env_id_kwargs_map() -> Dict[str, Tuple]:
 
     map = {}
     for task_type in (HeadingControlTask, TurnHeadingControlTask):
-        for plane in (cessna172P,):
+        for plane in (cessna172P, a320, f15):
             for shaping in (Shaping.STANDARD, Shaping.EXTRA, Shaping.EXTRA_SEQUENTIAL):
                 for enable_flightgear in (True, False):
                     id = get_env_id(task_type, plane, shaping, enable_flightgear)

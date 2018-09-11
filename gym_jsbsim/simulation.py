@@ -40,7 +40,8 @@ class Simulation(object):
                                                     self.OUTPUT_FILE)
             self.jsbsim.set_output_directive(flightgear_output_config)
         self.sim_dt = 1.0 / sim_frequency_hz
-        self.initialise(self.sim_dt, aircraft.id, init_conditions)
+        self.aircraft = aircraft
+        self.initialise(self.sim_dt, self.aircraft.jsbsim_id, init_conditions)
         self.jsbsim.disable_output()
         self.wall_clock_dt = None
 
@@ -89,7 +90,13 @@ class Simulation(object):
             raise RuntimeError('JSBSim could not find specified model_name: '
                                + model_name)
 
-    def get_model_name(self) -> str:
+    def get_aircraft(self) -> Aircraft:
+        """
+        Gets the Aircraft this sim was initialised with.
+        """
+        return self.aircraft
+
+    def get_loaded_model_name(self) -> str:
         """
         Gets the name of the aircraft model currently loaded in JSBSim.
 

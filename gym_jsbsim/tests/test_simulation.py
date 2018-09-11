@@ -24,18 +24,17 @@ class TestSimulation(unittest.TestCase):
                               'instance of JSBSim.')
 
     def test_load_model(self):
-        # make fresh sim instance with "X15" plane
         plane = aircraft.a320
         self.sim = None
         self.sim = Simulation(aircraft=plane)
-        actual_name = self.sim.get_model_name()
+        actual_name = self.sim.get_loaded_model_name()
 
-        self.assertEqual(plane.id, actual_name,
+        self.assertEqual(plane.jsbsim_id, actual_name,
                          msg=f'Unexpected aircraft model name after loading.')
 
     def test_load_bad_aircraft_id(self):
         bad_name = 'qwertyuiop'
-        bad_aircraft = aircraft.Aircraft(bad_name, '', 100.)
+        bad_aircraft = aircraft.Aircraft(bad_name, '', '', 100.)
 
         with self.assertRaises(RuntimeError):
             self.sim = None
@@ -89,9 +88,9 @@ class TestSimulation(unittest.TestCase):
         sim_frequency = 2
         self.sim = Simulation(sim_frequency_hz=sim_frequency, aircraft=plane, init_conditions=None)
 
-        self.assertEqual(self.sim.get_model_name(), plane.id,
+        self.assertEqual(self.sim.get_loaded_model_name(), plane.jsbsim_id,
                          msg='JSBSim did not load expected aircraft model: ' +
-                         self.sim.get_model_name())
+                         self.sim.get_loaded_model_name())
 
         # check that properties are as we expected them to be
         expected_values = {

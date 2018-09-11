@@ -131,7 +131,7 @@ class TurnHeadingControlTest(unittest.TestCase):
         self.env.close()
 
     def test_render_heading_control(self):
-        self.setUp(plane=aircraft.cessna172P, task_type=tasks.TurnHeadingControlTask,
+        self.setUp(plane=aircraft.a320, task_type=tasks.TurnHeadingControlTask,
                    shaping=tasks.Shaping.EXTRA_SEQUENTIAL)
         agent = RandomAgent(self.env.action_space)
         render_every = 5

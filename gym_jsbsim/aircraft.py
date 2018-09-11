@@ -1,7 +1,8 @@
 import collections
 
 
-class Aircraft(collections.namedtuple('Aircraft', ['id', 'name', 'cruise_speed_kts'])):
+class Aircraft(collections.namedtuple('Aircraft', ['jsbsim_id', 'flightgear_id',
+                                                   'name', 'cruise_speed_kts'])):
     KTS_TO_M_PER_S = 0.51444
     KTS_TO_FT_PER_S = 1.6878
 
@@ -14,6 +15,6 @@ class Aircraft(collections.namedtuple('Aircraft', ['id', 'name', 'cruise_speed_k
         return self.cruise_speed_kts * self.KTS_TO_FT_PER_S
 
 
-cessna172P = Aircraft('c172p', 'Cessna172P', 120)
-f15 = Aircraft('f15', 'F15', 780)   # cruise speed at low altitude
-a320 = Aircraft('A320', 'A320', 490)
+cessna172P = Aircraft('c172p', 'c172p', 'Cessna172P', 120)
+f15 = Aircraft('f15', 'f15c', 'F15', 780)   # cruise speed at low altitude
+a320 = Aircraft('A320', 'A320-211', 'A320', 490)

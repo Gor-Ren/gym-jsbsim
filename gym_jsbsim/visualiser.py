@@ -3,6 +3,7 @@ import subprocess
 import time
 import matplotlib.pyplot as plt
 import gym_jsbsim.properties as prp
+from gym_jsbsim.aircraft import Aircraft
 from gym_jsbsim.simulation import Simulation
 from typing import NamedTuple, Tuple
 
@@ -243,16 +244,18 @@ class FlightGearVisualiser(object):
         Launches FlightGear in subprocess and starts figure for plotting actions.
 
         :param sim: Simulation that will be visualised
+        :param aircraft: Aircraft to be loaded in FlightGear for visualisation
         :param print_props: collection of Propertys to be printed to Figure
         :param block_until_loaded: visualiser will block until it detects that
             FlightGear has loaded if True.
         """
         self.configure_simulation_output(sim)
         self.print_props = print_props
-        self.flightgear_process = self._launch_flightgear(sim.get_model_name())
+        self.flightgear_process = self._launch_flightgear(sim.get_aircraft())
         self.figure = FigureVisualiser(sim, print_props)
         if block_until_loaded:
-            self._block_until_flightgear_loaded()
+            time.sleep(20)
+            #self._block_until_flightgear_loaded()
 
     def plot(self, sim: Simulation) -> None:
         """
@@ -261,8 +264,8 @@ class FlightGearVisualiser(object):
         self.figure.plot(sim)
 
     @staticmethod
-    def _launch_flightgear(aircraft_name: str):
-        cmd_line_args = FlightGearVisualiser._create_cmd_line_args(aircraft_name)
+    def _launch_flightgear(aircraft: Aircraft):
+        cmd_line_args = FlightGearVisualiser._create_cmd_line_args(aircraft.flightgear_id)
         gym.logger.info(f'Subprocess: "{cmd_line_args}"')
         flightgear_process = subprocess.Popen(
             cmd_line_args,
@@ -277,13 +280,13 @@ class FlightGearVisualiser(object):
         sim.set_simulation_time_factor(self.FLIGHTGEAR_TIME_FACTOR)
 
     @staticmethod
-    def _create_cmd_line_args(aircraft_name: str):
+    def _create_cmd_line_args(aircraft_id: str):
         # FlightGear doesn't have a 172X model, use the P instead
-        if aircraft_name == 'c172x':
-            aircraft_name = 'c172p'
+        if aircraft_id == 'c172x':
+            aircraft_id = 'c172p'
 
         flightgear_cmd = 'fgfs'
-        aircraft_arg = f'--aircraft={aircraft_name}'
+        aircraft_arg = f'--aircraft={aircraft_id}'
         flight_model_arg = '--native-fdm=' + f'{FlightGearVisualiser.TYPE},' \
                                              f'{FlightGearVisualiser.DIRECTION},' \
                                              f'{FlightGearVisualiser.RATE},' \
