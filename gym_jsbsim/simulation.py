@@ -3,7 +3,7 @@ import os
 import time
 from mpl_toolkits.mplot3d import Axes3D  # req'd for 3d plotting
 from typing import Dict, Union
-from gym_jsbsim.properties import BoundedProperty, Property
+import gym_jsbsim.properties as prp
 from gym_jsbsim.aircraft import Aircraft, cessna172P
 
 
@@ -20,7 +20,7 @@ class Simulation(object):
     def __init__(self,
                  sim_frequency_hz: float = 60.0,
                  aircraft: Aircraft = cessna172P,
-                 init_conditions: Dict['Property', float] = None,
+                 init_conditions: Dict[prp.Property, float] = None,
                  allow_flightgear_output: bool = True):
         """
         Constructor. Creates an instance of JSBSim and sets initial conditions.
@@ -45,7 +45,7 @@ class Simulation(object):
         self.jsbsim.disable_output()
         self.wall_clock_dt = None
 
-    def __getitem__(self, prop: Union[BoundedProperty, Property]) -> float:
+    def __getitem__(self, prop: Union[prp.BoundedProperty, prp.Property]) -> float:
         """
         Retrieves specified simulation property.
 
@@ -58,7 +58,7 @@ class Simulation(object):
         """
         return self.jsbsim[prop.name]
 
-    def __setitem__(self, prop: Union[BoundedProperty, Property], value) -> None:
+    def __setitem__(self, prop: Union[prp.BoundedProperty, prp.Property], value) -> None:
         """
         Sets simulation property to specified value.
 
@@ -115,7 +115,7 @@ class Simulation(object):
         return self.jsbsim['simulation/sim-time-sec']
 
     def initialise(self, dt: float, model_name: str,
-                   init_conditions: Dict['Property', float] = None) -> None:
+                   init_conditions: Dict['prp.Property', float] = None) -> None:
         """
         Loads an aircraft and initialises simulation conditions.
 
@@ -149,12 +149,12 @@ class Simulation(object):
             raise RuntimeError('JSBSim failed to init simulation conditions.')
 
     def set_custom_initial_conditions(self,
-                                      init_conditions: Dict['Property', float] = None) -> None:
+                                      init_conditions: Dict['prp.Property', float] = None) -> None:
         if init_conditions is not None:
             for prop, value in init_conditions.items():
                 self[prop] = value
 
-    def reinitialise(self, init_conditions: Dict['Property', float] = None) -> None:
+    def reinitialise(self, init_conditions: Dict['prp.Property', float] = None) -> None:
         """
         Resets JSBSim to initial conditions.
 
@@ -215,3 +215,8 @@ class Simulation(object):
         """ Sets all engines running. """
         for engine_no in range(self.jsbsim.propulsion_get_num_engines()):
             self.jsbsim.propulsion_init_running(engine_no)
+
+    def raise_landing_gear(self):
+        """ Raises all aircraft landing gear. """
+        self[prp.gear] = 0.0
+        self[prp.gear_cmd] = 0.0

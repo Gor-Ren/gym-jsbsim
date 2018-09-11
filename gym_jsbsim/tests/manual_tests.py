@@ -155,6 +155,8 @@ class TurnHeadingControlTest(unittest.TestCase):
                     print(f'time:\t{self.env.sim.get_sim_time()} s')
                     print(f'last reward:\t{reward}')
                     print(f'episode reward:\t{ep_reward}')
+                    print(f'gear status:\t{self.env.sim[prp.gear]}')
+                    print(f'thrust:\t{self.env.sim[prp.engine_thrust_lbs]}')
                     print(f'heading:\t{self.env.sim[prp.heading_deg]}')
                     print(f'target heading:\t{self.env.sim[heading_target]}')
                     print('\n')

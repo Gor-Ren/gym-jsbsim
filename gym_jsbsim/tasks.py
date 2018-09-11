@@ -202,6 +202,7 @@ class FlightTask(Task, ABC):
         By default it simply starts the aircraft engines.
         """
         sim.start_engines()
+        sim.raise_landing_gear()
         self._store_reward(RewardStub(1.0, 1.0), sim)
 
     @abstractmethod

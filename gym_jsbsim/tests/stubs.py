@@ -93,6 +93,10 @@ class SimStub(object):
     def start_engines(self):
         self[prp.engine_running] = 1.0
 
+    def raise_landing_gear(self):
+        self[prp.gear] = 0.0
+        self[prp.gear_cmd] = 0.0
+
     def get_sim_time(self) -> float:
         """ Gets the simulation time from JSBSim, a float. """
         return self[prp.sim_time_s]
