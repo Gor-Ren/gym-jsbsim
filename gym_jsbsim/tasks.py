@@ -387,8 +387,7 @@ class HeadingControlTask(FlightTask):
 
     def _new_episode_init(self, sim: Simulation) -> None:
         super()._new_episode_init(sim)
-        sim[prp.throttle_cmd] = self.THROTTLE_CMD
-        sim[prp.mixture_cmd] = self.MIXTURE_CMD
+        sim.set_throttle_mixture_controls(self.THROTTLE_CMD, self.MIXTURE_CMD)
         sim[self.steps_left] = self.steps_left.max
         sim[self.target_track_deg] = self._get_target_track()
 

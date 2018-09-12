@@ -95,7 +95,7 @@ class SimStub(object):
 
     def raise_landing_gear(self):
         self[prp.gear] = 0.0
-        self[prp.gear_cmd] = 0.0
+        self[prp.gear_all_cmd] = 0.0
 
     def get_sim_time(self) -> float:
         """ Gets the simulation time from JSBSim, a float. """
@@ -111,6 +111,13 @@ class SimStub(object):
         new = SimStub()
         new.data = copy.deepcopy(self.data)
         return new
+
+    def set_throttle_mixture_controls(self, throttle_cmd, mixture_cmd):
+        self[prp.throttle_cmd] = throttle_cmd
+        self[prp.mixture_cmd] = mixture_cmd
+
+        self[prp.throttle_1_cmd] = throttle_cmd
+        self[prp.mixture_1_cmd] = mixture_cmd
 
     @staticmethod
     def make_valid_state_stub(task: FlightTask):

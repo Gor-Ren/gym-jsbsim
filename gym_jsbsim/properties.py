@@ -45,6 +45,7 @@ gear = BoundedProperty('gear/gear-pos-norm', 'landing gear position, normalised'
 
 # engines
 engine_running = Property('propulsion/engine/set-running', 'engine running (0/1 bool)')
+all_engine_running = Property('propulsion/set-running', 'set engine running (-1 for all engines)')
 engine_thrust_lbs = Property('propulsion/engine/thrust-lbs', 'engine thrust [lb]')
 
 # controls command
@@ -53,7 +54,9 @@ elevator_cmd = BoundedProperty('fcs/elevator-cmd-norm', 'elevator commanded posi
 rudder_cmd = BoundedProperty('fcs/rudder-cmd-norm', 'rudder commanded position, normalised', -1., 1.)
 throttle_cmd = BoundedProperty('fcs/throttle-cmd-norm', 'throttle commanded position, normalised', 0., 1.)
 mixture_cmd = BoundedProperty('fcs/mixture-cmd-norm', 'engine mixture setting, normalised', 0., 1.)
-gear_cmd = BoundedProperty('gear/gear-cmd-norm', 'landing gear commanded position, normalised', 0, 1)
+throttle_1_cmd = BoundedProperty('fcs/throttle-cmd-norm[1]', 'throttle 1 commanded position, normalised', 0., 1.)
+mixture_1_cmd = BoundedProperty('fcs/mixture-cmd-norm[1]', 'engine mixture 1 setting, normalised', 0., 1.)
+gear_all_cmd = BoundedProperty('gear/gear-cmd-norm', 'all landing gear commanded position, normalised', 0, 1)
 
 # simulation
 sim_dt = Property('simulation/dt', 'JSBSim simulation timestep [s]')

@@ -213,10 +213,25 @@ class Simulation(object):
 
     def start_engines(self):
         """ Sets all engines running. """
-        for engine_no in range(self.jsbsim.propulsion_get_num_engines()):
-            self.jsbsim.propulsion_init_running(engine_no)
+        self[prp.all_engine_running] = -1
+
+    def set_throttle_mixture_controls(self, throttle_cmd: float, mixture_cmd: float):
+        """
+        Sets throttle and mixture settings
+
+        If an aircraft is multi-engine and has multiple throttle_cmd and mixture_cmd
+        controls, sets all of them. Currently only supports up to two throttles/mixtures.
+        """
+        self[prp.throttle_cmd] = throttle_cmd
+        self[prp.mixture_cmd] = mixture_cmd
+
+        try:
+            self[prp.throttle_1_cmd] = throttle_cmd
+            self[prp.mixture_1_cmd] = mixture_cmd
+        except KeyError:
+            pass  # must be single-control aircraft
 
     def raise_landing_gear(self):
         """ Raises all aircraft landing gear. """
         self[prp.gear] = 0.0
-        self[prp.gear_cmd] = 0.0
+        self[prp.gear_all_cmd] = 0.0
