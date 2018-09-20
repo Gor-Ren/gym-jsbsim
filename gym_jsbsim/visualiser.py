@@ -236,7 +236,7 @@ class FlightGearVisualiser(object):
     PORT = 5550
     PROTOCOL = 'udp'
     LOADED_MESSAGE = 'loading cities done'
-    FLIGHTGEAR_TIME_FACTOR = 5
+    FLIGHTGEAR_TIME_FACTOR = 1  # sim speed relative to realtime, higher is faster
     TIME = 'dusk'
 
     def __init__(self, sim: Simulation, print_props: Tuple[prp.Property], block_until_loaded=True):
