@@ -120,3 +120,18 @@ Gym-JSBSim's environments have a continuous state and action space. The state is
  (name='fcs/elevator-cmd-norm', description='elevator commanded position, normalised', min=-1.0, max=1.0)
  (name='fcs/rudder-cmd-norm', description='rudder commanded position, normalised', min=-1.0, max=1.0)
  ```
+## Other Materials
+
+* Gym-JSBSim was created for my MSc dissertation, which can be accessed [here](https://drive.google.com/open?id=1jPLG-OYcPiffh4ZAWW1N1__4l68jh-G_). 
+* A video montage of trained agent behaviour is available [here](https://drive.google.com/open?id=1wEq4Fg31Nf_6jb6bLLO24gt15GaZ-wbv).
+* jrjbertram has a fork [here](https://github.com/jrjbertram/jsbsim_rl) with Docker and openAI Baselines integration
+
+## Limitations / FYI
+
+* Gym-JSBSim has some relatively sophisticated reward shaping capabilities. I embarked on reward shaping when my agents weren't learning... turns out I had simply turned off an undocumented but essential flag in my RL agent library's hyperparameters which basically turned off learning. In the end, my results showed that my principled and well-intentioned reward shaping efforts had no improvement over the "STANDARD" reward setting. Such is life :-)
+* The FlightTask classes rely heavily on inheritance and overriding methods for correct behaviour... a "favour composition over inheritance" would have been better. But hey, it was documented.
+* I had to add a voodoo pause to the FlightGear visualisation code, otherwise it could hang during start-up. It's probably pretty brittle as a result.
+
+
+
+
