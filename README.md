@@ -87,7 +87,7 @@ fgfs --version
 
 Visualising with FlightGear requires the Gym to be created with a FlightGear-enabled environment ID by changing 'NoFG' -> 'FG'. For example,
 ```
-env = gym.make('JSBSim-TurnHeadingControl-Cessna172P-SHAPING.STANDARD-FG-v0')
+env = gym.make('JSBSim-TurnHeadingControlTask-Cessna172P-Shaping.STANDARD-NoFG-v0')
 ```
 Then, the first call to `env.render(mode='flightgear')` will launch FlightGear and begin visualisation. 
 
