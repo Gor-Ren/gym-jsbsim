@@ -128,7 +128,7 @@ Gym-JSBSim's environments have a continuous state and action space. The state is
 
 ## Limitations / FYI
 
-* Limitations in JSBSim restrict you to one JSBSim instance per process. Therefore parallelising Gym JSBSim environments requires you to use multiprocessing, rather than multithreading.
+* ~~Limitations in JSBSim restrict you to one JSBSim instance per process. Therefore parallelising Gym JSBSim environments requires you to use multiprocessing, rather than multithreading.~~ [JSBSim removed this limitation](https://github.com/Gor-Ren/gym-jsbsim/issues/5).
 * Gym-JSBSim has some relatively sophisticated reward shaping capabilities. I embarked on reward shaping when my agents weren't learning... turns out I had simply turned off an undocumented but essential flag in my RL agent library's hyperparameters which basically turned off learning. In the end, my results showed that my principled and well-intentioned reward shaping efforts had no improvement over the "STANDARD" reward setting. Such is life :-)
 * The FlightTask classes rely heavily on inheritance and overriding methods for correct behaviour... a "favour composition over inheritance" would have been better. But hey, it was documented.
 * I had to add a voodoo pause to the FlightGear visualisation code, otherwise it could hang during start-up. It's probably pretty brittle as a result.
